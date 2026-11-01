@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2e3a8c">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GuitareFred</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --fond: #eef1f7;
+  --surface: #ffffff;
+  --encre: #1c2140;
+  --discret: #5d6585;
+  --accent: #2e3a8c;
+  --accent-doux: #dfe3f7;
+  --grille: #c8ccee;
+  --ligne: #d6daea;
+  --erreur: #a3201a;
+  --surbrillance: #fff3b0;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --fond: #141829; --surface: #1e2338; --encre: #e6e8f4; --discret: #a3a9c6;
+    --accent: #aab4ff; --accent-doux: #2c3360; --ligne: #333a5c; --erreur: #ff8a80;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --fond: #141829; --surface: #1e2338; --encre: #e6e8f4; --discret: #a3a9c6;
+  --accent: #aab4ff; --accent-doux: #2c3360; --ligne: #333a5c; --erreur: #ff8a80;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+@media (min-width: 48rem) { html { scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 8.5rem); } }
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  margin: 0; background: var(--fond); color: var(--encre);
+  font-family: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 17px; line-height: 1.45;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* barre de recherche, toujours visible */
+.barre {
+  position: relative; z-index: 5;
+  background: var(--surface); border-bottom: 1px solid var(--ligne);
+  padding: .6rem 1rem .7rem;
+  padding-left: calc(1rem + env(safe-area-inset-left, 0px)); padding-right: calc(1rem + env(safe-area-inset-right, 0px));
+}
+.barre-int { max-width: 64rem; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: .55rem; }
+.instruments { display: flex; gap: .35rem; }
+.instruments button {
+  flex: 1; min-width: 0; border: 1.5px solid var(--ligne); background: transparent; border-radius: 999px;
+  padding: .35rem .5rem; font-size: .95rem; min-height: 2.5rem;
+}
+.instruments button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 700; }
+.onglets { display: flex; gap: 1.2rem; border-bottom: 1px solid var(--ligne); }
+.onglets button { border: 0; background: transparent; padding: .25rem 0 .45rem; color: var(--discret); border-bottom: 3px solid transparent; margin-bottom: -1px; min-height: 2.2rem; }
+.onglets button[aria-selected="true"] { color: var(--encre); font-weight: 700; border-bottom-color: var(--accent); }
+form.recherche { display: flex; gap: .5rem; }
+form.recherche[hidden] { display: none; }
+form.recherche input {
+  flex: 1; min-width: 0; width: 100%; border: 1.5px solid var(--ligne); border-radius: .6rem; background: var(--fond);
+  padding: .55rem .8rem; font-size: 1.15rem;
+}
+form.recherche button { border: 0; border-radius: .6rem; background: var(--accent); color: var(--surface); padding: 0 1.1rem; font-weight: 700; }
+
+main { max-width: 64rem; margin: 0 auto; padding: 1rem 1rem 3rem; padding-left: calc(1rem + env(safe-area-inset-left, 0px)); padding-right: calc(1rem + env(safe-area-inset-right, 0px)); }
+.accueil p { color: var(--discret); max-width: 36rem; }
+.exemples { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .4rem; }
+
+/* en-tete de l'accord : l'element marquant de la page */
+.accord-nom { font-size: clamp(2.3rem, 9vw, 3.4rem); font-weight: 700; line-height: 1.05; margin: .2rem 0 .5rem; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.accord-nom .tel { font-size: .4em; font-weight: 400; color: var(--discret); vertical-align: .5em; margin-left: .35em; }
+.pastilles { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: 1rem; }
+.pastille {
+  width: 2.6rem; height: 2.6rem; border-radius: 50%; border: 2.5px solid currentColor; background: #fff;
+  display: grid; place-items: center; font-weight: 700; font-size: 1rem;
+}
+.bloc { margin: 1.1rem 0; }
+.bloc h2 { font-size: 1.05rem; margin: 0 0 .45rem; color: var(--discret); font-weight: 700; }
+.liens { display: flex; flex-wrap: wrap; gap: .45rem; }
+.lien {
+  border: 1.5px solid var(--ligne); background: var(--surface); border-radius: .55rem;
+  padding: .35rem .7rem; min-height: 2.6rem; text-align: left; line-height: 1.2;
+}
+.lien:hover { border-color: var(--accent); }
+.lien small { display: block; color: var(--discret); font-size: .8rem; }
+.lien.absent { opacity: .55; cursor: default; }
+details.pli { border-top: 1px solid var(--ligne); padding: .6rem 0; }
+details.pli > summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; justify-content: space-between; align-items: center; min-height: 2.4rem; }
+details.pli > summary::-webkit-details-marker { display: none; }
+details.pli > summary::after { content: "+"; font-size: 1.4rem; color: var(--discret); }
+details.pli[open] > summary::after { content: "−"; }
+.modes { display: grid; gap: .5rem; margin-top: .4rem; }
+.mode { background: var(--surface); border: 1px solid var(--ligne); border-radius: .6rem; padding: .55rem .7rem; display: grid; gap: .35rem; }
+.mode .nom { font-weight: 700; overflow-wrap: anywhere; }
+.mode .gamme { color: var(--discret); font-size: .88rem; overflow-wrap: anywhere; }
+.mode .actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+.mode .actions button, .btn {
+  border: 1.5px solid var(--accent); color: var(--accent); background: transparent; border-radius: .5rem;
+  padding: .3rem .7rem; min-height: 2.4rem; font-weight: 700;
+}
+.btn.plein { background: var(--accent); color: var(--surface); }
+.reglages { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: .6rem .9rem; margin-top: .5rem; }
+.reglages label { display: flex; align-items: center; gap: .5rem; min-height: 2.4rem; }
+.reglages select { border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); padding: .25rem .4rem; }
+.reglages input[type="checkbox"] { width: 1.25rem; height: 1.25rem; accent-color: var(--accent); }
+.reglages label.grise { opacity: .45; }
+
+.entete-pos { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem; margin-top: 1.4rem; }
+.entete-pos h2 { margin: 0; font-size: 1.25rem; }
+.entete-pos label { display: flex; align-items: center; gap: .45rem; min-height: 2.4rem; }
+.entete-pos input { width: 1.25rem; height: 1.25rem; accent-color: var(--accent); }
+.info { color: var(--discret); margin: .3rem 0 .7rem; }
+.grille-diag { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .3rem; }
+.carte {
+  position: relative; background: #fff; border-radius: .6rem; border: 2px solid transparent;
+  box-shadow: 0 1px 0 var(--ligne); padding: 1.05rem 0 0; color: #1c2140;
+}
+.carte.fav { border-color: #e0a800; }
+.carte > button.ouvrir { all: unset; display: block; width: 100%; cursor: pointer; border-radius: .5rem; }
+.carte > button.ouvrir:focus-visible { outline: 3px solid var(--accent); }
+.carte svg { width: 100%; height: auto; display: block; }
+.etoile {
+  position: absolute; top: 0; right: 0; width: 2.2rem; height: 1.6rem; border: 0; background: transparent; padding: 0;
+  font-size: 1.15rem; line-height: 1; color: #b58900;
+}
+.plus { display: block; margin: 1rem auto 0; }
+.carte.cible { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.position-cases { display: flex; flex-wrap: wrap; gap: .45rem; align-items: flex-end; margin-top: .5rem; }
+.position-cases label { display: grid; justify-items: center; gap: .15rem; font-weight: 700; color: var(--discret); }
+.position-cases select { border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); padding: .3rem .2rem; min-width: 3.1rem; min-height: 2.4rem; text-align: center; }
+.encadre { background: var(--surface); border: 1px solid var(--ligne); border-left: 4px solid var(--accent); border-radius: .6rem; padding: .7rem .9rem; margin: .4rem 0 1rem; display: grid; gap: .45rem; }
+.encadre .ligne-sym { font-size: 1.15rem; font-weight: 700; }
+.encadre p { margin: 0; }
+.encadre .discret { color: var(--discret); font-size: .92rem; }
+.encadre .explication { background: var(--accent-doux); border-radius: .45rem; padding: .45rem .6rem; font-size: .95rem; }
+.formulaire-base { display: grid; gap: .6rem; margin-bottom: 1rem; }
+.formulaire-base .rangee { display: flex; flex-wrap: wrap; gap: .5rem; }
+.formulaire-base input { flex: 1 1 12rem; min-width: 0; border: 1.5px solid var(--ligne); border-radius: .6rem; background: var(--surface); padding: .55rem .8rem; font-size: 1.15rem; }
+.formulaire-base select { border: 1.5px solid var(--ligne); border-radius: .6rem; background: var(--surface); padding: .45rem .5rem; }
+.gamme { border-top: 1px solid var(--ligne); padding: .7rem 0; }
+.gamme h2 { font-size: 1.05rem; margin: 0 0 .45rem; }
+.choix-ton { display: flex; align-items: center; gap: .5rem; min-height: 2.4rem; margin-bottom: .4rem; }
+.choix-ton select { border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); padding: .3rem .4rem; }
+.renv-base { background: var(--surface); border: 1px solid var(--ligne); border-radius: .6rem; padding: .7rem .9rem; margin-bottom: .6rem; display: grid; gap: .4rem; }
+.renv-base h3 { margin: 0; font-size: 1.05rem; }
+.renv-base .pastilles { margin: 0; }
+.renv-base .pastille { width: 2.2rem; height: 2.2rem; font-size: .88rem; }
+.etat { display: inline-block; align-self: center; border-radius: 999px; padding: .05rem .6rem; font-size: .85rem; font-weight: 700; border: 1.5px solid currentColor; }
+.etat.ok { color: #2e7d32; } .etat.corr { color: #b26a00; } .etat.abs { color: var(--erreur); }
+.vide { color: var(--erreur); font-weight: 700; margin: .6rem 0; }
+.message { color: var(--erreur); }
+
+dialog {
+  border: 0; border-radius: .9rem; padding: 0; width: min(28rem, 94vw); max-height: 92vh;
+  background: var(--surface); color: var(--encre); box-shadow: 0 10px 40px rgba(10, 14, 40, .35);
+}
+dialog::backdrop { background: rgba(14, 18, 40, .55); }
+.dlg-tete { padding: 1rem 1.1rem .4rem; }
+.dlg-tete h3 { margin: 0; font-size: 1.45rem; line-height: 1.15; overflow-wrap: anywhere; }
+.dlg-tete p { margin: .25rem 0 0; color: var(--discret); font-size: .92rem; }
+.dlg-corps { padding: .3rem 1.1rem; overflow: auto; max-height: 64vh; }
+.dlg-corps .papier { background: #fff; border-radius: .6rem; padding: .4rem; }
+.dlg-corps svg { width: 100%; height: auto; display: block; }
+.dlg-pied { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; padding: .7rem 1.1rem 1rem; }
+footer { max-width: 64rem; margin: 0 auto; padding: 1.5rem 1rem 2.5rem; color: var(--discret); font-size: .92rem; border-top: 1px solid var(--ligne); }
+footer .liens { margin-top: .5rem; }
+.chargement { padding: 3rem 1rem; text-align: center; color: var(--discret); }
+@media (min-width: 48rem) {
+  .barre { position: sticky; top: env(safe-area-inset-top, 0px); }
+  .grille-diag { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: .6rem; }
+  .carte { padding-top: 1.5rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<header class="barre">
+  <div class="barre-int">
+    <div class="onglets" role="tablist" aria-label="Vue">
+      <button type="button" role="tab" data-vue="accords" aria-selected="true">Accords</button>
+      <button type="button" role="tab" data-vue="gammes" aria-selected="false">Gammes</button>
+      <button type="button" role="tab" data-vue="base" aria-selected="false">Base</button>
+    </div>
+    <div class="instruments" role="group" aria-label="Instrument">
+      <button type="button" data-acc="guitalele">Guitalélé</button>
+      <button type="button" data-acc="guitare">Guitare</button>
+      <button type="button" data-acc="ukulele">Ukulélé</button>
+    </div>
+    <form class="recherche" id="form" autocomplete="off">
+      <input id="saisie" type="search" inputmode="text" enterkeyhint="search" placeholder="Amaj7, maj7, Cm7/F, x 3 2 0 1 0…" aria-label="Accord, symbole ou frettes">
+      <button type="submit">Chercher</button>
+    </form>
+  </div>
+</header>
+<main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
+<footer>
+  <div id="drive"></div>
+  <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
+  <div class="liens">
+    <button class="btn" type="button" id="exporter">Exporter les favoris</button>
+    <button class="btn" type="button" id="importer">Importer favoris.json</button>
+    <input type="file" id="fichier" accept=".json,application/json" hidden>
+  </div>
+</footer>
+<dialog id="dlg"><div class="dlg-tete"><h3 id="dlg-titre"></h3><p id="dlg-sous"></p></div><div class="dlg-corps" id="dlg-corps"></div><div class="dlg-pied" id="dlg-pied"></div></dialog>
+
+<script>// gf_moteur.js - moteur de GuitareFred porte en JavaScript (meme logique que gf_moteur.py).
+// Utilisable dans le navigateur (window.GFMoteur) et dans Node (require) pour les tests.
+(function (racineGlobale) {
+  'use strict';
+
+  const INTERVALLES = ['F', 'b9', '9', '3m', '3M', '4', 'b5', '5', '5#', '6', '7', '7M'];
+  const NOMS_NOTES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const NOTE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const ACCORDAGES = {
+    guitalele: { nom: 'Guitalélé (A D G C E A)', court: 'Guitalélé', cordes: ['A', 'D', 'G', 'C', 'E', 'a'],
+      midi: [45, 50, 55, 60, 64, 69], decalage: 5, frettesCarte: 12, toniqueType: 2 },
+    guitare: { nom: 'Guitare (E A D G B E)', court: 'Guitare', cordes: ['E', 'A', 'D', 'G', 'B', 'e'],
+      midi: [40, 45, 50, 55, 59, 64], decalage: 0, frettesCarte: 19, toniqueType: 9 },
+    ukulele: { nom: 'Ukulélé (G C E A)', court: 'Ukulélé', cordes: ['G', 'C', 'E', 'A'],
+      midi: [55, 60, 64, 69], decalage: 5, renversements: true, frettesCarte: 12, toniqueType: 2 },
+  };
+  const CORDES_ABSENTES = 2;
+  const NOMS_INDEX = ['C', 'C# Db', 'D', 'D# Eb', 'E', 'F', 'F# Gb', 'G', 'G# Ab', 'A', 'A# Bb', 'B'];
+  const QUALITES = {"":[0,4,7],"maj":[0,4,7],"M":[0,4,7],"m":[0,3,7],"min":[0,3,7],"-":[0,3,7],"5":[0,7],"2":[0,2,4,7],"add9":[0,2,4,7],"(add9)":[0,2,4,7],"madd9":[0,2,3,7],"m(add9)":[0,2,3,7],"-add9":[0,2,3,7],"add4":[0,4,5,7],"add11":[0,4,5,7],"6":[0,4,7,9],"m6":[0,3,7,9],"-6":[0,3,7,9],"6/9":[0,2,4,7,9],"69":[0,2,4,7,9],"m6/9":[0,2,3,7,9],"7":[0,4,7,10],"m7":[0,3,7,10],"-7":[0,3,7,10],"min7":[0,3,7,10],"maj7":[0,4,7,11],"M7":[0,4,7,11],"^7":[0,4,7,11],"^":[0,4,7,11],"mmaj7":[0,3,7,11],"m(maj7)":[0,3,7,11],"mM7":[0,3,7,11],"-^7":[0,3,7,11],"dim":[0,3,6],"o":[0,3,6,9],"dim7":[0,3,6,9],"o7":[0,3,6,9],"m7b5":[0,3,6,10],"-7b5":[0,3,6,10],"h7":[0,3,6,10],"h":[0,3,6,10],"aug":[0,4,8],"+":[0,4,8],"+5":[0,4,8],"#5":[0,4,8],"7#5":[0,4,8,10],"7+5":[0,4,8,10],"aug7":[0,4,8,10],"+7":[0,4,8,10],"7b5":[0,4,6,10],"7-5":[0,4,6,10],"sus2":[0,2,7],"sus4":[0,5,7],"sus":[0,5,7],"7sus4":[0,5,7,10],"7sus":[0,5,7,10],"7sus2":[0,2,7,10],"9":[0,2,4,7,10],"m9":[0,2,3,7,10],"-9":[0,2,3,7,10],"maj9":[0,2,4,7,11],"M9":[0,2,4,7,11],"^9":[0,2,4,7,11],"9sus4":[0,2,5,7,10],"11":[0,2,5,7,10],"m11":[0,2,3,5,7,10],"-11":[0,2,3,5,7,10],"13":[0,2,4,7,9,10],"m13":[0,2,3,7,9,10],"maj13":[0,2,4,7,9,11],"7b9":[0,1,4,7,10],"7-9":[0,1,4,7,10],"7#9":[0,3,4,7,10],"7sus4b9":[0,1,5,7,10]};
+  const ALIAS_INT = {"f":0,"r":0,"1":0,"b9":1,"b2":1,"9":2,"2":2,"#9":3,"3m":3,"b3":3,"3m/#9":3,"3M":4,"3":4,"4":5,"11":5,"b5":6,"#11":6,"#4":6,"5":7,"5#":8,"#5":8,"b6":8,"b13":8,"6":9,"13":9,"7":10,"b7":10,"7M":11,"maj7":11};
+  const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+  // symbole « Cm7/F » -> fondamentale, qualite, basse, classes (ordre du symbole), classe de la basse et de la fondamentale
+  function analyserSymbole(sym) {
+    const m = sym.trim().match(/^([A-Ga-g][#b]?)([^/]*)(?:\/([A-Ga-g][#b]?))?$/);
+    if (!m) throw new Error('symbole illisible : ' + sym);
+    let [, racine, q, basse] = m;
+    racine = racine[0].toUpperCase() + racine.slice(1);
+    q = q.trim();
+    if (!has(QUALITES, q)) {
+      const q2 = q.replace(/[()]/g, '');
+      if (has(QUALITES, q2)) q = q2;
+      else throw new Error('qualité inconnue « ' + q + ' » dans ' + sym);
+    }
+    const r = classe(racine);
+    const pcs = QUALITES[q].map((i) => mod12(r + i));
+    const b = basse ? classe(basse) : r;
+    if (!pcs.includes(b)) pcs.push(b);
+    if (basse) basse = basse[0].toUpperCase() + basse.slice(1);
+    return { racine, q, basse: basse || null, pcs: [...new Set(pcs)], b, r };
+  }
+
+  function parseIntervalles(texte) {
+    const toks = texte.trim().split(/[,\s;]+/).filter(Boolean);
+    const vals = [];
+    for (const t of toks) {
+      const k = has(ALIAS_INT, t) ? t : t.toLowerCase();
+      if (!has(ALIAS_INT, k)) throw new Error('intervalle inconnu : ' + t);
+      vals.push(ALIAS_INT[k]);
+    }
+    if (!vals.includes(0)) vals.unshift(0);
+    return [...new Set(vals)];
+  }
+
+  // nom complet selon les regles de Base.txt (meme logique que nommer_selon_base)
+  function nommerSelonBase(semis) {
+    const S = new Set(semis.map(mod12)); S.add(0);
+    const alts = [], nos = [], rem = [];
+    const a3M = S.has(4), a3m = S.has(3), diese9 = a3M && a3m;
+    let sus = '', pris9 = false, pris4 = false, qual = '';
+    if (a3M) qual = '';
+    else if (a3m) qual = 'm';
+    else if (S.has(2) && S.has(5)) { sus = 'sus2sus4'; pris9 = true; pris4 = true; }
+    else if (S.has(2)) { sus = 'sus2'; pris9 = true; }
+    else if (S.has(5)) { sus = 'sus4'; pris4 = true; }
+    else nos.push('no3');
+    const b9 = S.has(1);
+    const t9 = S.has(2) && !pris9, t11 = S.has(5) && !pris4, t13 = S.has(9);
+    const s7 = S.has(10), s7M = S.has(11);
+    if (b9) alts.push('b9');
+    if (diese9) alts.push('#9');
+    const q5 = S.has(7), qb5 = S.has(6), qd5 = S.has(8);
+    const addsQuinte = [];
+    if (q5) { if (qb5) addsQuinte.push([6, 'add b5']); if (qd5) addsQuinte.push([8, 'add 5#']); }
+    else if (qb5 && qd5) alts.push('b5', 'add 5#');
+    else if (qb5) alts.push('b5');
+    else if (qd5) alts.push('#5');
+    else nos.push('no5');
+    const neufLa = t9 || pris9, onzeLa = t11 || pris4;
+    const ext = [];
+    let radical;
+    if (s7 || s7M) {
+      if (s7 && s7M) {
+        radical = qual + '7/maj7';
+        if (t9) ext.push([2, 'add9']);
+        if (t11) ext.push([5, 'add11']);
+        if (t13) ext.push([9, 'add13']);
+        if (ext.length) rem.push('radical 7/maj7 : extensions écrites en add');
+      } else {
+        const base = t13 ? 13 : t11 ? 11 : t9 ? 9 : 7;
+        radical = s7M ? (qual === 'm' ? 'm(maj' + base + ')' : 'maj' + base) : qual + base;
+        if (base >= 11 && !neufLa) nos.push('no9');
+        if (base >= 13 && !onzeLa) nos.push('no11');
+        if (t13) rem.push("6te avec 7e lue comme 13e (option a) ; l'exemple 7(b9)sus4(add6) de Base.txt dit add6");
+      }
+    } else if (t13) {
+      radical = qual + (t9 ? '6/9' : '6');
+      if (t11) ext.push([5, 'add11']);
+    } else {
+      radical = qual;
+      if (t9) ext.push([2, 'add9']);
+      if (t11) ext.push([5, 'add11']);
+    }
+    const adds = ext.concat(addsQuinte).sort((a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0)).map((x) => x[1]);
+    const ordreNo = { no3: 0, no5: 1, no9: 2, no11: 3 };
+    nos.sort((a, b) => ordreNo[a] - ordreNo[b]);
+    if ((radical === '' || radical === 'm') && sus) { radical += sus; sus = ''; }
+    let nom = radical;
+    if (alts.length) nom += '(' + alts.join(', ') + ')';
+    nom += sus;
+    if (adds.length) nom += '(' + adds.join(', ') + ')';
+    if (nos.length) nom += '(' + nos.join(', ') + ')';
+    return { nom: nom || 'maj', remarques: rem };
+  }
+  const FRETTES_TYPE = 20;
+
+  function classe(n) {
+    let v = NOTE[n[0].toUpperCase()];
+    for (const c of n.slice(1)) v += c === '#' ? 1 : -1;
+    return ((v % 12) + 12) % 12;
+  }
+  const mod12 = (x) => ((x % 12) + 12) % 12;
+  const normItem = (s) => (s || '').split(' ').join('').trim();
+  const cleMode = (s) => s.replace(/\s+/g, '').toLowerCase();
+  function cleDe(semis) {
+    return [...new Set(semis.map(mod12))].sort((a, b) => a - b).map((i) => INTERVALLES[i]).join(' ');
+  }
+  function triNaturel(a, b) {
+    const ka = a.split(/(\d+)/), kb = b.split(/(\d+)/);
+    for (let i = 0; i < Math.min(ka.length, kb.length); i++) {
+      const x = i % 2 ? parseInt(ka[i], 10) : ka[i].toLowerCase();
+      const y = i % 2 ? parseInt(kb[i], 10) : kb[i].toLowerCase();
+      if (x < y) return -1;
+      if (x > y) return 1;
+    }
+    return ka.length - kb.length;
+  }
+  function cleTri(f) {
+    const j = f.filter((x) => x !== 'x' && x !== '0').map(Number);
+    const jouees = j.length ? j : [0];
+    const mx = Math.max(...jouees), mn = Math.min(...jouees);
+    return [mx, mx - mn, f.filter((x) => x === 'x').length];
+  }
+  function comparerTri(a, b) {
+    const ka = cleTri(a), kb = cleTri(b);
+    for (let i = 0; i < 3; i++) if (ka[i] !== kb[i]) return ka[i] - kb[i];
+    return 0;
+  }
+  function formeInstrument(f, A) {
+    if (A.cordes.length === 6) return f;
+    for (let i = 0; i < CORDES_ABSENTES; i++) if (f[i] !== 'x') return null;
+    return f.slice(CORDES_ABSENTES);
+  }
+  function normaliser(f) {
+    const d = Math.min(...f.filter((x) => x !== 'x').map(Number)) - 1;
+    return [f.map((x) => (x === 'x' ? 'x' : String(Number(x) - d))), d];
+  }
+
+  class Moteur {
+    constructor(donnees, octets) {
+      this.items = donnees.items.map(([item, page, semis, tel], i) =>
+        ({ i, item, page, semis, tel, notes: semis.map((s) => INTERVALLES[s]).join(' ') }));
+      this.parItem = new Map(); this.parNotes = new Map();
+      for (const r of this.items) {
+        if (!this.parItem.has(normItem(r.item))) this.parItem.set(normItem(r.item), r);
+        if (!this.parNotes.has(r.notes)) this.parNotes.set(r.notes, r);
+      }
+      this.octets = octets;
+      this.groupes = new Map();
+      const g = donnees.groupes;
+      let debut = 0;
+      for (let k = 0; k < g.length; k += 3) {
+        this.groupes.set(g[k] + '|' + g[k + 1], [debut, g[k + 2]]);
+        debut += g[k + 2];
+      }
+      this.mega = donnees.mega.entrees.map(([d, fichier, it, arobase]) =>
+        ({ dossier: donnees.mega.dossiers[d], fichier, item: it, arobase: !!arobase }));
+      this.modesZic = donnees.modes;
+      this.couleurs = donnees.couleurs || {};
+    }
+
+    chercherItem(s) {
+      const r = this.parItem.get(normItem(s));
+      if (r) return r;
+      const c = this.items.filter((x) => normItem(x.item).toLowerCase() === normItem(s).toLowerCase());
+      return c.length === 1 ? c[0] : null;
+    }
+
+    // positions de l'index (formes de guitare) pour un accord et une basse donnes
+    formesGroupe(itemIdx, basseGuitare) {
+      const g = this.groupes.get(itemIdx + '|' + basseGuitare);
+      if (!g) return [];
+      const out = [];
+      for (let k = g[0]; k < g[0] + g[1]; k++) {
+        const f = [];
+        for (let c = 0; c < 6; c++) { const v = this.octets[k * 6 + c]; f.push(v === 255 ? 'x' : String(v)); }
+        out.push(f);
+      }
+      return out;
+    }
+
+    renversements(semis, racine) {
+      const out = [];
+      for (const d of semis.slice(1)) {
+        const t = this.parNotes.get(cleDe(semis.map((x) => x - d)));
+        out.push({ basse: racine ? NOMS_NOTES[mod12(classe(racine) + d)] : '[' + INTERVALLES[d] + ']', accord: t || null });
+      }
+      return out;
+    }
+
+    variantes(r) {
+      const ints = r.notes.split(' ');
+      const v = [];
+      if (ints.length > 3) {
+        if (ints.includes('5')) v.push(['Sans quinte', ints.filter((i) => i !== '5')]);
+        if (ints.includes('3m') || ints.includes('3M')) v.push(['Sans tierce', ints.filter((i) => i !== '3m' && i !== '3M')]);
+      }
+      if (ints.length > 4 && ints.includes('5') && (ints.includes('3m') || ints.includes('3M')))
+        v.push(['Sans quinte ni tierce', ints.filter((i) => !['5', '3m', '3M'].includes(i))]);
+      return v.map(([lab, l]) => ({ label: lab, notes: l.join(' '), accord: this.parNotes.get(l.join(' ')) || null }));
+    }
+
+    modes(itemIdx) {
+      return this.mega.filter((e) => e.item === itemIdx)
+        .map((e, k) => [e, k]).sort((a, b) => triNaturel(a[0].dossier, b[0].dossier) || a[1] - b[1]).map((x) => x[0]);
+    }
+
+    notesMode(dossier, fichier, tonique) {
+      const nom = fichier.replace(/\.[^.]*$/, '').replace(/^\s*\d+_/, '');
+      const ivs = this.modesZic[cleMode(nom)];
+      let rel;
+      if (ivs) rel = ivs;
+      else {
+        const s = new Set();
+        for (const e of this.mega) if (e.dossier === dossier && e.fichier === fichier) this.items[e.item].semis.forEach((x) => s.add(x));
+        rel = [...s];
+      }
+      return { pcs: [...new Set(rel)].sort((a, b) => a - b).map((i) => mod12(tonique + i)), source: ivs ? 'zicscale' : 'Mega_Base' };
+    }
+
+    positions(r, racine, accordage, o) {
+      const A = ACCORDAGES[accordage];
+      const semis = r.semis;
+      const sansBasse = o.sansBasse && semis.length < 5;
+      const classes = semis.map((d) => mod12(classe(racine) + d));
+      const avecRenv = sansBasse || A.renversements;
+      let formes = [];
+      const vues = new Set();
+      for (const bas of (avecRenv ? classes : classes.slice(0, 1))) {
+        let it;
+        if (bas === classes[0]) it = r;
+        else { it = this.parNotes.get(cleDe(classes.map((c) => c - bas))); if (!it) continue; }
+        for (const f of this.formesGroupe(it.i, mod12(bas - A.decalage))) {
+          const fi = formeInstrument(f, A);
+          if (fi && !vues.has(fi.join(' '))) { vues.add(fi.join(' ')); formes.push(fi); }
+        }
+      }
+      formes.sort(comparerTri);
+      const total = formes.length;
+      if (o.fretteMax != null) formes = formes.filter((f) => Math.max(0, ...f.filter((x) => x !== 'x').map(Number)) <= o.fretteMax);
+      if (o.fretteMin != null) formes = formes.filter((f) => f.every((x) => x === 'x' || x === '0' || Number(x) >= o.fretteMin));
+      if (o.sansEtouffee) formes = formes.filter((f) => !f.includes('x'));
+      if (o.sansVide) formes = formes.filter((f) => !f.includes('0'));
+      const k = Math.max(0, A.cordes.length - semis.length);
+      if (sansBasse && !A.renversements) formes = formes.filter((f) => f.slice(0, k).every((x) => x === 'x'));
+      return { formes, total };
+    }
+
+    generiques(r, accordage, o) {
+      const A = ACCORDAGES[accordage];
+      const semis = r.semis;
+      const sansBasse = o.sansBasse && semis.length < 5;
+      const avecRenv = sansBasse || A.renversements;
+      const k = Math.max(0, A.cordes.length - semis.length);
+      const vues = new Map();
+      for (let racine = 0; racine < 12; racine++) {
+        const classes = semis.map((d) => mod12(racine + d));
+        for (const bas of (avecRenv ? classes : classes.slice(0, 1))) {
+          let it;
+          if (bas === classes[0]) it = r;
+          else { it = this.parNotes.get(cleDe(classes.map((c) => c - bas))); if (!it) continue; }
+          for (const f of this.formesGroupe(it.i, mod12(bas - A.decalage))) {
+            const fi = formeInstrument(f, A);
+            if (!fi || fi.includes('0') || fi.every((x) => x === 'x')) continue;
+            if (o.sansEtouffee && fi.includes('x')) continue;
+            if (sansBasse && !A.renversements && !fi.slice(0, k).every((x) => x === 'x')) continue;
+            const [g, d] = normaliser(fi);
+            const cle = g.join(' ');
+            if (!vues.has(cle)) vues.set(cle, { forme: g, racine: mod12(racine - d) });
+          }
+        }
+      }
+      return [...vues.values()].sort((a, b) => comparerTri(a.forme, b.forme));
+    }
+
+    // traduction d'un symbole : accord complet, puis simplifie (regle des plus de 4 notes)
+    traduire(sym) {
+      const a = analyserSymbole(sym);
+      const nomBasse = a.basse || a.racine;
+      const semis = a.pcs.map((p) => mod12(p - a.b));
+      const cle = cleDe(semis);
+      const res = { symbole: sym, racine: a.racine, nomBasse, cle, nbNotes: new Set(a.pcs).size,
+        accord: this.parNotes.get(cle) || null, simplifie: null, remarque: null };
+      const quinte = mod12(a.r + 7);
+      if (new Set(a.pcs).size > 4 && a.pcs.includes(quinte)) {
+        if (quinte === a.b) res.remarque = 'plus de 4 notes, mais la quinte est à la basse : rien à retirer';
+        else {
+          const cle2 = cleDe(a.pcs.filter((p) => p !== quinte).map((p) => p - a.b));
+          res.simplifie = { cle: cle2, accord: this.parNotes.get(cle2) || null,
+            note: 'quinte de ' + a.racine + ' (' + NOMS_NOTES[quinte] + ') retirée' };
+        }
+      }
+      // seconde lecture d'un symbole a basse : retirer la quinte de la basse (accord reellement joue)
+      res.simplifieBasse = null;
+      const quinteB = mod12(a.b + 7);
+      if (new Set(a.pcs).size > 4 && a.b !== a.r && a.pcs.includes(quinteB)) {
+        const cle3 = cleDe(a.pcs.filter((p) => p !== quinteB).map((p) => p - a.b));
+        res.simplifieBasse = { cle: cle3, accord: this.parNotes.get(cle3) || null,
+          note: 'quinte de ' + nomBasse + ' (' + NOMS_NOTES[quinteB] + ') retirée' };
+        res.explication = 'Plus de 4 notes, basse ' + nomBasse + ' ≠ fondamentale ' + a.racine + ' : 1 retire la quinte de ' + a.racine +
+          ' (lecture du symbole), 2 celle de ' + nomBasse + ' (accord joué, lu depuis la basse).';
+      }
+      return res;
+    }
+
+    // commande Base : l'accord et chacun de ses renversements, nommes selon Base.txt et compares au CSV
+    base(texte) {
+      const vals = parseIntervalles(texte);
+      return vals.map((v, k) => {
+        const semis = vals.map((x) => x - v);
+        const cle = cleDe(semis);
+        const { nom, remarques } = nommerSelonBase(semis);
+        const actuel = this.parNotes.get(cle) || null;
+        const etat = actuel && normItem(actuel.item) === normItem(nom) ? 'conforme' : (actuel ? 'À CORRIGER' : 'absent du CSV');
+        return { k, decalage: mod12(v), basse: INTERVALLES[mod12(v)], cle, propose: nom, actuel, etat, remarques };
+      });
+    }
+
+    // position jouee (frettes du grave a l'aigu) : notes, accord lu depuis la basse, presence dans l'index
+    position(frettes, accordage) {
+      const A = ACCORDAGES[accordage];
+      const jeu = frettes.slice(-A.cordes.length).map((f) => {
+        const t = String(f).trim().toLowerCase();
+        if (t === 'x') return 'x';
+        if (!/^\d+$/.test(t)) throw new Error('Valeurs attendues : x ou un numéro de case.');
+        return String(parseInt(t, 10));
+      });
+      const notes = [];
+      jeu.forEach((f, i) => { if (f !== 'x') notes.push(A.midi[i] + Number(f)); });
+      const res = { jeu, notes: notes.map((n) => NOMS_NOTES[mod12(n)]), basse: null, cle: null, accord: null, dansIndex: false, racine: null };
+      if (!notes.length) return res;
+      res.basse = NOMS_NOTES[mod12(notes[0])];
+      res.cle = cleDe(notes.map((n) => n - notes[0]));
+      res.accord = this.parNotes.get(res.cle) || null;
+      const guitare = Array(6 - jeu.length).fill('x').concat(jeu);
+      res.dansIndex = this.dansIndex(guitare);
+      res.retenu = res.accord ? { pc: mod12(notes[0]), accord: res.accord } : null;
+      if (A.renversements) {
+        // au ukulele, pas de corde grave : toutes les lectures de ses notes, et celle au nom le plus simple
+        res.lectures = [];
+        for (const n of notes) {
+          const pc = mod12(n);
+          const t = this.parNotes.get(cleDe(notes.map((x) => x - pc)));
+          if (t && !res.lectures.some((l) => l.pc === pc)) res.lectures.push({ pc, accord: t, nom: NOMS_INDEX[pc].split(' ')[0] });
+        }
+        if (res.lectures.length)
+          res.retenu = res.lectures.reduce((m, l) => (normItem(l.accord.item).length < normItem(m.accord.item).length ? l : m));
+      }
+      if (res.dansIndex && res.retenu) res.racine = NOMS_INDEX[res.retenu.pc].split(' ')[0];
+      return res;
+    }
+
+    codeForme(f) { let c = 0; for (const x of f) c = c * 32 + (x === 'x' ? 31 : Math.min(30, Number(x))); return c; }
+    dansIndex(f) {
+      if (!this.codes) {
+        const n = this.octets.length / 6, codes = new Uint32Array(n);
+        for (let k = 0; k < n; k++) {
+          let c = 0;
+          for (let j = 0; j < 6; j++) { const v = this.octets[k * 6 + j]; c = c * 32 + (v === 255 ? 31 : Math.min(30, v)); }
+          codes[k] = c;
+        }
+        codes.sort();
+        this.codes = codes;
+      }
+      const c = this.codeForme(f);
+      let lo = 0, hi = this.codes.length - 1;
+      while (lo <= hi) { const mi = (lo + hi) >> 1; if (this.codes[mi] === c) return true; if (this.codes[mi] < c) lo = mi + 1; else hi = mi - 1; }
+      return false;
+    }
+
+    // saisie « Cmaj7 », « C maj7 » ou « maj7 »
+    analyser(saisie) {
+      let item = saisie.trim().replace(/\?+$/, '').trim();
+      let racine = null;
+      const m = item.match(/^([A-G][#b]?)\s*(.+)$/);
+      // nom exact d'abord (majuscules comprises) : « B9(b5) » est B + 9(b5), pas l'accord b9(b5)
+      if (m && !this.parItem.get(normItem(item)) && this.chercherItem(m[2])) { racine = m[1]; item = m[2]; }
+      const r = this.chercherItem(item);
+      return r ? { r, racine } : null;
+    }
+
+    // intervalle de chaque corde (null = etouffee), pour les pastilles des diagrammes
+    etiquettes(f, accordage, classeRacine) {
+      const A = ACCORDAGES[accordage];
+      return f.map((x, i) => (x === 'x' ? null : INTERVALLES[mod12(A.midi[i] + Number(x) - classeRacine)]));
+    }
+    notesForme(f, accordage) {
+      const A = ACCORDAGES[accordage];
+      return f.map((x, i) => (x === 'x' ? null : NOMS_NOTES[mod12(A.midi[i] + Number(x))])).filter(Boolean);
+    }
+  }
+
+  const exports = { Moteur, INTERVALLES, NOMS_NOTES, ACCORDAGES, FRETTES_TYPE, QUALITES, classe, cleDe, cleMode, normItem, triNaturel, mod12,
+    analyserSymbole, parseIntervalles, nommerSelonBase };
+  if (typeof module !== 'undefined' && module.exports) module.exports = exports;
+  else racineGlobale.GFMoteur = exports;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script id="donnees" type="application/json"></script>
+<script>
+'use strict';
+const G = window.GFMoteur;
+const { INTERVALLES, NOMS_NOTES, ACCORDAGES, mod12 } = G;
+let M = null, DONNEES = null;
+const PAR_LOT = 24;
+const COUL_DEFAUT = { F: 'red', b9: 'peru', 9: 'peru', '3m': 'green', '3M': 'green', 4: 'purple', b5: 'black', 5: 'black', '5#': 'black', 6: 'slateblue', 7: 'olive', '7M': 'olive' };
+let COUL = COUL_DEFAUT;
+const GRILLE = '#9fa8da', SILLET = '#3949ab';
+
+// ---------------------------------------------------------------- memoire du navigateur
+function lire(cle, defaut) { try { const v = localStorage.getItem(cle); return v == null ? defaut : JSON.parse(v); } catch (e) { return defaut; } }
+function ecrire(cle, v) { try { localStorage.setItem(cle, JSON.stringify(v)); } catch (e) { /* stockage indisponible */ } }
+const etat = {
+  acc: lire('gf.acc', 'guitalele'),
+  filtres: Object.assign({ fretteMin: null, fretteMax: 12, sansEtouffee: false, sansVide: false, sansBasse: false }, lire('gf.filtres', {})),
+  favSeul: false, res: null, lot: 1, vue: 'accords', pos: null, posOuvert: false, base: null,
+};
+let favoris = lire('gf.favoris', { version: 2, favoris: [] });
+if (!favoris || !Array.isArray(favoris.favoris)) favoris = { version: 2, favoris: [] };
+if (!Array.isArray(favoris.retires)) favoris.retires = [];
+const aujourdhui = () => new Date().toISOString().slice(0, 10);
+const horodatage = () => new Date().toISOString().slice(0, 19);
+function retirerFavoris(liste) {                  // garde la trace des retraits, pour la fusion entre appareils
+  if (!liste.length) return;
+  const t = horodatage();
+  favoris.favoris = favoris.favoris.filter((x) => !liste.includes(x));
+  for (const x of liste) favoris.retires.push({ instrument: x.instrument, fondamentale: x.fondamentale, intervalles: x.intervalles, forme: x.forme, retire: t });
+}
+function enregistrerFavoris() {
+  ecrire('gf.favoris', favoris); majNbFav();
+  if (window.GFDrive) window.GFDrive.planifier();
+}
+// au ukulele, pas de corde grave : un accord et ses renversements ne font qu'un, les favoris se reconnaissent a leurs notes
+function notesAccord(racinePc, intervalles) { return new Set(intervalles.split(' ').map((i) => mod12(racinePc + INTERVALLES.indexOf(i)))); }
+function notesFav(x) { try { return notesAccord(G.classe(x.fondamentale), x.intervalles || ''); } catch (e) { return null; } }
+function memesNotes(a, b) { if (!a || a.size !== b.size) return false; for (const v of a) if (!b.has(v)) return false; return true; }
+function correspond(x, acc, racinePc, intervalles) {
+  if (x.instrument !== acc) return false;
+  if (ACCORDAGES[acc].renversements) return memesNotes(notesFav(x), notesAccord(racinePc, intervalles));
+  return x.fondamentale === NOMS_NOTES[mod12(racinePc)] && x.intervalles === intervalles;
+}
+function favDe(acc, racinePc, intervalles) {
+  return [...new Set(favoris.favoris.filter((x) => correspond(x, acc, racinePc, intervalles)).map((x) => x.forme))];
+}
+function poserFav(acc, racinePc, intervalles, nom, forme, present) {
+  const deja = favoris.favoris.filter((x) => x.forme === forme && correspond(x, acc, racinePc, intervalles));
+  if (present && !deja.length)
+    favoris.favoris.push({ instrument: acc, fondamentale: NOMS_NOTES[mod12(racinePc)], intervalles, nom, forme, ajoute: horodatage() });
+  else if (!present) retirerFavoris(deja);
+}
+// Regles entre instruments : guitalele <-> guitare (ajout et retrait ; la guitare joue l'accord une quarte plus bas) ;
+// guitalele ou guitare -> ukulele (ajout seulement, si ses 4 cordes aigues jouent toutes les notes) ; ukulele : rien.
+function ukuleleDe(racineUk, intervalles, forme) {
+  const f = forme.split(' ');
+  if (f.length !== 6) return null;
+  const uk = f.slice(2), U = ACCORDAGES.ukulele;
+  const jouees = new Set(uk.map((x, i) => (x === 'x' ? null : mod12(U.midi[i] + Number(x)))).filter((v) => v !== null));
+  return memesNotes(jouees, notesAccord(racineUk, intervalles)) ? uk.join(' ') : null;
+}
+function cascade(acc, racinePc, intervalles, forme, ajout) {
+  const out = [];
+  let rUk;
+  if (acc === 'guitalele') { out.push(['guitare', mod12(racinePc - 5), forme]); rUk = mod12(racinePc); }
+  else if (acc === 'guitare') { out.push(['guitalele', mod12(racinePc + 5), forme]); rUk = mod12(racinePc + 5); }
+  else return out;
+  if (ajout) { const uk = ukuleleDe(rUk, intervalles, forme); if (uk) out.push(['ukulele', rUk, uk]); }
+  return out;
+}
+function basculerFav(acc, racinePc, r, forme) {
+  const s = forme.join(' ');
+  const present = !favoris.favoris.some((x) => x.forme === s && correspond(x, acc, racinePc, r.notes));
+  poserFav(acc, racinePc, r.notes, r.item, s, present);
+  for (const [i2, r2, f2] of cascade(acc, racinePc, r.notes, s, present)) poserFav(i2, r2, r.notes, r.item, f2, present);
+  enregistrerFavoris();
+  return present;
+}
+// formes generiques : favoris de tous les tons ramenes a la case 1 ; ajout dans les 12 tons, retrait de tous les tons
+function normaliserForme(fo) {
+  const d = Math.min(...fo.filter((x) => x !== 'x').map(Number)) - 1;
+  return [fo.map((x) => (x === 'x' ? 'x' : String(Number(x) - d))), d];
+}
+function generiquesFav(acc, intervalles) {
+  const vues = new Map();
+  for (let rac = 0; rac < 12; rac++) for (const s of favDe(acc, rac, intervalles)) {
+    const fo = s.split(' ');
+    if (fo.includes('0') || fo.every((x) => x === 'x')) continue;
+    const [gf, d] = normaliserForme(fo);
+    if (!vues.has(gf.join(' '))) vues.set(gf.join(' '), { forme: gf, racine: mod12(rac - d) });
+  }
+  return vues;
+}
+function placements(gf, r0) {
+  return Array.from({ length: 12 }, (_, k) => [gf.map((x) => (x === 'x' ? 'x' : String(Number(x) + k))).join(' '), mod12(r0 + k)]);
+}
+function generiqueFav(acc, r0, intervalles, nom, gf, present) {
+  if (present) { for (const [fo, rc] of placements(gf, r0)) poserFav(acc, rc, intervalles, nom, fo, true); return; }
+  const cle = gf.join(' ');
+  for (let rac = 0; rac < 12; rac++) {
+    retirerFavoris(favoris.favoris.filter((x) => {
+      if (!correspond(x, acc, rac, intervalles)) return false;
+      const t = x.forme.split(' ');
+      return !(t.includes('0') || t.every((v) => v === 'x')) && normaliserForme(t)[0].join(' ') === cle;
+    }));
+  }
+}
+function basculerGenerique(acc, r0, r, gf) {
+  const present = !generiquesFav(acc, r.notes).has(gf.join(' '));
+  generiqueFav(acc, r0, r.notes, r.item, gf, present);
+  for (const [i2, rc, fo] of cascade(acc, r0, r.notes, gf.join(' '), present)) {
+    if (i2 === 'ukulele') {
+      for (const [p, rk] of placements(gf, acc === 'guitalele' ? r0 : mod12(r0 + 5))) poserFav('ukulele', rk, r.notes, r.item, p.split(' ').slice(2).join(' '), true);
+    } else generiqueFav(i2, rc, r.notes, r.item, fo.split(' '), present);
+  }
+  enregistrerFavoris();
+  return present;
+}
+
+function majNbFav() { document.getElementById('nb-fav').textContent = favoris.favoris.length; }
+
+// ---------------------------------------------------------------- dessins SVG
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function svgPastille(x, y, r, iv, fond, ep) {
+  const c = COUL[iv] || '#333';
+  return `<circle cx="${x}" cy="${y}" r="${r}" fill="${fond || '#fff'}" stroke="${c}" stroke-width="${ep || Math.max(1.5, r * 0.12)}"/>` +
+    `<text x="${x}" y="${y}" fill="${c}" font-size="${r * (iv.length > 1 ? 0.78 : 0.95)}" font-weight="700" text-anchor="middle" dominant-baseline="central">${esc(iv)}</text>`;
+}
+function svgDiagramme(forme, acc, racinePc, generique, largeur = 160) {
+  const n = forme.length;
+  const app = forme.filter((x) => x !== 'x' && x !== '0').map(Number);
+  const haut = app.length ? Math.max(...app) : 0, bas = app.length ? Math.min(...app) : 1;
+  const debut = generique ? 1 : (haut <= 5 ? 1 : bas);
+  const nb = Math.max(5, app.length ? haut - debut + 1 : 5);
+  const ex = largeur / (n - 1 + 0.42 * 2.75 + 0.42 * 1.15), ey = ex * 1.15, r = ex * 0.42;
+  const mg = r * 2.75, y0 = r * 2.6;
+  const lab = M.etiquettes(forme, acc, racinePc);
+  let s = '';
+  for (let k = 0; k <= nb; k++) s += `<line x1="${mg}" y1="${y0 + k * ey}" x2="${mg + ex * (n - 1)}" y2="${y0 + k * ey}" stroke="${GRILLE}" stroke-width="1.2"/>`;
+  if (!generique) {
+    if (debut === 1) s += `<line x1="${mg}" y1="${y0}" x2="${mg + ex * (n - 1)}" y2="${y0}" stroke="${SILLET}" stroke-width="${Math.max(3, r * 0.35)}"/>`;
+    else s += `<text x="${mg - r * 1.3}" y="${y0 + ey * 0.5}" font-size="${r * 0.95}" font-weight="700" fill="#333" text-anchor="end" dominant-baseline="central">${debut}</text>`;
+  }
+  for (let i = 0; i < n; i++) { const x = mg + i * ex; s += `<line x1="${x}" y1="${y0}" x2="${x}" y2="${y0 + nb * ey}" stroke="${GRILLE}" stroke-width="1.2"/>`; }
+  forme.forEach((v, i) => {
+    const x = mg + i * ex;
+    if (lab[i] == null) s += `<text x="${x}" y="${y0 - r * 1.25}" font-size="${r * 1.05}" fill="#555" text-anchor="middle" dominant-baseline="central">x</text>`;
+    else if (v === '0') s += svgPastille(x, y0 - r * 1.25, r * 0.85, lab[i]);
+    else s += svgPastille(x, y0 + (Number(v) - debut + 0.5) * ey, r, lab[i]);
+  });
+  const h = y0 + nb * ey + r * 0.6;
+  s += `<text x="${largeur / 2}" y="${h + r * 0.75}" font-size="${r * 0.8}" fill="#444" text-anchor="middle" dominant-baseline="central">${esc(forme.join(' '))}</text>`;
+  return `<svg viewBox="0 0 ${largeur} ${h + r * 1.6}" role="img" aria-label="Position ${esc(forme.join(' '))}">${s}</svg>`;
+}
+function svgManche(pcs, tonique, acc, accord, nbFrettes) {
+  const A = ACCORDAGES[acc], n = A.cordes.length, largeur = n === 6 ? 300 : 220;
+  nbFrettes = nbFrettes || A.frettesCarte;
+  const ex = largeur / (n - 1 + 0.42 * 2.75 + 0.42 * 1.15), ey = ex * 0.95, r = ex * 0.42, mg = r * 2.75;
+  const yv = r * 1.3, ys = yv + r * 1.35, bas = ys + nbFrettes * ey;
+  let s = '';
+  for (let i = 0; i < n; i++) s += `<line x1="${mg + i * ex}" y1="${yv}" x2="${mg + i * ex}" y2="${bas}" stroke="${GRILLE}" stroke-width="2"/>`;
+  s += `<line x1="${mg}" y1="${ys}" x2="${mg + ex * (n - 1)}" y2="${ys}" stroke="${SILLET}" stroke-width="${Math.max(3, r * 0.3)}"/>`;
+  for (let k = 1; k <= nbFrettes; k++) {
+    const y = ys + k * ey;
+    s += `<line x1="${mg}" y1="${y}" x2="${mg + ex * (n - 1)}" y2="${y}" stroke="${GRILLE}" stroke-width="1.5"/>`;
+    if ([3, 5, 7, 9, 12, 15, 17, 19].includes(k))
+      s += `<text x="${mg - r * 1.3}" y="${y - ey / 2}" font-size="${r * 0.8}" font-weight="${k === 12 ? 700 : 400}" fill="#555" text-anchor="end" dominant-baseline="central">${k}</text>`;
+  }
+  const ens = new Set(pcs.map(mod12));
+  for (let i = 0; i < n; i++) for (let k = 0; k <= nbFrettes; k++) {
+    const note = A.midi[i] + k;
+    if (!ens.has(mod12(note))) continue;
+    const iv = INTERVALLES[mod12(note - tonique)], dans = accord && accord.has(mod12(note));
+    s += svgPastille(mg + i * ex, k === 0 ? yv : ys + (k - 0.5) * ey, r, iv, dans ? '#fff3b0' : '#fff', dans ? r * 0.2 : r * 0.1);
+  }
+  return `<svg viewBox="0 0 ${largeur} ${bas + r * 0.8}" role="img" aria-label="Carte du manche">${s}</svg>`;
+}
+
+// ---------------------------------------------------------------- recherche et affichage
+const main = () => document.getElementById('main');
+function rechercher(saisie) {
+  saisie = (saisie || '').trim();
+  document.getElementById('saisie').value = saisie;
+  if (etat.vue !== 'accords') basculerVue('accords', false);
+  if (!saisie) return accueil();
+  ecrire('gf.derniere', saisie);
+  const a = M.analyser(saisie);                                    // 1) nom de la base, avec ou sans fondamentale
+  if (a) return montrer(Object.assign(a, { entete: '', cible: null }));
+  const toks = saisie.split(/[\s,]+/).filter(Boolean);
+  const n = ACCORDAGES[etat.acc].cordes.length;
+  if (toks.length === n && toks.every((t) => /^(x|\d+)$/i.test(t))) return chercherPosition(toks);   // 2) frettes tapees
+  const trads = [], erreurs = [];                                   // 3) symboles a traduire
+  for (const t of toks) { try { trads.push(M.traduire(t)); } catch (e) { erreurs.push([t, e.message]); } }
+  const entete = blocTraductions(trads, erreurs);
+  if (!trads.length) {
+    etat.res = null;
+    main().innerHTML = blocPosition() + `<p class="message">« ${esc(saisie)} » : ni nom d’accord de la base, ni symbole lisible, ni position (${n} cases pour le ${esc(ACCORDAGES[etat.acc].court.toLowerCase())}).</p>
+      <p><button type="button" class="btn" data-versbase="">Trouver le nom d’après les intervalles (Base)</button></p>`;
+    return;
+  }
+  if (toks.length === 1 && trads[0].accord) return montrer({ r: trads[0].accord, racine: trads[0].nomBasse, entete, cible: null });
+  etat.res = null;
+  main().innerHTML = blocPosition() + entete;
+}
+function montrer(res) { etat.res = res; etat.lot = 1; etat.favSeul = false; afficher(); window.scrollTo({ top: 0 }); }
+function blocTraductions(trads, erreurs) {
+  const ligne = (lib, cle, accord, nomBasse) => {
+    const nom = accord ? `<button type="button" class="lien" data-cherche="${esc(nomBasse + ' ' + accord.item)}">${esc(nomBasse + ' ' + accord.item)}<small>{${esc(accord.tel)}}</small></button>`
+      : `<span class="lien absent">${esc(nomBasse)}<small>absent de la base</small></span>`;
+    const renv = accord ? M.renversements(cle.split(' ').map((i) => INTERVALLES.indexOf(i)), nomBasse) : [];
+    return `<p class="discret">${lib} (${cle.split(' ').length} notes) : ${esc(cle)}</p><div class="liens">${nom}${renv.map((x) => lienAccord(x.accord, x.basse, true)).join('')}</div>`;
+  };
+  let h = '';
+  for (const t of trads) {
+    h += `<div class="encadre"><div class="ligne-sym">${esc(t.symbole)}</div>${ligne('Complet', t.cle, t.accord, t.nomBasse)}`;
+    if (t.simplifieBasse) {                     // symbole a basse : les deux lectures, au choix
+      h += `<p class="explication">${esc(t.explication)}</p>`;
+      if (t.simplifie) h += ligne('Simplifié 1, ' + t.simplifie.note, t.simplifie.cle, t.simplifie.accord, t.nomBasse);
+      else h += `<p class="discret">Simplifié 1 : ${esc(t.remarque || 'pas de quinte juste de ' + t.racine + ' à retirer')}</p>`;
+      h += ligne('Simplifié 2, ' + t.simplifieBasse.note, t.simplifieBasse.cle, t.simplifieBasse.accord, t.nomBasse);
+    } else if (t.simplifie) h += ligne('Simplifié, ' + t.simplifie.note, t.simplifie.cle, t.simplifie.accord, t.nomBasse);
+    else if (t.remarque) h += `<p class="discret">${esc(t.remarque)}</p>`;
+    h += '</div>';
+  }
+  for (const [t, e] of erreurs) h += `<p class="message">${esc(t)} : ${esc(e)}</p>`;
+  if (erreurs.length) h += '<p><button type="button" class="btn" data-versbase="">Trouver le nom d’après les intervalles (Base)</button></p>';
+  return h;
+}
+function chercherPosition(frettes) {
+  let p;
+  try { p = M.position(frettes, etat.acc); } catch (e) { main().innerHTML = blocPosition() + `<p class="message">${esc(e.message)}</p>`; return; }
+  if (!p.notes.length) { main().innerHTML = blocPosition() + '<p class="message">Toutes les cordes sont étouffées.</p>'; return; }
+  let h = `<div class="encadre"><div class="ligne-sym">Position ${esc(p.jeu.join(' '))}</div>
+    ${p.lectures ? `<p>Notes, de la corde G à la corde A : ${esc(p.notes.join(' '))}</p>`
+      : `<p>Notes du grave à l’aigu : ${esc(p.notes.join(' '))}, basse ${esc(p.basse)}</p>
+    <p class="discret">Intervalles depuis la basse : ${esc(p.cle)}</p>`}`;
+  if (p.lectures && p.lectures.length) {
+    h += `<p>Au ukulélé, pas de basse : ces notes se lisent ${p.lectures.length > 1 ? 'de plusieurs façons' : 'ainsi'} ; la plus simple est retenue.</p>
+      <div class="liens">${[p.retenu, ...p.lectures.filter((l) => l !== p.retenu)].map((l) => lienAccord(l.accord, l.nom, true)).join('')}</div>`;
+  } else if (p.accord) h += `<div class="liens">${lienAccord(p.accord, p.racine || p.basse, true)}</div>`;
+  if (!p.accord && !(p.lectures && p.lectures.length))
+    h += `<p class="message">Aucun accord de la base n’a ces intervalles.</p><p><button type="button" class="btn" data-versbase="${esc(p.cle)}">Nommer avec Base</button></p>`;
+  if (!p.dansIndex) h += '<p class="discret">Cette position n’est pas dans l’index : elle n’apparaîtra pas parmi les diagrammes.</p>';
+  else h += '<p class="discret">Elle est encadrée en bleu parmi les diagrammes.</p>';
+  h += '</div>';
+  if (p.retenu) {
+    const racine = p.racine || NOMS_NOTES[p.retenu.pc];
+    return montrer({ r: p.retenu.accord, racine, entete: h, cible: p.dansIndex ? p.jeu.join(' ') : null });
+  }
+  etat.res = null;
+  main().innerHTML = blocPosition() + h;
+}
+function blocPosition() {
+  const A = ACCORDAGES[etat.acc];
+  if (!etat.pos || etat.pos.length !== A.cordes.length) etat.pos = A.cordes.map(() => 'x');
+  const opts = (v) => ['x', ...Array.from({ length: 16 }, (_, i) => String(i))].map((o) => `<option${o === v ? ' selected' : ''}>${o}</option>`).join('');
+  return `<details class="pli" id="pli-position"${etat.posOuvert ? ' open' : ''}><summary>Recherche par position</summary>
+    <div class="position-cases">${A.cordes.map((c, i) => `<label>${esc(c)}<select data-corde="${i}" aria-label="Corde ${esc(c)}">${opts(etat.pos[i])}</select></label>`).join('')}
+    <button type="button" class="btn plein" id="chercher-pos">Chercher la position</button></div>
+    <p class="discret" style="margin:.4rem 0 0">De la corde grave à la plus aiguë ; x = étouffée. Tu peux aussi taper les frettes dans le champ de recherche.</p></details>`;
+}
+function nomAccord(a) { return (a.racine ? a.racine + ' ' : '') + a.r.item; }
+function lienAccord(accord, basse, racineConnue) {
+  if (!accord) return `<span class="lien absent">${esc(basse)}<small>absent de la base</small></span>`;
+  const cible = racineConnue ? basse + ' ' + accord.item : accord.item;
+  return `<button type="button" class="lien" data-cherche="${esc(cible)}">${esc(basse)} ${esc(accord.item)}<small>{${esc(accord.tel)}}</small></button>`;
+}
+function afficher() {
+  const a = etat.res, r = a.r, A = ACCORDAGES[etat.acc];
+  const renv = M.renversements(r.semis, a.racine);
+  const vars = M.variantes(r);
+  const modes = M.modes(r.i);
+  let h = blocPosition() + (a.entete || '') + `<h1 class="accord-nom">${esc(nomAccord(a))}<span class="tel">{${esc(r.tel)}}</span></h1>`;
+  h += `<div class="pastilles" aria-label="Intervalles">${r.notes.split(' ').map((iv) => `<span class="pastille" style="color:${COUL[iv]}">${esc(iv)}</span>`).join('')}</div>`;
+  if (renv.length) h += `<section class="bloc"><h2>${A.renversements ? 'Mêmes notes, autres noms (pas de basse au ukulélé : positions communes)' : 'Renversements'}</h2><div class="liens">${renv.map((x) => lienAccord(x.accord, x.basse, !!a.racine)).join('')}</div></section>`;
+  if (vars.length) h += `<section class="bloc"><h2>Versions allégées</h2><div class="liens">${vars.map((v) => v.accord
+    ? `<button type="button" class="lien" data-cherche="${esc((a.racine ? a.racine + ' ' : '') + v.accord.item)}">${esc(v.accord.item)}<small>${esc(v.label.toLowerCase())} · {${esc(v.accord.tel)}}</small></button>`
+    : `<span class="lien absent">${esc(v.label)}<small>introuvable</small></span>`).join('')}</div></section>`;
+  h += `<details class="pli"><summary>Modes où l’accord figure (${modes.length})</summary><div class="modes">${modes.map((e, k) => {
+    const nom = e.fichier.replace(/\.[^.]*$/, '').replace(/^\s*\d+_/, '');
+    return `<div class="mode"><div><div class="nom">${esc(nom)}</div><div class="gamme">${esc(e.dossier)}, mode ${esc(e.fichier.split('_')[0])}</div></div><div class="actions">` +
+      (a.racine ? `<button type="button" data-carte="${k}">Carte en ${esc(a.racine)}</button>` : '') +
+      `<button type="button" data-type="${k}">Carte type</button></div></div>`;
+  }).join('')}</div></details>`;
+  const gen = !a.racine;
+  const f = etat.filtres, nbn = r.semis.length;
+  const basseGrise = A.renversements || nbn >= 5;
+  const opt = (v, l, sel) => `<option value="${v}"${sel ? ' selected' : ''}>${l}</option>`;
+  h += `<details class="pli"${gen ? '' : ''}><summary>Réglages des positions</summary><div class="reglages">
+    <label class="${gen ? 'grise' : ''}">Frette min <select data-f="fretteMin" ${gen ? 'disabled' : ''}>${opt('', 'aucune', f.fretteMin == null)}${[1, 2, 3, 4, 5, 7, 9, 12].map((v) => opt(v, v, f.fretteMin === v)).join('')}</select></label>
+    <label class="${gen ? 'grise' : ''}">Frette max <select data-f="fretteMax" ${gen ? 'disabled' : ''}>${opt('', 'toutes', f.fretteMax == null)}${[3, 4, 5, 7, 9, 12, 15].map((v) => opt(v, v, f.fretteMax === v)).join('')}</select></label>
+    <label><input type="checkbox" data-f="sansEtouffee" ${f.sansEtouffee ? 'checked' : ''}> Sans corde étouffée</label>
+    <label class="${gen ? 'grise' : ''}"><input type="checkbox" data-f="sansVide" ${f.sansVide ? 'checked' : ''} ${gen ? 'disabled' : ''}> Sans corde à vide</label>
+    <label class="${basseGrise ? 'grise' : ''}"><input type="checkbox" data-f="sansBasse" ${f.sansBasse ? 'checked' : ''} ${basseGrise ? 'disabled' : ''}> Sans basse</label>
+  </div></details>`;
+  h += `<div class="entete-pos"><h2>${gen ? 'Formes génériques' : 'Positions'} · ${esc(A.court)}</h2>
+    <label><input type="checkbox" id="favseul" ${etat.favSeul ? 'checked' : ''}> Favoris seulement</label></div>
+    <div id="positions"></div>`;
+  main().innerHTML = h;
+  afficherPositions();
+}
+function listePositions() {
+  const a = etat.res, r = a.r, f = etat.filtres;
+  if (!a.racine) {
+    if (etat.favSeul) return { liste: [...generiquesFav(etat.acc, r.notes).values()].sort((x, y) => cmpForme(x.forme, y.forme)), total: null };
+    const g = M.generiques(r, etat.acc, { sansEtouffee: f.sansEtouffee, sansBasse: f.sansBasse });
+    return { liste: g, total: null };
+  }
+  const rp = G.classe(a.racine);
+  if (etat.favSeul) return { liste: favDe(etat.acc, rp, r.notes).map((s) => ({ forme: s.split(' '), racine: rp })), total: null };
+  const p = M.positions(r, a.racine, etat.acc, f);
+  return { liste: p.formes.map((fo) => ({ forme: fo, racine: rp })), total: p.total };
+}
+function afficherPositions() {
+  const a = etat.res, gen = !a.racine;
+  const { liste, total } = listePositions();
+  const zone = document.getElementById('positions');
+  const favs = gen ? new Set(generiquesFav(etat.acc, a.r.notes).keys()) : new Set(favDe(etat.acc, G.classe(a.racine), a.r.notes));
+  if (!liste.length) {
+    zone.innerHTML = `<p class="vide">${etat.favSeul ? `Aucun favori pour ${esc(nomAccord(a))}. Décoche « Favoris seulement » pour voir toutes les positions.`
+      : `Aucune position pour ${esc(nomAccord(a))} avec ces réglages.`}</p>`;
+    return;
+  }
+  const n = Math.min(liste.length, etat.lot * PAR_LOT);
+  let info = `${liste.length} ${etat.favSeul ? 'favori' : gen ? 'forme' : 'position'}${liste.length > 1 ? 's' : ''}`;
+  if (total != null && total !== liste.length) info += ` sur ${total}`;
+  if (gen) info += ', sans corde à vide ni indication de case';
+  let h = `<p class="info">${info}. Touche un diagramme pour l’agrandir.</p><div class="grille-diag">`;
+  liste.slice(0, n).forEach((x, k) => {
+    const est = favs.has(x.forme.join(' '));
+    const cible = !gen && a.cible && a.cible === x.forme.join(' ');
+    h += `<div class="carte${est ? ' fav' : ''}${cible ? ' cible' : ''}"><button type="button" class="ouvrir" data-pos="${k}">${svgDiagramme(x.forme, etat.acc, x.racine, gen)}</button>` +
+      `<button type="button" class="etoile" data-etoile="${k}" aria-label="${est ? 'Retirer des favoris' : 'Ajouter aux favoris'}${gen ? ' (12 tons)' : ''}" aria-pressed="${est}">${est ? '★' : '☆'}</button></div>`;
+  });
+  h += '</div>';
+  if (n < liste.length) h += `<button type="button" class="btn plus" id="plus">Afficher ${Math.min(PAR_LOT, liste.length - n)} de plus (${liste.length - n} restantes)</button>`;
+  zone.innerHTML = h;
+  zone._liste = liste;
+}
+function accueil() {
+  etat.res = null;
+  document.getElementById('saisie').value = '';
+  main().innerHTML = blocPosition() + `<section class="accueil"><h1 class="accord-nom">GuitareFred</h1>
+    <p>Saisis un accord avec sa fondamentale pour voir ses positions, ou sans fondamentale pour ses formes génériques. Le même champ traduit les symboles (Cm7/F, plusieurs à la suite) et lit les frettes tapées, de la corde grave à la plus aiguë.</p>
+    <p>Si un nom n’est pas reconnu, l’onglet Base donne le nom de la base à partir des intervalles, par exemple F 3M b5 7M.</p>
+    <div class="exemples">${['Amaj7', 'C#m', 'maj7', 'Cm7/F', 'Cm7/F B/Eb C13', 'x 3 2 0 1 0'].map((s) => `<button type="button" class="lien" data-cherche="${s}">${s}</button>`).join('')}</div></section>`;
+}
+
+// ---------------------------------------------------------------- onglet Base (renversements)
+function basculerVue(vue, dessiner = true) {
+  etat.vue = vue;
+  document.querySelectorAll('.onglets button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.vue === vue)));
+  document.getElementById('form').hidden = vue !== 'accords';
+  if (!dessiner) return;
+  if (vue === 'base') vueBase();
+  else if (vue === 'gammes') vueGammes();
+  else if (etat.res) afficher(); else accueil();
+}
+function vueGammes() {
+  const A = ACCORDAGES[etat.acc];
+  const ton = etat.tonGamme || '';
+  const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === ton ? ' selected' : ''}>${n || 'générique'}</option>`).join('');
+  let h = `<p class="discret">${esc(A.nom)}. Touche un mode pour voir sa carte sur tout le manche : générique (tonique ${NOMS_NOTES[A.toniqueType]}, ${A.cordes.length === 6 ? '2e corde à vide' : 'dessin du guitalélé'}, 21 cases) ou dans la tonalité choisie.</p>
+    <label class="choix-ton">Tonique <select id="ton-gamme">${opts}</select></label>`;
+  for (const [rang, titre, modes] of DONNEES.familles || []) {
+    h += `<section class="gamme"><h2>${String(rang).padStart(3, '0')} · ${esc(titre)}</h2><div class="liens">` +
+      modes.map(([nom], k) => `<button type="button" class="lien" data-gamme="${rang}|${k}">${esc(nom)}<small>mode ${k + 1}</small></button>`).join('') + '</div></section>';
+  }
+  main().innerHTML = h;
+}
+function ouvrirGamme(rang, k) {
+  const fam = DONNEES.familles.find((f) => f[0] === rang), [nom, ivs] = fam[2][k], A = ACCORDAGES[etat.acc];
+  const ton = etat.tonGamme;
+  const tonique = ton ? G.classe(ton) : A.toniqueType;
+  const pcs = ivs.map((i) => mod12(tonique + i));
+  const sous = `${A.nom} · ${String(rang).padStart(3, '0')} ${fam[1]}, mode ${k + 1} · ` +
+    (ton ? `notes : ${[...pcs].sort((x, y) => mod12(x - tonique) - mod12(y - tonique)).map((p) => NOMS_NOTES[p]).join(' ')}` :
+      `tonique ${NOMS_NOTES[tonique]} ${A.cordes.length === 6 ? '(2e corde à vide)' : '(dessin du guitalélé)'}`) +
+    ` · intervalles : ${[...ivs].sort((x, y) => x - y).map((i) => INTERVALLES[i]).join(' ')}`;
+  ouvrirDialogue(ton ? `${ton} ${nom}` : nom, sous, svgManche(pcs, tonique, etat.acc, null, ton ? null : G.FRETTES_TYPE), [['Fermer', () => dlg().close(), true]]);
+}
+function vueBase() {
+  const b = etat.base || (etat.base = { texte: '', racine: '' });
+  const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === b.racine ? ' selected' : ''}>${n || 'aucune'}</option>`).join('');
+  let h = `<form class="formulaire-base" id="form-base" autocomplete="off">
+    <div class="rangee"><input id="saisie-base" value="${esc(b.texte)}" placeholder="F 3M b5 7M" aria-label="Intervalles" enterkeyhint="go">
+    <button type="submit" class="btn plein">Nommer</button></div>
+    <label>Fondamentale pour les liens <select id="racine-base">${opts}</select></label></form>`;
+  if (b.texte) {
+    let lignes;
+    try { lignes = M.base(b.texte); } catch (e) { main().innerHTML = h + `<p class="message">${esc(e.message)}</p>`; return; }
+    for (const x of lignes) {
+      const ivs = x.cle.split(' ');
+      const basseNom = b.racine ? NOMS_NOTES[mod12(G.classe(b.racine) + x.decalage)] : '';
+      const classeEtat = x.etat === 'conforme' ? 'ok' : x.etat === 'absent du CSV' ? 'abs' : 'corr';
+      h += `<div class="renv-base"><h3>${x.k === 0 ? 'Accord' : `Renversement ${x.k} (basse = ${esc(x.basse)})`}</h3>
+        <div class="pastilles">${ivs.map((iv) => `<span class="pastille" style="color:${COUL[iv]}">${esc(iv)}</span>`).join('')}</div>
+        <div>Nom selon Base.txt : <b>${esc(x.propose)}</b></div>
+        <div class="liens">${x.actuel ? `<button type="button" class="lien" data-cherche="${esc((basseNom ? basseNom + ' ' : '') + x.actuel.item)}">${esc((basseNom ? basseNom + ' ' : '') + x.actuel.item)}<small>nom dans la base · {${esc(x.actuel.tel)}}</small></button>` : ''}
+          <span class="etat ${classeEtat}">${esc(x.etat)}</span></div>
+        ${x.remarques.map((rq) => `<div class="discret">${esc(rq)}</div>`).join('')}</div>`;
+    }
+  } else {
+    h += '<p class="discret">Saisis les intervalles de l’accord, séparés par des espaces : F 3M b5 7M, ou R 3 b5 maj7. La base indique le nom de l’accord et de chacun de ses renversements ; un nom de la base mène à sa recherche.</p>';
+  }
+  main().innerHTML = h;
+}
+
+// ---------------------------------------------------------------- fenetres
+const dlg = () => document.getElementById('dlg');
+function ouvrirDialogue(titre, sous, corps, boutons) {
+  document.getElementById('dlg-titre').textContent = titre;
+  document.getElementById('dlg-sous').textContent = sous;
+  document.getElementById('dlg-corps').innerHTML = `<div class="papier">${corps}</div>`;
+  const pied = document.getElementById('dlg-pied');
+  pied.innerHTML = '';
+  for (const [lib, action, plein] of boutons) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn' + (plein ? ' plein' : ''); b.textContent = lib;
+    b.addEventListener('click', action); pied.appendChild(b);
+  }
+  if (!dlg().open) dlg().showModal();
+}
+function ouvrirPosition(k) {
+  const a = etat.res, x = document.getElementById('positions')._liste[k], gen = !a.racine;
+  const sous = gen ? `${ACCORDAGES[etat.acc].nom} · forme générique, à placer sur le manche. Intervalles du grave à l’aigu : ${M.etiquettes(x.forme, etat.acc, x.racine).filter(Boolean).join(' ')}`
+    : `${ACCORDAGES[etat.acc].nom} · notes du grave à l’aigu : ${M.notesForme(x.forme, etat.acc).join(' ')}`;
+  const boutons = [];
+  const est = gen ? generiquesFav(etat.acc, a.r.notes).has(x.forme.join(' ')) : favDe(etat.acc, G.classe(a.racine), a.r.notes).includes(x.forme.join(' '));
+  boutons.push([(est ? '★ Retirer des favoris' : '☆ Ajouter aux favoris') + (gen ? ' (12 tons)' : ''), () => { etoile(x); afficherPositions(); ouvrirPosition(k); }, false]);
+  boutons.push(['Fermer', () => dlg().close(), true]);
+  ouvrirDialogue(`${nomAccord(a)}  {${a.r.tel}}`, sous, svgDiagramme(x.forme, etat.acc, x.racine, gen, 300), boutons);
+}
+function ouvrirCarte(k, type) {
+  const a = etat.res, e = M.modes(a.r.i)[k], A = ACCORDAGES[etat.acc];
+  const nom = e.fichier.replace(/\.[^.]*$/, '').replace(/^\s*\d+_/, '');
+  const tonique = type ? A.toniqueType : G.classe(a.racine);
+  const { pcs } = M.notesMode(e.dossier, e.fichier, tonique);
+  const accord = new Set(a.r.semis.map((d) => mod12(tonique + d)));
+  const titre = type ? nom : `${a.racine} ${nom}`;
+  const sous = `${A.nom} · ${e.dossier}, mode ${e.fichier.split('_')[0]} · ` + (type ? `tonique ${NOMS_NOTES[tonique]} ${A.cordes.length === 6 ? '(2e corde à vide)' : '(dessin du guitalélé)'}` :
+    `notes : ${pcs.map((p) => NOMS_NOTES[p]).join(' ')}`) + ` · en surbrillance : notes de ${type ? a.r.item : nomAccord(a)}`;
+  ouvrirDialogue(titre, sous, svgManche(pcs, tonique, etat.acc, accord, type ? G.FRETTES_TYPE : null), [['Fermer', () => dlg().close(), true]]);
+}
+
+// ---------------------------------------------------------------- evenements
+function etoile(x) {
+  const a = etat.res;
+  if (!a.racine) basculerGenerique(etat.acc, x.racine, a.r, x.forme);
+  else basculerFav(etat.acc, G.classe(a.racine), a.r, x.forme);
+}
+function cmpForme(a, b) {
+  const k = (f) => { const j = f.filter((x) => x !== 'x' && x !== '0').map(Number); const v = j.length ? j : [0];
+    return [Math.max(...v), Math.max(...v) - Math.min(...v), f.filter((x) => x === 'x').length]; };
+  const ka = k(a), kb = k(b);
+  for (let i = 0; i < 3; i++) if (ka[i] !== kb[i]) return ka[i] - kb[i];
+  return 0;
+}
+function majInstruments() {
+  document.querySelectorAll('.instruments button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.acc === etat.acc)));
+}
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-gamme],[data-cherche],[data-acc],[data-vue],[data-versbase],[data-pos],[data-etoile],[data-carte],[data-type],#plus,#exporter,#importer,#chercher-pos');
+  if (!t) return;
+  if (t.dataset.gamme) { const [rg, k] = t.dataset.gamme.split('|').map(Number); ouvrirGamme(rg, k); }
+  else if (t.dataset.cherche) { if (dlg().open) dlg().close(); rechercher(t.dataset.cherche); }
+  else if (t.dataset.vue) basculerVue(t.dataset.vue);
+  else if (t.dataset.versbase !== undefined) { etat.base = { texte: t.dataset.versbase, racine: (etat.base || {}).racine || '' }; basculerVue('base'); }
+  else if (t.id === 'chercher-pos') { etat.posOuvert = true; document.getElementById('saisie').value = etat.pos.join(' '); chercherPosition(etat.pos.slice()); }
+  else if (t.dataset.acc) {
+    etat.acc = t.dataset.acc; ecrire('gf.acc', etat.acc); majInstruments(); etat.pos = null;
+    if (etat.vue === 'base') return;
+    if (etat.vue === 'gammes') return vueGammes();
+    const s = document.getElementById('saisie').value.trim();
+    if (s) rechercher(s); else accueil();          // les frettes et la position dependent de l'instrument
+  }
+  else if (t.dataset.pos) ouvrirPosition(Number(t.dataset.pos));
+  else if (t.dataset.etoile) {
+    etoile(document.getElementById('positions')._liste[Number(t.dataset.etoile)]); afficherPositions();
+  }
+  else if (t.dataset.carte) ouvrirCarte(Number(t.dataset.carte), false);
+  else if (t.dataset.type) ouvrirCarte(Number(t.dataset.type), true);
+  else if (t.id === 'plus') { etat.lot++; afficherPositions(); }
+  else if (t.id === 'exporter') {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(favoris, null, 1)], { type: 'application/json' }));
+    const lien = document.createElement('a'); lien.href = url; lien.download = 'favoris.json'; lien.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  else if (t.id === 'importer') document.getElementById('fichier').click();
+});
+document.addEventListener('change', (ev) => {
+  const t = ev.target;
+  if (t.id === 'favseul') { etat.favSeul = t.checked; etat.lot = 1; afficherPositions(); return; }
+  if (t.dataset.corde !== undefined) { etat.pos[Number(t.dataset.corde)] = t.value; return; }
+  if (t.id === 'ton-gamme') { etat.tonGamme = t.value; return; }
+  if (t.id === 'racine-base') { etat.base = { texte: document.getElementById('saisie-base').value.trim(), racine: t.value }; vueBase(); return; }
+  if (t.id === 'fichier' && t.files[0]) {
+    t.files[0].text().then((txt) => {
+      const d = JSON.parse(txt);
+      const cles = new Set(favoris.favoris.map((x) => [x.instrument, x.fondamentale, x.intervalles, x.forme].join('|')));
+      let ajout = 0;
+      for (const x of d.favoris || []) {
+        const c = [x.instrument, x.fondamentale, x.intervalles, x.forme].join('|');
+        if (!cles.has(c) && x.intervalles && x.forme) { favoris.favoris.push(x); cles.add(c); ajout++; }
+      }
+      enregistrerFavoris(); if (etat.res) afficher();
+      alert(ajout + ' favori(s) importé(s).');
+    }).catch(() => alert('Ce fichier n’est pas un favoris.json lisible.'));
+    t.value = '';
+    return;
+  }
+  if (t.dataset.f) {
+    const f = etat.filtres;
+    if (t.type === 'checkbox') f[t.dataset.f] = t.checked;
+    else f[t.dataset.f] = t.value === '' ? null : Number(t.value);
+    ecrire('gf.filtres', f); etat.lot = 1; afficherPositions();
+  }
+});
+document.getElementById('form').addEventListener('submit', (ev) => { ev.preventDefault(); rechercher(document.getElementById('saisie').value); });
+document.addEventListener('submit', (ev) => {
+  if (ev.target.id !== 'form-base') return;
+  ev.preventDefault();
+  etat.base = { texte: document.getElementById('saisie-base').value.trim(), racine: document.getElementById('racine-base').value };
+  vueBase();
+});
+document.addEventListener('toggle', (ev) => { if (ev.target.id === 'pli-position') etat.posOuvert = ev.target.open; }, true);
+
+// ---------------------------------------------------------------- chargement des donnees
+async function degonfler(b64) {
+  const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  if (typeof DecompressionStream !== 'undefined') {
+    const flux = new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Uint8Array(await new Response(flux).arrayBuffer());
+  }
+  await new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js'; s.onload = ok; s.onerror = ko; document.head.appendChild(s); });
+  return window.pako.ungzip(bin);
+}
+async function demarrer(donnees) {
+  try {
+    const octets = await degonfler(donnees.formes);
+    M = new G.Moteur(donnees, octets);
+    DONNEES = donnees;
+    COUL = Object.assign({}, COUL_DEFAUT, M.couleurs);
+    majInstruments(); majNbFav();
+    const derniere = lire('gf.derniere', '');
+    if (derniere) rechercher(derniere); else accueil();
+  } catch (e) {
+    main().innerHTML = `<p class="message">Les données n’ont pas pu être chargées (${esc(e.message)}). Recharge la page ; si le problème persiste, utilise un navigateur à jour.</p>`;
+  }
+}
+// ---------------------------------------------------------------- Google Drive (version en ligne)
+// Donnees et favoris dans le Drive de Fred, dossier « GuitareFred » cree par la page :
+//   GuitareFred/REFERENCE/donnees_web.json   (produit par GuitareFred sur PC : Reglages > Preparer les donnees de la page web)
+//   GuitareFred/FAVORIS/favoris.json         (+ sauvegardes/favoris_AAAA-MM-JJ.json, 60 jours)
+// Permission demandee : drive.file (la page ne voit que les fichiers qu'elle a crees).
+window.GFDrive = (function () {
+  const CLIENT_ID = '/*CLIENT_ID*/';
+  const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+  const API = 'https://www.googleapis.com/drive/v3/files', UP = 'https://www.googleapis.com/upload/drive/v3/files';
+  const SAUVEGARDES = 60, GARDE_RETRAITS_JOURS = 180;
+  let jeton = null, expire = 0, client = null, ids = null, minuterie = null, derniereSync = null, message = '', occupe = false;
+  const configure = () => CLIENT_ID && !CLIENT_ID.startsWith('/*');
+
+  // ---------- memoire locale des donnees (IndexedDB : trop gros pour localStorage)
+  function base() {
+    return new Promise((ok, ko) => {
+      const r = indexedDB.open('guitarefred', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error);
+    });
+  }
+  async function idbLire(k) {
+    const db = await base();
+    return new Promise((ok, ko) => { const t = db.transaction('kv').objectStore('kv').get(k); t.onsuccess = () => ok(t.result); t.onerror = () => ko(t.error); });
+  }
+  async function idbEcrire(k, v) {
+    const db = await base();
+    return new Promise((ok, ko) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => ok(); t.onerror = () => ko(t.error); });
+  }
+
+  // ---------- connexion Google
+  function chargerGoogle() {
+    return new Promise((ok, ko) => {
+      if (window.google && google.accounts && google.accounts.oauth2) return ok();
+      const s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.onload = ok; s.onerror = () => ko(new Error('Google injoignable'));
+      document.head.appendChild(s);
+    });
+  }
+  async function connecter() {
+    if (!configure()) return;
+    await chargerGoogle();
+    if (!client) {
+      client = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID, scope: SCOPE,
+        callback: (r) => {
+          if (r && r.access_token) {
+            jeton = r.access_token; expire = Date.now() + ((r.expires_in || 3600) - 60) * 1000;
+            ecrire('gf.drive.connu', true); message = '';
+            apresConnexion();
+          } else { message = 'Connexion refusée.'; afficherEtat(); }
+        },
+      });
+    }
+    client.requestAccessToken({ prompt: lire('gf.drive.connu', false) ? '' : 'consent' });
+  }
+  const connecte = () => jeton && Date.now() < expire;
+
+  // ---------- appels a l'API du Drive
+  async function appel(url, opts = {}) {
+    if (!connecte()) { jeton = null; afficherEtat(); throw new Error('connexion'); }
+    const r = await fetch(url, Object.assign({}, opts, { headers: Object.assign({ Authorization: 'Bearer ' + jeton }, opts.headers || {}) }));
+    if (r.status === 401) { jeton = null; afficherEtat(); throw new Error('connexion'); }
+    if (!r.ok) throw new Error('Drive ' + r.status);
+    return r;
+  }
+  async function lister(q, ordre) {
+    const u = API + '?q=' + encodeURIComponent(q) + '&fields=' + encodeURIComponent('files(id,name,modifiedTime)') +
+      '&pageSize=200&spaces=drive' + (ordre ? '&orderBy=' + encodeURIComponent(ordre) : '');
+    return (await (await appel(u)).json()).files || [];
+  }
+  async function dossier(role, parent, nom) {
+    const f = await lister(`appProperties has { key='gf' and value='${role}' } and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+    if (f.length) return f[0].id;
+    const meta = { name: nom, mimeType: 'application/vnd.google-apps.folder', appProperties: { gf: role } };
+    if (parent) meta.parents = [parent];
+    return (await (await appel(API + '?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(meta) })).json()).id;
+  }
+  async function dossiers() {
+    if (ids) return ids;
+    const racine = await dossier('racine', null, 'GuitareFred');
+    const reference = await dossier('reference', racine, 'REFERENCE');
+    const fav = await dossier('favoris', racine, 'FAVORIS');
+    const sauvegardes = await dossier('sauvegardes', fav, 'sauvegardes');
+    return (ids = { racine, reference, favoris: fav, sauvegardes });
+  }
+  async function fichier(nom, parent) {
+    const f = await lister(`name='${nom}' and '${parent}' in parents and trashed=false`);
+    return f[0] || null;
+  }
+  async function creer(nom, parent, texte) {
+    const b = 'gf' + Math.random().toString(36).slice(2);
+    const corps = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: nom, parents: [parent] })}\r\n` +
+      `--${b}\r\nContent-Type: application/json\r\n\r\n${texte}\r\n--${b}--`;
+    return (await appel(UP + '?uploadType=multipart&fields=id,modifiedTime', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body: corps })).json();
+  }
+  async function remplacer(id, texte) {
+    return (await appel(UP + '/' + id + '?uploadType=media&fields=id,modifiedTime', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: texte })).json();
+  }
+  const lireFichier = async (id) => (await appel(API + '/' + id + '?alt=media')).text();
+
+  // ---------- favoris : fusion entre appareils (le plus recent l'emporte, ajout comme retrait)
+  const cle = (x) => [x.instrument, x.fondamentale, x.intervalles, x.forme].join('|');
+  function fusionner(a, b) {
+    const ev = new Map();
+    const noter = (x, type, t) => { const k = cle(x), c = ev.get(k); if (!c || t > c.t) ev.set(k, { t, type, x }); };
+    for (const s of [a, b]) {
+      for (const x of s.favoris || []) noter(x, 'a', x.ajoute || '');
+      for (const x of s.retires || []) noter(x, 'r', x.retire || '');
+    }
+    const limite = new Date(Date.now() - GARDE_RETRAITS_JOURS * 864e5).toISOString();
+    const vals = [...ev.values()];
+    return { version: 2, favoris: vals.filter((e) => e.type === 'a').map((e) => e.x),
+      retires: vals.filter((e) => e.type === 'r' && e.t >= limite).map((e) => e.x) };
+  }
+  async function synchroniser() {
+    if (!connecte() || occupe) return;
+    occupe = true; message = 'Synchronisation…'; afficherEtat();
+    try {
+      const d = await dossiers();
+      const f = await fichier('favoris.json', d.favoris);
+      let distant = { favoris: [], retires: [] };
+      if (f) distant = JSON.parse(await lireFichier(f.id) || '{}');
+      const fusion = fusionner(favoris, distant);
+      favoris.favoris = fusion.favoris; favoris.retires = fusion.retires; favoris.version = 2;
+      ecrire('gf.favoris', favoris); majNbFav();
+      const texte = JSON.stringify(favoris, null, 1);
+      if (f) {
+        const nomS = 'favoris_' + aujourdhui() + '.json';
+        if (!(await fichier(nomS, d.sauvegardes))) {          // une sauvegarde par jour, avant la premiere ecriture
+          await creer(nomS, d.sauvegardes, JSON.stringify(distant, null, 1));
+          const toutes = await lister(`'${d.sauvegardes}' in parents and trashed=false`, 'name desc');
+          for (const vieille of toutes.slice(SAUVEGARDES)) await appel(API + '/' + vieille.id, { method: 'DELETE' });
+        }
+        await remplacer(f.id, texte);
+      } else await creer('favoris.json', d.favoris, texte);
+      derniereSync = new Date(); message = '';
+      if (etat.res && etat.vue === 'accords') afficherPositions();
+    } catch (e) { message = e.message === 'connexion' ? 'Reconnexion nécessaire.' : 'Synchronisation impossible (' + e.message + ').'; }
+    occupe = false; afficherEtat();
+  }
+  function planifier() { if (!connecte()) return; clearTimeout(minuterie); minuterie = setTimeout(synchroniser, 1500); }
+
+  // ---------- reference : donnees_web.json
+  function valider(d) { if (!d || !Array.isArray(d.items) || !Array.isArray(d.groupes) || typeof d.formes !== 'string') throw new Error('ce fichier n’est pas un donnees_web.json'); }
+  async function verifierReference() {
+    const d = await dossiers();
+    const f = await fichier('donnees_web.json', d.reference);
+    if (!f) { if (!M) ecranAccueilDrive('Le Drive ne contient pas encore de données. Sur le PC, choisis « Mettre à jour la référence » et le fichier donnees_web.json préparé par GuitareFred.'); return; }
+    const meta = await idbLire('ref-meta');
+    if (meta && meta.modifiedTime >= f.modifiedTime && M) return;
+    message = 'Chargement de la référence…'; afficherEtat();
+    const texte = await lireFichier(f.id);
+    const donnees = JSON.parse(texte); valider(donnees);
+    await idbEcrire('ref', texte); await idbEcrire('ref-meta', { modifiedTime: f.modifiedTime });
+    await demarrer(donnees);
+    message = meta ? 'Référence mise à jour depuis le Drive.' : ''; afficherEtat();
+  }
+  async function deposerReference(fichierLocal) {
+    try {
+      const texte = await fichierLocal.text();
+      const donnees = JSON.parse(texte); valider(donnees);
+      message = 'Envoi de la référence…'; afficherEtat();
+      const d = await dossiers();
+      const f = await fichier('donnees_web.json', d.reference);
+      const r = f ? await remplacer(f.id, texte) : await creer('donnees_web.json', d.reference, texte);
+      await idbEcrire('ref', texte); await idbEcrire('ref-meta', { modifiedTime: r.modifiedTime });
+      await demarrer(donnees);
+      message = 'Référence déposée dans le Drive : ' + donnees.items.length + ' accords.';
+    } catch (e) { message = 'Référence non déposée (' + e.message + ').'; }
+    afficherEtat();
+  }
+
+  async function apresConnexion() {
+    afficherEtat();
+    try { await verifierReference(); } catch (e) { message = 'Drive : ' + e.message; }
+    await synchroniser();
+  }
+
+  // ---------- affichage
+  function ecranAccueilDrive(texte) {
+    main().innerHTML = `<section class="accueil"><h1 class="accord-nom">GuitareFred</h1><p>${esc(texte)}</p>
+      ${connecte() ? '' : '<p><button type="button" class="btn plein" data-drive="connecter">Se connecter à Google Drive</button></p>'}</section>`;
+  }
+  function afficherEtat() {
+    const z = document.getElementById('drive');
+    if (!z) return;
+    if (!configure()) { z.innerHTML = '<p class="discret">Drive : identifiant Google à renseigner dans la page.</p>'; return; }
+    const heure = derniereSync ? derniereSync.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : null;
+    z.innerHTML = connecte()
+      ? `<p>Drive : connecté${heure ? ', favoris synchronisés à ' + heure : ''}.${message ? ' ' + esc(message) : ''}</p>
+         <div class="liens"><button class="btn" type="button" data-drive="synchroniser">Synchroniser</button>
+         <button class="btn" type="button" data-drive="reference">Mettre à jour la référence</button>
+         <input type="file" id="fichier-ref" accept=".json,application/json" hidden></div>`
+      : `<p>Drive : non connecté.${message ? ' ' + esc(message) : ''}</p>
+         <div class="liens"><button class="btn plein" type="button" data-drive="connecter">Se connecter à Google Drive</button></div>`;
+  }
+  document.addEventListener('click', (ev) => {
+    const t = ev.target.closest('[data-drive]');
+    if (!t) return;
+    const a = t.dataset.drive;
+    if (a === 'connecter') connecter().catch((e) => { message = e.message; afficherEtat(); });
+    else if (a === 'synchroniser') synchroniser();
+    else if (a === 'reference') document.getElementById('fichier-ref').click();
+  });
+  document.addEventListener('change', (ev) => { if (ev.target.id === 'fichier-ref' && ev.target.files[0]) { deposerReference(ev.target.files[0]); ev.target.value = ''; } });
+
+  async function demarrerDrive() {
+    afficherEtat();
+    let texte = null;
+    try { texte = await idbLire('ref'); } catch (e) { /* IndexedDB indisponible */ }
+    if (texte) return demarrer(JSON.parse(texte));                  // donnees deja sur l'appareil : utilisables hors connexion
+    ecranAccueilDrive(configure() ? 'Connecte-toi à Google Drive pour charger tes données et tes favoris.'
+      : 'La connexion au Drive n’est pas encore configurée.');
+  }
+  return { demarrer: demarrerDrive, planifier, fusionner, synchroniser, _etat: () => ({ jeton, ids }) };
+})();
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
+(async () => {
+  const brut = document.getElementById('donnees').textContent.trim();
+  if (brut && brut[0] === '{') return demarrer(JSON.parse(brut));       // prototype : donnees integrees a la page
+  if (window.GFDrive) return window.GFDrive.demarrer();                 // version en ligne : donnees du Drive
+  main().innerHTML = '<p class="message">Aucune donnée.</p>';
+})();
+</script>
+</body>
+</html>
