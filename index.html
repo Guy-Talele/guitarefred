@@ -788,7 +788,7 @@ function svgDiagramme(forme, acc, racinePc, generique, largeur = 160) {
   });
   const h = y0 + nb * ey + r * 0.6;
   s += `<text x="${largeur / 2}" y="${h + r * 0.75}" font-size="${r * 0.8}" fill="#444" text-anchor="middle" dominant-baseline="central">${esc(forme.join(' '))}</text>`;
-  return `<svg viewBox="0 0 ${largeur} ${h + r * 1.6}" role="img" aria-label="Position ${esc(forme.join(' '))}">${s}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" font-family="'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif" viewBox="0 0 ${largeur} ${h + r * 1.6}" role="img" aria-label="Position ${esc(forme.join(' '))}">${s}</svg>`;
 }
 function svgManche(pcs, tonique, acc, accord, nbFrettes) {
   const A = ACCORDAGES[acc], n = A.cordes.length, largeur = n === 6 ? 300 : 220;
@@ -811,7 +811,7 @@ function svgManche(pcs, tonique, acc, accord, nbFrettes) {
     const iv = INTERVALLES[mod12(note - tonique)], dans = accord && accord.has(mod12(note));
     s += svgPastille(mg + i * ex, k === 0 ? yv : ys + (k - 0.5) * ey, r, iv, dans ? '#fff3b0' : '#fff', dans ? r * 0.2 : r * 0.1);
   }
-  return `<svg viewBox="0 0 ${largeur} ${bas + r * 0.8}" role="img" aria-label="Carte du manche">${s}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" font-family="'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif" viewBox="0 0 ${largeur} ${bas + r * 0.8}" role="img" aria-label="Carte du manche">${s}</svg>`;
 }
 
 // ---------------------------------------------------------------- recherche et affichage
@@ -1016,7 +1016,8 @@ function ouvrirGamme(rang, k) {
     (ton ? `notes : ${[...pcs].sort((x, y) => mod12(x - tonique) - mod12(y - tonique)).map((p) => NOMS_NOTES[p]).join(' ')}` :
       `tonique ${NOMS_NOTES[tonique]} ${A.cordes.length === 6 ? '(2e corde à vide)' : '(dessin du guitalélé)'}`) +
     ` · intervalles : ${[...ivs].sort((x, y) => x - y).map((i) => INTERVALLES[i]).join(' ')}`;
-  ouvrirDialogue(ton ? `${ton} ${nom}` : nom, sous, svgManche(pcs, tonique, etat.acc, null, ton ? null : G.FRETTES_TYPE), [['Fermer', () => dlg().close(), true]]);
+  const svg = svgManche(pcs, tonique, etat.acc, null, ton ? null : G.FRETTES_TYPE), titre = ton ? `${ton} ${nom}` : nom;
+  ouvrirDialogue(titre, sous, svg, [boutonPng(titre, sous, svg, nomPng(String(rang).padStart(3, '0'), titre, ton ? '' : 'Type', etat.acc)), ['Fermer', () => dlg().close(), true]]);
 }
 function vueBase() {
   const b = etat.base || (etat.base = { texte: '', racine: '' });
@@ -1047,6 +1048,60 @@ function vueBase() {
 
 // ---------------------------------------------------------------- fenetres
 const dlg = () => document.getElementById('dlg');
+// ---------------------------------------------------------------- telechargement en PNG
+function nomPng(...parties) {
+  return parties.filter(Boolean).join(' ').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '_').replace(/_+/g, '_') + '.png';
+}
+async function pngDe(titre, sous, svg) {
+  const L = 1080, marge = 54, img = new Image();
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  await img.decode();
+  const vb = svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+  const larg = Math.min(L - 2 * marge, Number(vb[1]) * 3), haut = larg * Number(vb[2]) / Number(vb[1]);
+  const c = document.createElement('canvas'), x = c.getContext('2d');
+  const police = "'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif";
+  const couper = (texte, taille, gras) => {                   // retour a la ligne selon la largeur
+    x.font = `${gras ? 700 : 400} ${taille}px ${police}`;
+    const lignes = [];
+    for (const para of String(texte).split('\n')) {
+      let cur = '';
+      for (const mot of para.split(' ')) {
+        const essai = cur ? cur + ' ' + mot : mot;
+        if (cur && x.measureText(essai).width > L - 2 * marge) { lignes.push(cur); cur = mot; } else cur = essai;
+      }
+      lignes.push(cur);
+    }
+    return lignes;
+  };
+  const lt = couper(titre, 52, true), ls = couper(sous, 30, false);
+  const tete = marge + lt.length * 62 + 12 + ls.length * 40 + 30;
+  c.width = L; c.height = Math.ceil(tete + haut + marge);
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height);
+  let y = marge + 46;
+  x.fillStyle = '#1a237e'; x.font = `700 52px ${police}`;
+  for (const l of lt) { x.fillText(l, marge, y); y += 62; }
+  y += 6; x.fillStyle = '#444b6e'; x.font = `400 30px ${police}`;
+  for (const l of ls) { x.fillText(l, marge, y); y += 40; }
+  x.drawImage(img, (L - larg) / 2, tete, larg, haut);
+  return new Promise((ok) => c.toBlob(ok, 'image/png'));
+}
+async function telechargerPng(titre, sous, svg, nom) {
+  try {
+    const blob = await pngDe(titre, sous, svg);
+    const fichier = new File([blob], nom, { type: 'image/png' });
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (ios && navigator.canShare && navigator.canShare({ files: [fichier] })) {   // iPhone : « Enregistrer l'image »
+      await navigator.share({ files: [fichier], title: titre });
+      return;
+    }
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = nom; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  } catch (e) {
+    if (e && e.name !== 'AbortError') alert('Image non créée : ' + e.message);
+  }
+}
+function boutonPng(titre, sous, svg, nom) { return ['Télécharger PNG', () => telechargerPng(titre, sous, svg, nom), false]; }
 function ouvrirDialogue(titre, sous, corps, boutons) {
   document.getElementById('dlg-titre').textContent = titre;
   document.getElementById('dlg-sous').textContent = sous;
@@ -1067,8 +1122,10 @@ function ouvrirPosition(k) {
   const boutons = [];
   const est = gen ? generiquesFav(etat.acc, a.r.notes).has(x.forme.join(' ')) : favDe(etat.acc, G.classe(a.racine), a.r.notes).includes(x.forme.join(' '));
   boutons.push([(est ? '★ Retirer des favoris' : '☆ Ajouter aux favoris') + (gen ? ' (12 tons)' : ''), () => { etoile(x); afficherPositions(); ouvrirPosition(k); }, false]);
+  const svg = svgDiagramme(x.forme, etat.acc, x.racine, gen, 300), titre = `${nomAccord(a)}  {${a.r.tel}}`;
+  boutons.push(boutonPng(titre, sous, svg, nomPng(nomAccord(a), gen ? 'generique' : '', etat.acc, x.forme.join('-'))));
   boutons.push(['Fermer', () => dlg().close(), true]);
-  ouvrirDialogue(`${nomAccord(a)}  {${a.r.tel}}`, sous, svgDiagramme(x.forme, etat.acc, x.racine, gen, 300), boutons);
+  ouvrirDialogue(titre, sous, svg, boutons);
 }
 function ouvrirCarte(k, type) {
   const a = etat.res, e = M.modes(a.r.i)[k], A = ACCORDAGES[etat.acc];
@@ -1079,7 +1136,8 @@ function ouvrirCarte(k, type) {
   const titre = type ? nom : `${a.racine} ${nom}`;
   const sous = `${A.nom} · ${e.dossier}, mode ${e.fichier.split('_')[0]} · ` + (type ? `tonique ${NOMS_NOTES[tonique]} ${A.cordes.length === 6 ? '(2e corde à vide)' : '(dessin du guitalélé)'}` :
     `notes : ${pcs.map((p) => NOMS_NOTES[p]).join(' ')}`) + ` · en surbrillance : notes de ${type ? a.r.item : nomAccord(a)}`;
-  ouvrirDialogue(titre, sous, svgManche(pcs, tonique, etat.acc, accord, type ? G.FRETTES_TYPE : null), [['Fermer', () => dlg().close(), true]]);
+  const svg = svgManche(pcs, tonique, etat.acc, accord, type ? G.FRETTES_TYPE : null);
+  ouvrirDialogue(titre, sous, svg, [boutonPng(titre, sous, svg, nomPng(titre, type ? 'Type' : '', etat.acc)), ['Fermer', () => dlg().close(), true]]);
 }
 
 // ---------------------------------------------------------------- evenements
