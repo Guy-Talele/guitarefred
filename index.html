@@ -840,7 +840,8 @@ function rechercher(saisie) {
   etat.res = null;
   main().innerHTML = blocPosition() + entete;
 }
-function montrer(res) { etat.res = res; etat.lot = 1; etat.favSeul = false; afficher(); window.scrollTo({ top: 0 }); }
+// nouvel accord : « Favoris seulement » coche par defaut, sauf recherche d'une position (a montrer encadree)
+function montrer(res) { etat.res = res; etat.lot = 1; etat.favSeul = !res.cible; afficher(); window.scrollTo({ top: 0 }); }
 function blocTraductions(trads, erreurs) {
   const ligne = (lib, cle, accord, nomBasse) => {
     const nom = accord ? `<button type="button" class="lien" data-cherche="${esc(nomBasse + ' ' + accord.item)}">${esc(nomBasse + ' ' + accord.item)}<small>{${esc(accord.tel)}}</small></button>`
