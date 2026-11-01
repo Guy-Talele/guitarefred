@@ -706,6 +706,23 @@ function cascade(acc, racinePc, intervalles, forme, ajout) {
   if (ajout) { const uk = ukuleleDe(rUk, intervalles, forme); if (uk) out.push(['ukulele', rUk, uk]); }
   return out;
 }
+// Guitalele et guitare vont toujours par paires (meme forme, accord une quarte plus bas a la guitare) : un favori
+// arrive par import ou depuis une ancienne version sans son jumeau le recoit. Le ukulele n'est pas concerne.
+function completerJumeaux() {
+  let ajout = 0;
+  for (const x of favoris.favoris.slice()) {
+    if (x.instrument !== 'guitalele' && x.instrument !== 'guitare') continue;
+    let rc; try { rc = G.classe(x.fondamentale); } catch (e) { continue; }
+    if (!x.intervalles || !x.forme) continue;
+    const autre = x.instrument === 'guitalele' ? 'guitare' : 'guitalele';
+    const r2 = mod12(rc + (autre === 'guitare' ? -5 : 5));
+    if (!favoris.favoris.some((y) => y.forme === x.forme && correspond(y, autre, r2, x.intervalles))) {
+      favoris.favoris.push({ instrument: autre, fondamentale: NOMS_NOTES[r2], intervalles: x.intervalles, nom: x.nom || '', forme: x.forme, ajoute: x.ajoute || horodatage() });
+      ajout++;
+    }
+  }
+  return ajout;
+}
 function basculerFav(acc, racinePc, r, forme) {
   const s = forme.join(' ');
   const present = !favoris.favoris.some((x) => x.forme === s && correspond(x, acc, racinePc, r.notes));
@@ -755,6 +772,7 @@ function basculerGenerique(acc, r0, r, gf) {
   return present;
 }
 
+if (completerJumeaux()) ecrire('gf.favoris', favoris);      // au lancement
 function majNbFav() { document.getElementById('nb-fav').textContent = favoris.favoris.length; }
 
 // ---------------------------------------------------------------- dessins SVG
@@ -1200,6 +1218,7 @@ document.addEventListener('change', (ev) => {
         const c = [x.instrument, x.fondamentale, x.intervalles, x.forme].join('|');
         if (!cles.has(c) && x.intervalles && x.forme) { favoris.favoris.push(x); cles.add(c); ajout++; }
       }
+      ajout += completerJumeaux();
       enregistrerFavoris(); if (etat.res) afficher();
       alert(ajout + ' favori(s) importé(s).');
     }).catch(() => alert('Ce fichier n’est pas un favoris.json lisible.'));
@@ -1370,6 +1389,7 @@ window.GFDrive = (function () {
       if (f) distant = JSON.parse(await lireFichier(f.id) || '{}');
       const fusion = fusionner(favoris, distant);
       favoris.favoris = fusion.favoris; favoris.retires = fusion.retires; favoris.version = 2;
+      completerJumeaux();                                   // paires guitalele / guitare toujours completes
       ecrire('gf.favoris', favoris); majNbFav();
       const texte = JSON.stringify(favoris, null, 1);
       if (f) {
