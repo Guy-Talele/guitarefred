@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GuitareFred · Règles de confidentialité</title>
+<style>
+:root {
+  color-scheme: light;
+  --fond: #eef1f7; --surface: #ffffff; --encre: #1c2140; --discret: #5d6585; --accent: #2e3a8c;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { color-scheme: dark; --fond: #141829; --surface: #1e2338; --encre: #e6e8f4; --discret: #a3a9c6; --accent: #aab4ff; }
+}
+:root[data-theme="dark"] { color-scheme: dark; --fond: #141829; --surface: #1e2338; --encre: #e6e8f4; --discret: #a3a9c6; --accent: #aab4ff; }
+*, *::before, *::after { box-sizing: inherit; }
+body { margin: 0; background: var(--fond); color: var(--encre); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 17px; line-height: 1.55; }
+main { max-width: 42rem; margin: 0 auto; padding: 2rem 1.2rem 3rem; }
+h1 { font-size: 2rem; margin: 0 0 .3rem; }
+h2 { font-size: 1.15rem; margin: 1.8rem 0 .4rem; }
+p, li { max-width: 40rem; }
+.discret { color: var(--discret); }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>GuitareFred</h1>
+  <p class="discret">Règles de confidentialité · mises à jour le 1<sup>er</sup> novembre 2026</p>
+
+  <p>GuitareFred est une application personnelle d’aide au jeu de la guitare, du guitalélé et du ukulélé : recherche d’accords, diagrammes, gammes et favoris. Elle fonctionne entièrement dans le navigateur de la personne qui l’utilise.</p>
+
+  <h2>Données utilisées</h2>
+  <p>L’application ne collecte aucune donnée personnelle et ne dispose d’aucun serveur. Elle ne contient ni publicité, ni mesure d’audience, ni traceur.</p>
+
+  <h2>Accès à Google Drive</h2>
+  <p>Après connexion avec un compte Google, l’application demande uniquement l’autorisation <i>drive.file</i> : elle ne peut voir et modifier que les fichiers qu’elle a elle-même créés, rangés dans un dossier « GuitareFred » du Drive de l’utilisateur (données de référence, favoris et leurs sauvegardes). Elle n’a accès à aucun autre fichier du Drive.</p>
+  <p>Ces fichiers restent dans le Drive de l’utilisateur. Ils ne sont transmis à personne d’autre ; aucune information n’est envoyée au développeur.</p>
+
+  <h2>Données gardées sur l’appareil</h2>
+  <p>Pour fonctionner hors connexion, l’application garde sur l’appareil une copie des données de référence et des favoris, ainsi que quelques réglages (instrument choisi, dernière recherche). L’autorisation Google n’est conservée que pendant la session.</p>
+
+  <h2>Retirer l’accès</h2>
+  <p>L’accès peut être retiré à tout moment depuis la page <a href="https://myaccount.google.com/permissions">Applications tierces ayant accès à votre compte</a> de Google. Le dossier « GuitareFred » du Drive peut être supprimé comme n’importe quel dossier.</p>
+
+  <h2>Contact</h2>
+  <p>Pour toute question : <a href="https://github.com/Guy-Talele">github.com/Guy-Talele</a>.</p>
+</main>
+</body>
+</html>
