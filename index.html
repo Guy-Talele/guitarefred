@@ -1196,7 +1196,7 @@ window.GFDrive = (function () {
   const SCOPE = 'https://www.googleapis.com/auth/drive.file';
   const API = 'https://www.googleapis.com/drive/v3/files', UP = 'https://www.googleapis.com/upload/drive/v3/files';
   const SAUVEGARDES = 60, GARDE_RETRAITS_JOURS = 180;
-  let jeton = null, expire = 0, client = null, ids = null, minuterie = null, derniereSync = null, message = '', occupe = false;
+  let jeton = null, expire = 0, client = null, ids = null, minuterie = null, derniereSync = null, message = '', infoRef = '', occupe = false;
   const configure = () => CLIENT_ID && !CLIENT_ID.startsWith('/*');
 
   // ---------- memoire locale des donnees (IndexedDB : trop gros pour localStorage)
@@ -1342,7 +1342,7 @@ window.GFDrive = (function () {
     const donnees = JSON.parse(texte); valider(donnees);
     await idbEcrire('ref', texte); await idbEcrire('ref-meta', { modifiedTime: f.modifiedTime });
     await demarrer(donnees);
-    message = meta ? 'Référence mise à jour depuis le Drive.' : ''; afficherEtat();
+    message = ''; infoRef = (meta ? 'Référence mise à jour depuis le Drive : ' : 'Référence chargée : ') + donnees.items.length + ' accords.'; afficherEtat();
   }
   async function deposerReference(fichierLocal) {
     try {
@@ -1354,7 +1354,7 @@ window.GFDrive = (function () {
       const r = f ? await remplacer(f.id, texte) : await creer('donnees_web.json', d.reference, texte);
       await idbEcrire('ref', texte); await idbEcrire('ref-meta', { modifiedTime: r.modifiedTime });
       await demarrer(donnees);
-      message = 'Référence déposée dans le Drive : ' + donnees.items.length + ' accords.';
+      message = ''; infoRef = 'Référence déposée dans le Drive : ' + donnees.items.length + ' accords.';
     } catch (e) { message = 'Référence non déposée (' + e.message + ').'; }
     afficherEtat();
   }
@@ -1376,7 +1376,7 @@ window.GFDrive = (function () {
     if (!configure()) { z.innerHTML = '<p class="discret">Drive : identifiant Google à renseigner dans la page.</p>'; return; }
     const heure = derniereSync ? derniereSync.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : null;
     z.innerHTML = connecte()
-      ? `<p>Drive : connecté${heure ? ', favoris synchronisés à ' + heure : ''}.${message ? ' ' + esc(message) : ''}</p>
+      ? `<p>Drive : connecté${heure ? ', favoris synchronisés à ' + heure : ''}.${message ? ' ' + esc(message) : ''}${infoRef ? ' ' + esc(infoRef) : ''}</p>
          <div class="liens"><button class="btn" type="button" data-drive="synchroniser">Synchroniser</button>
          <button class="btn" type="button" data-drive="reference">Mettre à jour la référence</button>
          <input type="file" id="fichier-ref" accept=".json,application/json" hidden></div>`
@@ -1388,7 +1388,10 @@ window.GFDrive = (function () {
     if (!t) return;
     const a = t.dataset.drive;
     if (a === 'connecter') connecter().catch((e) => { message = e.message; afficherEtat(); });
-    else if (a === 'synchroniser') synchroniser();
+    else if (a === 'synchroniser') (async () => {      // la reference du Drive d'abord, puis les favoris
+      try { await verifierReference(); } catch (e) { message = 'Drive : ' + e.message; }
+      await synchroniser();
+    })();
     else if (a === 'reference') document.getElementById('fichier-ref').click();
   });
   document.addEventListener('change', (ev) => { if (ev.target.id === 'fichier-ref' && ev.target.files[0]) { deposerReference(ev.target.files[0]); ev.target.value = ''; } });
