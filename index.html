@@ -145,6 +145,7 @@ details.pli[open] > summary::after { content: "−"; }
 .encadre { background: var(--surface); border: 1px solid var(--ligne); border-left: 4px solid var(--accent); border-radius: .6rem; padding: .7rem .9rem; margin: .4rem 0 1rem; display: grid; gap: .45rem; }
 .encadre .ligne-sym { font-size: 1.15rem; font-weight: 700; }
 .encadre p { margin: 0; }
+.encadre.alerte { border-left-color: var(--erreur); color: var(--encre); margin: 0 0 1rem; }
 .encadre .discret { color: var(--discret); font-size: .92rem; }
 .encadre .explication { background: var(--accent-doux); border-radius: .45rem; padding: .45rem .6rem; font-size: .95rem; }
 .formulaire-base { display: grid; gap: .6rem; margin-bottom: 1rem; }
@@ -917,6 +918,10 @@ function blocPosition() {
     <button type="button" class="btn plein" id="chercher-pos">Chercher la position</button></div>
     <p class="discret" style="margin:.4rem 0 0">De la corde grave à la plus aiguë ; x = étouffée. Tu peux aussi taper les frettes dans le champ de recherche.</p></details>`;
 }
+function texteTropDeNotes(n, A) {
+  return `${A.court} : cet accord a ${n} notes pour ${A.cordes.length} cordes, il ne peut pas être joué en entier. ` +
+    `Choisis l’une de ses versions allégées (${n === A.cordes.length + 1 ? 'sans quinte, sans tierce' : 'sans quinte ni tierce'}), qui tiennent sur l’instrument.`;
+}
 function nomAccord(a) { return (a.racine ? a.racine + ' ' : '') + a.r.item; }
 function lienAccord(accord, basse, racineConnue) {
   if (!accord) return `<span class="lien absent">${esc(basse)}<small>absent de la base</small></span>`;
@@ -930,6 +935,7 @@ function afficher() {
   const modes = M.modes(r.i);
   let h = blocPosition() + (a.entete || '') + `<h1 class="accord-nom">${esc(nomAccord(a))}<span class="tel">{${esc(r.tel)}}</span></h1>`;
   h += `<div class="pastilles" aria-label="Intervalles">${r.notes.split(' ').map((iv) => `<span class="pastille" style="color:${COUL[iv]}">${esc(iv)}</span>`).join('')}</div>`;
+  if (r.semis.length > A.cordes.length) h += `<p class="encadre alerte">${esc(texteTropDeNotes(r.semis.length, A))}</p>`;
   if (renv.length) h += `<section class="bloc"><h2>${A.renversements ? 'Mêmes notes, autres noms (pas de basse au ukulélé : positions communes)' : 'Renversements'}</h2><div class="liens">${renv.map((x) => lienAccord(x.accord, x.basse, !!a.racine)).join('')}</div></section>`;
   if (vars.length) h += `<section class="bloc"><h2>Versions allégées</h2><div class="liens">${vars.map((v) => v.accord
     ? `<button type="button" class="lien" data-cherche="${esc((a.racine ? a.racine + ' ' : '') + v.accord.item)}">${esc(v.accord.item)}<small>${esc(v.label.toLowerCase())} · {${esc(v.accord.tel)}}</small></button>`
@@ -951,12 +957,13 @@ function afficher() {
     <label class="${gen || f.avecVide ? 'grise' : ''}"><input type="checkbox" data-f="sansVide" ${f.sansVide ? 'checked' : ''} ${gen || f.avecVide ? 'disabled' : ''}> Sans corde à vide</label>
     <label class="${gen || f.sansVide ? 'grise' : ''}"><input type="checkbox" data-f="avecVide" ${f.avecVide ? 'checked' : ''} ${gen || f.sansVide ? 'disabled' : ''}> Corde(s) à vide</label>
     <label class="${basseGrise ? 'grise' : ''}"><input type="checkbox" data-f="sansBasse" ${f.sansBasse ? 'checked' : ''} ${basseGrise ? 'disabled' : ''}> Sans basse</label>
-  </div></details>`;
+  </div><p class="discret" id="note-reglages" hidden>Sans effet sur les favoris, qui s’affichent tous : décoche « Favoris seulement » pour t’en servir.</p></details>`;
   h += `<div class="entete-pos"><h2>${gen ? 'Formes génériques' : 'Positions'} · ${esc(A.court)}</h2>
     <label><input type="checkbox" id="favseul" ${etat.favSeul ? 'checked' : ''}> Favoris seulement</label></div>
     <div id="positions"></div>`;
   main().innerHTML = h;
   afficherPositions();
+  majGrisage();
 }
 function listePositions() {
   const a = etat.res, r = a.r, f = etat.filtres;
@@ -970,6 +977,21 @@ function listePositions() {
   const p = M.positions(r, a.racine, etat.acc, f);
   return { liste: p.formes.map((fo) => ({ forme: fo, racine: rp })), total: p.total };
 }
+function majGrisage() {
+  const a = etat.res;
+  if (!a) return;
+  const gen = !a.racine, f = etat.filtres, A = ACCORDAGES[etat.acc], fav = etat.favSeul;
+  const regles = { fretteMin: gen, fretteMax: gen, sansEtouffee: false, sansVide: gen || f.avecVide, avecVide: gen || f.sansVide,
+    sansBasse: !!A.renversements || a.r.semis.length >= 5 };
+  for (const [cle, grise] of Object.entries(regles)) {
+    const el = document.querySelector(`[data-f="${cle}"]`);
+    if (!el) continue;
+    el.disabled = grise || fav;
+    el.closest('label').classList.toggle('grise', grise || fav);
+  }
+  const note = document.getElementById('note-reglages');
+  if (note) note.hidden = !fav;
+}
 function afficherPositions() {
   const a = etat.res, gen = !a.racine;
   const { liste, total } = listePositions();
@@ -977,6 +999,7 @@ function afficherPositions() {
   const favs = gen ? new Set(generiquesFav(etat.acc, a.r.notes).keys()) : new Set(favDe(etat.acc, G.classe(a.racine), a.r.notes));
   if (!liste.length) {
     zone.innerHTML = `<p class="vide">${etat.favSeul ? `Aucun favori pour ${esc(nomAccord(a))}. Décoche « Favoris seulement » pour voir toutes les positions.`
+      : a.r.semis.length > ACCORDAGES[etat.acc].cordes.length ? esc(texteTropDeNotes(a.r.semis.length, ACCORDAGES[etat.acc]))
       : `Aucune position pour ${esc(nomAccord(a))} avec ces réglages.`}</p>`;
     return;
   }
@@ -984,7 +1007,9 @@ function afficherPositions() {
   let info = `${liste.length} ${etat.favSeul ? 'favori' : gen ? 'forme' : 'position'}${liste.length > 1 ? 's' : ''}`;
   if (total != null && total !== liste.length) info += ` sur ${total}`;
   if (gen) info += ', sans corde à vide ni indication de case';
-  let h = `<p class="info">${info}. Touche un diagramme pour l’agrandir.</p><div class="grille-diag">`;
+  let h = `<p class="info">${info}. Touche un diagramme pour l’agrandir.</p>` +
+    (etat.favSeul ? `<p><button type="button" class="btn" id="png-tous">Télécharger les PNG des ${liste.length} favori${liste.length > 1 ? 's' : ''}</button></p>` : '') +
+    '<div class="grille-diag">';
   liste.slice(0, n).forEach((x, k) => {
     const est = favs.has(x.forme.join(' '));
     const cible = !gen && a.cible && a.cible === x.forme.join(' ');
@@ -1121,6 +1146,29 @@ async function telechargerPng(titre, sous, svg, nom) {
     if (e && e.name !== 'AbortError') alert('Image non créée : ' + e.message);
   }
 }
+async function telechargerTous() {
+  const a = etat.res, gen = !a.racine, liste = document.getElementById('positions')._liste, A = ACCORDAGES[etat.acc];
+  const b = document.getElementById('png-tous'); b.disabled = true;
+  const fichiers = [];
+  for (const [k, x] of liste.entries()) {
+    b.textContent = `Préparation… ${k + 1} / ${liste.length}`;
+    const sous = gen ? `${A.nom} · forme générique · intervalles du grave à l’aigu : ${M.etiquettes(x.forme, etat.acc, x.racine).filter(Boolean).join(' ')}`
+      : `${A.nom} · notes du grave à l’aigu : ${M.notesForme(x.forme, etat.acc).join(' ')}`;
+    const blob = await pngDe(`${nomAccord(a)}  {${a.r.tel}}`, sous, svgDiagramme(x.forme, etat.acc, x.racine, gen, 300));
+    fichiers.push(new File([blob], nomPng(nomAccord(a), gen ? 'generique' : '', etat.acc, x.forme.join('-')), { type: 'image/png' }));
+  }
+  try {
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (ios && navigator.canShare && navigator.canShare({ files: fichiers })) await navigator.share({ files: fichiers });
+    else for (const f of fichiers) {                 // un fichier apres l'autre (le navigateur peut demander l'autorisation une fois)
+      const url = URL.createObjectURL(f), lien = document.createElement('a');
+      lien.href = url; lien.download = f.name; document.body.appendChild(lien); lien.click(); lien.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      await new Promise((ok) => setTimeout(ok, 350));
+    }
+  } catch (e) { if (e && e.name !== 'AbortError') alert('Images non créées : ' + e.message); }
+  b.disabled = false; b.textContent = `Télécharger les PNG des ${liste.length} favori${liste.length > 1 ? 's' : ''}`;
+}
 function boutonPng(titre, sous, svg, nom) { return ['Télécharger PNG', () => telechargerPng(titre, sous, svg, nom), false]; }
 function ouvrirDialogue(titre, sous, corps, boutons) {
   document.getElementById('dlg-titre').textContent = titre;
@@ -1177,7 +1225,7 @@ function majInstruments() {
   document.querySelectorAll('.instruments button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.acc === etat.acc)));
 }
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-gamme],[data-cherche],[data-acc],[data-vue],[data-versbase],[data-pos],[data-etoile],[data-carte],[data-type],#plus,#exporter,#importer,#chercher-pos');
+  const t = ev.target.closest('[data-gamme],[data-cherche],[data-acc],[data-vue],[data-versbase],[data-pos],[data-etoile],[data-carte],[data-type],#plus,#png-tous,#exporter,#importer,#chercher-pos');
   if (!t) return;
   if (t.dataset.gamme) { const [rg, k] = t.dataset.gamme.split('|').map(Number); ouvrirGamme(rg, k); }
   else if (t.dataset.cherche) { if (dlg().open) dlg().close(); rechercher(t.dataset.cherche); }
@@ -1198,6 +1246,7 @@ document.addEventListener('click', (ev) => {
   else if (t.dataset.carte) ouvrirCarte(Number(t.dataset.carte), false);
   else if (t.dataset.type) ouvrirCarte(Number(t.dataset.type), true);
   else if (t.id === 'plus') { etat.lot++; afficherPositions(); }
+  else if (t.id === 'png-tous') telechargerTous();
   else if (t.id === 'exporter') {
     const url = URL.createObjectURL(new Blob([JSON.stringify(favoris, null, 1)], { type: 'application/json' }));
     const lien = document.createElement('a'); lien.href = url; lien.download = 'favoris.json'; lien.click();
@@ -1207,7 +1256,7 @@ document.addEventListener('click', (ev) => {
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target;
-  if (t.id === 'favseul') { etat.favSeul = t.checked; etat.lot = 1; afficherPositions(); return; }
+  if (t.id === 'favseul') { etat.favSeul = t.checked; etat.lot = 1; afficherPositions(); majGrisage(); return; }
   if (t.dataset.corde !== undefined) { etat.pos[Number(t.dataset.corde)] = t.value; return; }
   if (t.id === 'ton-gamme') { etat.tonGamme = t.value; return; }
   if (t.id === 'racine-base') { etat.base = { texte: document.getElementById('saisie-base').value.trim(), racine: t.value }; vueBase(); return; }
@@ -1230,11 +1279,8 @@ document.addEventListener('change', (ev) => {
   if (t.dataset.f) {
     const f = etat.filtres;
     if (t.type === 'checkbox') f[t.dataset.f] = t.checked;
-    if (t.dataset.f === 'sansVide' || t.dataset.f === 'avecVide') {     // les deux options s'excluent
-      const autre = document.querySelector(`[data-f="${t.dataset.f === 'sansVide' ? 'avecVide' : 'sansVide'}"]`);
-      autre.disabled = t.checked; autre.closest('label').classList.toggle('grise', t.checked);
-    }
     else f[t.dataset.f] = t.value === '' ? null : Number(t.value);
+    majGrisage();                       // « Sans corde a vide » et « Corde(s) a vide » s'excluent
     ecrire('gf.filtres', f); etat.lot = 1; afficherPositions();
   }
 });
