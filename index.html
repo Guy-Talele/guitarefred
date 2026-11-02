@@ -481,6 +481,7 @@ footer .liens { margin-top: .5rem; }
       if (o.fretteMin != null) formes = formes.filter((f) => f.every((x) => x === 'x' || x === '0' || Number(x) >= o.fretteMin));
       if (o.sansEtouffee) formes = formes.filter((f) => !f.includes('x'));
       if (o.sansVide) formes = formes.filter((f) => !f.includes('0'));
+      else if (o.avecVide) formes = formes.filter((f) => f.includes('0'));      // au moins une corde a vide
       const k = Math.max(0, A.cordes.length - semis.length);
       if (sansBasse && !A.renversements) formes = formes.filter((f) => f.slice(0, k).every((x) => x === 'x'));
       return { formes, total };
@@ -652,7 +653,7 @@ function lire(cle, defaut) { try { const v = localStorage.getItem(cle); return v
 function ecrire(cle, v) { try { localStorage.setItem(cle, JSON.stringify(v)); } catch (e) { /* stockage indisponible */ } }
 const etat = {
   acc: lire('gf.acc', 'guitalele'),
-  filtres: Object.assign({ fretteMin: null, fretteMax: 12, sansEtouffee: false, sansVide: false, sansBasse: false }, lire('gf.filtres', {})),
+  filtres: Object.assign({ fretteMin: null, fretteMax: 12, sansEtouffee: false, sansVide: false, avecVide: false, sansBasse: false }, lire('gf.filtres', {})),
   favSeul: false, res: null, lot: 1, vue: 'accords', pos: null, posOuvert: false, base: null,
 };
 let favoris = lire('gf.favoris', { version: 2, favoris: [] });
@@ -947,7 +948,8 @@ function afficher() {
     <label class="${gen ? 'grise' : ''}">Frette min <select data-f="fretteMin" ${gen ? 'disabled' : ''}>${opt('', 'aucune', f.fretteMin == null)}${[1, 2, 3, 4, 5, 7, 9, 12].map((v) => opt(v, v, f.fretteMin === v)).join('')}</select></label>
     <label class="${gen ? 'grise' : ''}">Frette max <select data-f="fretteMax" ${gen ? 'disabled' : ''}>${opt('', 'toutes', f.fretteMax == null)}${[3, 4, 5, 7, 9, 12, 15].map((v) => opt(v, v, f.fretteMax === v)).join('')}</select></label>
     <label><input type="checkbox" data-f="sansEtouffee" ${f.sansEtouffee ? 'checked' : ''}> Sans corde étouffée</label>
-    <label class="${gen ? 'grise' : ''}"><input type="checkbox" data-f="sansVide" ${f.sansVide ? 'checked' : ''} ${gen ? 'disabled' : ''}> Sans corde à vide</label>
+    <label class="${gen || f.avecVide ? 'grise' : ''}"><input type="checkbox" data-f="sansVide" ${f.sansVide ? 'checked' : ''} ${gen || f.avecVide ? 'disabled' : ''}> Sans corde à vide</label>
+    <label class="${gen || f.sansVide ? 'grise' : ''}"><input type="checkbox" data-f="avecVide" ${f.avecVide ? 'checked' : ''} ${gen || f.sansVide ? 'disabled' : ''}> Corde(s) à vide</label>
     <label class="${basseGrise ? 'grise' : ''}"><input type="checkbox" data-f="sansBasse" ${f.sansBasse ? 'checked' : ''} ${basseGrise ? 'disabled' : ''}> Sans basse</label>
   </div></details>`;
   h += `<div class="entete-pos"><h2>${gen ? 'Formes génériques' : 'Positions'} · ${esc(A.court)}</h2>
@@ -1228,6 +1230,10 @@ document.addEventListener('change', (ev) => {
   if (t.dataset.f) {
     const f = etat.filtres;
     if (t.type === 'checkbox') f[t.dataset.f] = t.checked;
+    if (t.dataset.f === 'sansVide' || t.dataset.f === 'avecVide') {     // les deux options s'excluent
+      const autre = document.querySelector(`[data-f="${t.dataset.f === 'sansVide' ? 'avecVide' : 'sansVide'}"]`);
+      autre.disabled = t.checked; autre.closest('label').classList.toggle('grise', t.checked);
+    }
     else f[t.dataset.f] = t.value === '' ? null : Number(t.value);
     ecrire('gf.filtres', f); etat.lot = 1; afficherPositions();
   }
