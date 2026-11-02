@@ -1008,7 +1008,7 @@ function afficherPositions() {
   if (total != null && total !== liste.length) info += ` sur ${total}`;
   if (gen) info += ', sans corde à vide ni indication de case';
   let h = `<p class="info">${info}. Touche un diagramme pour l’agrandir.</p>` +
-    (etat.favSeul ? `<p><button type="button" class="btn" id="png-tous">Télécharger les PNG des ${liste.length} favori${liste.length > 1 ? 's' : ''}</button></p>` : '') +
+    (etat.favSeul ? `<p><button type="button" class="btn" id="png-tous">Télécharger la planche des ${liste.length} favori${liste.length > 1 ? 's' : ''} (PNG)</button></p>` : '') +
     '<div class="grille-diag">';
   liste.slice(0, n).forEach((x, k) => {
     const est = favs.has(x.forme.join(' '));
@@ -1146,28 +1146,66 @@ async function telechargerPng(titre, sous, svg, nom) {
     if (e && e.name !== 'AbortError') alert('Image non créée : ' + e.message);
   }
 }
+// planche : tous les favoris affiches sur une seule image (30 au plus par image, sinon plusieurs pages)
+async function imageSvg(svg) { const i = new Image(); i.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); await i.decode(); return i; }
+async function planchePng(titre, sous, ivs, cartes) {
+  const L = 1080, marge = 44, ecart = 18, par = 3, police = "'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif";
+  const cell = (L - 2 * marge - (par - 1) * ecart) / par;
+  const images = [];
+  for (const svg of cartes) {
+    const vb = svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+    images.push({ img: await imageSvg(svg), h: (cell - 20) * Number(vb[2]) / Number(vb[1]) });
+  }
+  const rangs = [];
+  for (let k = 0; k < images.length; k += par) rangs.push(images.slice(k, k + par));
+  const hauteurs = rangs.map((r) => Math.max(...r.map((x) => x.h)) + 20);
+  const tete = marge + 60 + 40 + 64 + 20;
+  const c = document.createElement('canvas'), x = c.getContext('2d');
+  c.width = L; c.height = Math.ceil(tete + hauteurs.reduce((s, h) => s + h + ecart, 0) + marge);
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = '#1a237e'; x.font = `700 50px ${police}`; x.fillText(titre, marge, marge + 46);
+  x.fillStyle = '#444b6e'; x.font = `400 28px ${police}`; x.fillText(sous, marge, marge + 92);
+  let px = marge;                                         // intervalles de l'accord, en pastilles de couleur
+  for (const iv of ivs) {
+    const coul = COUL[iv] || '#333', r = 26, cy = marge + 92 + 46;
+    x.beginPath(); x.arc(px + r, cy, r, 0, 2 * Math.PI); x.fillStyle = '#fff'; x.fill(); x.lineWidth = 4; x.strokeStyle = coul; x.stroke();
+    x.fillStyle = coul; x.font = `700 ${iv.length > 1 ? 22 : 26}px ${police}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(iv, px + r, cy + 1); x.textAlign = 'start'; x.textBaseline = 'alphabetic';
+    px += 2 * r + 12;
+  }
+  let y = tete;
+  rangs.forEach((rang, i) => {
+    rang.forEach((im, j) => {
+      const cx = marge + j * (cell + ecart);
+      x.strokeStyle = '#d6daea'; x.lineWidth = 2; x.strokeRect(cx, y, cell, hauteurs[i]);
+      x.drawImage(im.img, cx + 10, y + 10, cell - 20, im.h);
+    });
+    y += hauteurs[i] + ecart;
+  });
+  return new Promise((ok) => c.toBlob(ok, 'image/png'));
+}
 async function telechargerTous() {
   const a = etat.res, gen = !a.racine, liste = document.getElementById('positions')._liste, A = ACCORDAGES[etat.acc];
-  const b = document.getElementById('png-tous'); b.disabled = true;
-  const fichiers = [];
-  for (const [k, x] of liste.entries()) {
-    b.textContent = `Préparation… ${k + 1} / ${liste.length}`;
-    const sous = gen ? `${A.nom} · forme générique · intervalles du grave à l’aigu : ${M.etiquettes(x.forme, etat.acc, x.racine).filter(Boolean).join(' ')}`
-      : `${A.nom} · notes du grave à l’aigu : ${M.notesForme(x.forme, etat.acc).join(' ')}`;
-    const blob = await pngDe(`${nomAccord(a)}  {${a.r.tel}}`, sous, svgDiagramme(x.forme, etat.acc, x.racine, gen, 300));
-    fichiers.push(new File([blob], nomPng(nomAccord(a), gen ? 'generique' : '', etat.acc, x.forme.join('-')), { type: 'image/png' }));
-  }
+  const b = document.getElementById('png-tous'), libelle = b.textContent;
+  b.disabled = true; b.textContent = 'Préparation de la planche…';
+  const PAR_PLANCHE = 30, pages = Math.ceil(liste.length / PAR_PLANCHE), fichiers = [];
   try {
+    for (let p = 0; p < pages; p++) {
+      const lot = liste.slice(p * PAR_PLANCHE, (p + 1) * PAR_PLANCHE);
+      const sous = `${A.nom} · ${liste.length} favori${liste.length > 1 ? 's' : ''}${gen ? ' (formes génériques)' : ''}` + (pages > 1 ? ` · page ${p + 1}/${pages}` : '');
+      const blob = await planchePng(`${nomAccord(a)}  {${a.r.tel}}`, sous, a.r.notes.split(' '), lot.map((x) => svgDiagramme(x.forme, etat.acc, x.racine, gen, 300)));
+      fichiers.push(new File([blob], nomPng(nomAccord(a), gen ? 'generique' : '', 'favoris', etat.acc, pages > 1 ? 'p' + (p + 1) : ''), { type: 'image/png' }));
+    }
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
     if (ios && navigator.canShare && navigator.canShare({ files: fichiers })) await navigator.share({ files: fichiers });
-    else for (const f of fichiers) {                 // un fichier apres l'autre (le navigateur peut demander l'autorisation une fois)
+    else for (const f of fichiers) {
       const url = URL.createObjectURL(f), lien = document.createElement('a');
       lien.href = url; lien.download = f.name; document.body.appendChild(lien); lien.click(); lien.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
       await new Promise((ok) => setTimeout(ok, 350));
     }
-  } catch (e) { if (e && e.name !== 'AbortError') alert('Images non créées : ' + e.message); }
-  b.disabled = false; b.textContent = `Télécharger les PNG des ${liste.length} favori${liste.length > 1 ? 's' : ''}`;
+  } catch (e) { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); }
+  b.disabled = false; b.textContent = libelle;
 }
 function boutonPng(titre, sous, svg, nom) { return ['Télécharger PNG', () => telechargerPng(titre, sous, svg, nom), false]; }
 function ouvrirDialogue(titre, sous, corps, boutons) {
