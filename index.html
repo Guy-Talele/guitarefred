@@ -786,16 +786,22 @@ function svgPastille(x, y, r, iv, fond, ep) {
   return `<circle cx="${x}" cy="${y}" r="${r}" fill="${fond || '#fff'}" stroke="${c}" stroke-width="${ep || Math.max(1.5, r * 0.12)}"/>` +
     `<text x="${x}" y="${y}" fill="${c}" font-size="${r * (iv.length > 1 ? 0.78 : 0.95)}" font-weight="700" text-anchor="middle" dominant-baseline="central">${esc(iv)}</text>`;
 }
-// grille d'accord : sa couleur dit sur quelle corde est la tonique (la plus grave des cordes qui jouent la fondamentale)
+// grille d'accord : sa couleur dit sur quelle corde est la note la plus grave jouee. En position fondamentale, c'est
+// la corde de la tonique ; pour un accord sans basse (x x 9 9 9 11), c'est celle de sa basse, comme x x 2 4 4 4.
 const COUL_CORDE_TONIQUE = { 6: '#9fa8da', 5: '#ef9a9a', 4: '#80cbc4', 3: '#e6b86a', 2: '#b39ddb', 1: '#90a4ae' };
 const NOM_CORDE = { 6: '6e corde', 5: '5e corde', 4: '4e corde', 3: '3e corde', 2: '2e corde', 1: '1re corde' };
-function cordeTonique(forme, acc, racinePc) {
-  const lab = M.etiquettes(forme, acc, racinePc), i = lab.indexOf('F');
+function cordeTonique(forme) {
+  const i = forme.findIndex((x) => x !== 'x');
   return i < 0 ? null : forme.length - i;               // numero usuel : 6 = la plus grave d'un instrument a 6 cordes
+}
+function texteCorde(forme, acc, racinePc) {
+  const ct = cordeTonique(forme), i = forme.findIndex((x) => x !== 'x');
+  if (!ct) return '';
+  return M.etiquettes(forme, acc, racinePc)[i] === 'F' ? ` · tonique sur la ${NOM_CORDE[ct]}` : ` · sans basse, corde la plus grave : ${NOM_CORDE[ct].replace(' corde', '')}`;
 }
 function svgDiagramme(forme, acc, racinePc, generique, largeur = 160) {
   const n = forme.length;
-  const ct = cordeTonique(forme, acc, racinePc), GRILLE = COUL_CORDE_TONIQUE[ct] || '#c8c8c8';
+  const ct = cordeTonique(forme), GRILLE = COUL_CORDE_TONIQUE[ct] || '#c8c8c8';
   const app = forme.filter((x) => x !== 'x' && x !== '0').map(Number);
   const haut = app.length ? Math.max(...app) : 0, bas = app.length ? Math.min(...app) : 1;
   const debut = generique ? 1 : (haut <= 5 ? 1 : bas);
@@ -1020,8 +1026,8 @@ function afficherPositions() {
   let info = `${liste.length} ${etat.favSeul ? 'favori' : gen ? 'forme' : 'position'}${liste.length > 1 ? 's' : ''}`;
   if (total != null && total !== liste.length) info += ` sur ${total}`;
   if (gen) info += ', sans corde à vide ni indication de case';
-  const cordes = [...new Set(liste.map((x) => cordeTonique(x.forme, etat.acc, x.racine)))].filter(Boolean).sort((a, b) => b - a);
-  const legende = cordes.length ? `<p class="legende">Tonique sur la ${cordes.map((c) => `<span class="pastille-corde" style="background:${COUL_CORDE_TONIQUE[c]}"></span>${NOM_CORDE[c].replace(' corde', '')}`).join(' ')} corde</p>` : '';
+  const cordes = [...new Set(liste.map((x) => cordeTonique(x.forme)))].filter(Boolean).sort((a, b) => b - a);
+  const legende = cordes.length ? `<p class="legende">Corde la plus grave : ${cordes.map((c) => `<span class="pastille-corde" style="background:${COUL_CORDE_TONIQUE[c]}"></span>${NOM_CORDE[c].replace(' corde', '')}`).join(' ')}</p>` : '';
   let h = `<p class="info">${info}. Touche un diagramme pour l’agrandir.</p>` + legende +
     (etat.favSeul ? `<p><button type="button" class="btn" id="png-tous">Télécharger la planche des ${liste.length} favori${liste.length > 1 ? 's' : ''} (PNG)</button></p>` : '') +
     '<div class="grille-diag">';
@@ -1239,8 +1245,7 @@ function ouvrirPosition(k) {
   const a = etat.res, x = document.getElementById('positions')._liste[k], gen = !a.racine;
   const sous = gen ? `${ACCORDAGES[etat.acc].nom} · forme générique, à placer sur le manche. Intervalles du grave à l’aigu : ${M.etiquettes(x.forme, etat.acc, x.racine).filter(Boolean).join(' ')}`
     : `${ACCORDAGES[etat.acc].nom} · notes du grave à l’aigu : ${M.notesForme(x.forme, etat.acc).join(' ')}`;
-  const ct = cordeTonique(x.forme, etat.acc, x.racine);
-  const sousT = sous + (ct ? ` · tonique sur la ${NOM_CORDE[ct]}` : ' · sans tonique');
+  const sousT = sous + texteCorde(x.forme, etat.acc, x.racine);
   const boutons = [];
   const est = gen ? generiquesFav(etat.acc, a.r.notes).has(x.forme.join(' ')) : favDe(etat.acc, G.classe(a.racine), a.r.notes).includes(x.forme.join(' '));
   boutons.push([(est ? '★ Retirer des favoris' : '☆ Ajouter aux favoris') + (gen ? ' (12 tons)' : ''), () => { etoile(x); afficherPositions(); ouvrirPosition(k); }, false]);
