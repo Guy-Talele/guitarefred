@@ -216,7 +216,7 @@ footer .liens { margin-top: .5rem; }
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
     <button class="btn" type="button" id="importer">Importer favoris.json</button>
-    <input type="file" id="fichier" accept=".json,application/json" hidden>
+    <input type="file" id="fichier" accept=".json,.gz,application/json,application/gzip" hidden>
   </div>
 </footer>
 <dialog id="dlg"><div class="dlg-tete"><h3 id="dlg-titre"></h3><p id="dlg-sous"></p></div><div class="dlg-corps" id="dlg-corps"></div><div class="dlg-pied" id="dlg-pied"></div></dialog>
@@ -659,9 +659,40 @@ const etat = {
   filtres: Object.assign({ fretteMin: null, fretteMax: 12, sansEtouffee: false, sansVide: false, avecVide: false, sansBasse: false }, lire('gf.filtres', {})),
   favSeul: false, res: null, lot: 1, vue: 'accords', pos: null, posOuvert: false, base: null,
 };
-let favoris = lire('gf.favoris', { version: 2, favoris: [] });
-if (!favoris || !Array.isArray(favoris.favoris)) favoris = { version: 2, favoris: [] };
-if (!Array.isArray(favoris.retires)) favoris.retires = [];
+// Favoris : gardes dans IndexedDB (des milliers de favoris depassent la petite memoire « localStorage »)
+let favoris = { version: 2, favoris: [], retires: [] };
+function base() {
+  return new Promise((ok, ko) => {
+    const r = indexedDB.open('guitarefred', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error);
+  });
+}
+async function idbLire(k) {
+  const db = await base();
+  return new Promise((ok, ko) => { const t = db.transaction('kv').objectStore('kv').get(k); t.onsuccess = () => ok(t.result); t.onerror = () => ko(t.error); });
+}
+async function idbEcrire(k, v) {
+  const db = await base();
+  return new Promise((ok, ko) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => ok(); t.onerror = () => ko(t.error); });
+}
+let minuterieFav = null;
+function sauverFavoris() {
+  clearTimeout(minuterieFav);
+  minuterieFav = setTimeout(() => idbEcrire('favoris', favoris).catch(() => alert('Les favoris n’ont pas pu être enregistrés sur cet appareil.')), 250);
+}
+async function chargerFavoris() {
+  let f = null;
+  try { f = await idbLire('favoris'); } catch (e) { /* IndexedDB indisponible */ }
+  if (!f) {                                       // premiere fois : reprise de l'ancienne memoire
+    f = lire('gf.favoris', null);
+    if (f) { try { await idbEcrire('favoris', f); localStorage.removeItem('gf.favoris'); } catch (e) { /* on garde l'ancienne */ } }
+  }
+  if (f && Array.isArray(f.favoris)) favoris = f;
+  if (!Array.isArray(favoris.retires)) favoris.retires = [];
+  if (completerJumeaux()) sauverFavoris();
+  majNbFav();
+}
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 const horodatage = () => new Date().toISOString().slice(0, 19);
 function retirerFavoris(liste) {                  // garde la trace des retraits, pour la fusion entre appareils
@@ -671,7 +702,7 @@ function retirerFavoris(liste) {                  // garde la trace des retraits
   for (const x of liste) favoris.retires.push({ instrument: x.instrument, fondamentale: x.fondamentale, intervalles: x.intervalles, forme: x.forme, retire: t });
 }
 function enregistrerFavoris() {
-  ecrire('gf.favoris', favoris); majNbFav();
+  sauverFavoris(); majNbFav();
   if (window.GFDrive) window.GFDrive.planifier();
 }
 // au ukulele, pas de corde grave : un accord et ses renversements ne font qu'un, les favoris se reconnaissent a leurs notes
@@ -776,7 +807,6 @@ function basculerGenerique(acc, r0, r, gf) {
   return present;
 }
 
-if (completerJumeaux()) ecrire('gf.favoris', favoris);      // au lancement
 function majNbFav() { document.getElementById('nb-fav').textContent = favoris.favoris.length; }
 
 // ---------------------------------------------------------------- dessins SVG
@@ -1320,7 +1350,9 @@ document.addEventListener('change', (ev) => {
   if (t.id === 'ton-gamme') { etat.tonGamme = t.value; return; }
   if (t.id === 'racine-base') { etat.base = { texte: document.getElementById('saisie-base').value.trim(), racine: t.value }; vueBase(); return; }
   if (t.id === 'fichier' && t.files[0]) {
-    t.files[0].text().then((txt) => {
+    const lireTexte = (f) => f.name.endsWith('.gz')         // sauvegarde compressee du Drive (favoris_AAAA-MM-JJ.json.gz)
+      ? new Response(f.stream().pipeThrough(new DecompressionStream('gzip'))).text() : f.text();
+    lireTexte(t.files[0]).then((txt) => {
       const d = JSON.parse(txt);
       const cles = new Set(favoris.favoris.map((x) => [x.instrument, x.fondamentale, x.intervalles, x.forme].join('|')));
       let ajout = 0;
@@ -1386,24 +1418,8 @@ window.GFDrive = (function () {
   const API = 'https://www.googleapis.com/drive/v3/files', UP = 'https://www.googleapis.com/upload/drive/v3/files';
   const SAUVEGARDES = 60, GARDE_RETRAITS_JOURS = 180;
   let jeton = null, expire = 0, client = null, ids = null, minuterie = null, derniereSync = null, message = '', infoRef = '', occupe = false;
+  let modifie = !!lire('gf.drive.modifie', false);   // des changements locaux attendent d'etre envoyes
   const configure = () => CLIENT_ID && !CLIENT_ID.startsWith('/*');
-
-  // ---------- memoire locale des donnees (IndexedDB : trop gros pour localStorage)
-  function base() {
-    return new Promise((ok, ko) => {
-      const r = indexedDB.open('guitarefred', 1);
-      r.onupgradeneeded = () => r.result.createObjectStore('kv');
-      r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error);
-    });
-  }
-  async function idbLire(k) {
-    const db = await base();
-    return new Promise((ok, ko) => { const t = db.transaction('kv').objectStore('kv').get(k); t.onsuccess = () => ok(t.result); t.onerror = () => ko(t.error); });
-  }
-  async function idbEcrire(k, v) {
-    const db = await base();
-    return new Promise((ok, ko) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => ok(); t.onerror = () => ko(t.error); });
-  }
 
   // ---------- connexion Google
   function chargerGoogle() {
@@ -1475,6 +1491,31 @@ window.GFDrive = (function () {
     return (await appel(UP + '/' + id + '?uploadType=media&fields=id,modifiedTime', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: texte })).json();
   }
   const lireFichier = async (id) => (await appel(API + '/' + id + '?alt=media')).text();
+  const lireOctets = async (id) => new Uint8Array(await (await appel(API + '/' + id + '?alt=media')).arrayBuffer());
+  async function pako() {
+    if (!window.pako) await new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+    return window.pako;
+  }
+  async function compresser(texte) {           // le fichier des favoris passe de ~2,3 Mo a ~100 Ko
+    if (typeof CompressionStream === 'undefined') return (await pako()).gzip(texte);
+    return new Uint8Array(await new Response(new Blob([texte]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+  }
+  async function decompresser(octets) {
+    if (typeof DecompressionStream === 'undefined') return (await pako()).ungzip(octets, { to: 'string' });
+    return new Response(new Blob([octets]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  }
+  async function creerBinaire(nom, parent, octets) {
+    const b = 'gf' + Math.random().toString(36).slice(2);
+    const corps = new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: nom, parents: [parent] })}\r\n` +
+      `--${b}\r\nContent-Type: application/gzip\r\n\r\n`, octets, `\r\n--${b}--`]);
+    return (await appel(UP + '?uploadType=multipart&fields=id,modifiedTime', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + b }, body: corps })).json();
+  }
+  async function remplacerBinaire(id, octets) {
+    return (await appel(UP + '/' + id + '?uploadType=media&fields=id,modifiedTime', { method: 'PATCH', headers: { 'Content-Type': 'application/gzip' }, body: new Blob([octets]) })).json();
+  }
+  async function copier(id, nom, parent) {     // copie faite par le Drive lui-meme : rien a transferer
+    return (await appel(API + '/' + id + '/copy?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nom, parents: [parent] }) })).json();
+  }
 
   // ---------- favoris : fusion entre appareils (le plus recent l'emporte, ajout comme retrait)
   const cle = (x) => [x.instrument, x.fondamentale, x.intervalles, x.forme].join('|');
@@ -1490,34 +1531,48 @@ window.GFDrive = (function () {
     return { version: 2, favoris: vals.filter((e) => e.type === 'a').map((e) => e.x),
       retires: vals.filter((e) => e.type === 'r' && e.t >= limite).map((e) => e.x) };
   }
+  const cles = (o) => new Set([...(o.favoris || []).map(cle), ...(o.retires || []).map((x) => 'r|' + cle(x) + '|' + x.retire)]);
+  const memes = (a, b) => { const x = cles(a), y = cles(b); return x.size === y.size && [...x].every((k) => y.has(k)); };
   async function synchroniser() {
     if (!connecte() || occupe) return;
     occupe = true; message = 'Synchronisation…'; afficherEtat();
     try {
       const d = await dossiers();
-      const f = await fichier('favoris.json', d.favoris);
-      let distant = { favoris: [], retires: [] };
-      if (f) distant = JSON.parse(await lireFichier(f.id) || '{}');
-      const fusion = fusionner(favoris, distant);
+      const f = await fichier('favoris.json.gz', d.favoris);
+      const ancien = await fichier('favoris.json', d.favoris);       // ancienne version non compressee : reprise puis supprimee
+      let distant = { favoris: [], retires: [] }, relu = false;
+      if (f && f.modifiedTime !== lire('gf.drive.favmod', null)) {   // un autre appareil a ecrit depuis : on relit
+        message = 'Synchronisation : lecture du Drive…'; afficherEtat();
+        distant = JSON.parse(await decompresser(await lireOctets(f.id)));
+        relu = true;
+      }
+      let fusion = fusionner(favoris, distant);
+      if (ancien) fusion = fusionner(fusion, JSON.parse(await lireFichier(ancien.id) || '{}'));
       favoris.favoris = fusion.favoris; favoris.retires = fusion.retires; favoris.version = 2;
       completerJumeaux();                                   // paires guitalele / guitare toujours completes
-      ecrire('gf.favoris', favoris); majNbFav();
-      const texte = JSON.stringify(favoris, null, 1);
-      if (f) {
-        const nomS = 'favoris_' + aujourdhui() + '.json';
-        if (!(await fichier(nomS, d.sauvegardes))) {          // une sauvegarde par jour, avant la premiere ecriture
-          await creer(nomS, d.sauvegardes, JSON.stringify(distant, null, 1));
-          const toutes = await lister(`'${d.sauvegardes}' in parents and trashed=false`, 'name desc');
-          for (const vieille of toutes.slice(SAUVEGARDES)) await appel(API + '/' + vieille.id, { method: 'DELETE' });
+      sauverFavoris(); majNbFav();
+      if (!f || ancien || modifie || (relu && !memes(favoris, distant))) {
+        if (f) {
+          const nomS = 'favoris_' + aujourdhui() + '.json.gz';
+          if (!(await fichier(nomS, d.sauvegardes))) {        // une sauvegarde par jour, avant la premiere ecriture
+            await copier(f.id, nomS, d.sauvegardes);
+            const toutes = await lister(`'${d.sauvegardes}' in parents and trashed=false`, 'name desc');
+            for (const vieille of toutes.slice(SAUVEGARDES)) await appel(API + '/' + vieille.id, { method: 'DELETE' });
+          }
         }
-        await remplacer(f.id, texte);
-      } else await creer('favoris.json', d.favoris, texte);
+        message = 'Synchronisation : envoi…'; afficherEtat();
+        const octets = await compresser(JSON.stringify(favoris));
+        const r = f ? await remplacerBinaire(f.id, octets) : await creerBinaire('favoris.json.gz', d.favoris, octets);
+        ecrire('gf.drive.favmod', r.modifiedTime);
+        if (ancien) await appel(API + '/' + ancien.id, { method: 'DELETE' });
+      } else if (relu) ecrire('gf.drive.favmod', f.modifiedTime);
+      modifie = false; ecrire('gf.drive.modifie', false);
       derniereSync = new Date(); message = '';
       if (etat.res && etat.vue === 'accords') afficherPositions();
     } catch (e) { message = e.message === 'connexion' ? 'Reconnexion nécessaire.' : 'Synchronisation impossible (' + e.message + ').'; }
     occupe = false; afficherEtat();
   }
-  function planifier() { if (!connecte()) return; clearTimeout(minuterie); minuterie = setTimeout(synchroniser, 1500); }
+  function planifier() { modifie = true; ecrire('gf.drive.modifie', true); if (!connecte()) return; clearTimeout(minuterie); minuterie = setTimeout(synchroniser, 1500); }
 
   // ---------- reference : donnees_web.json
   function valider(d) { if (!d || !Array.isArray(d.items) || !Array.isArray(d.groupes) || typeof d.formes !== 'string') throw new Error('ce fichier n’est pas un donnees_web.json'); }
@@ -1599,6 +1654,7 @@ window.GFDrive = (function () {
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
 (async () => {
+  await chargerFavoris();
   const brut = document.getElementById('donnees').textContent.trim();
   if (brut && brut[0] === '{') return demarrer(JSON.parse(brut));       // prototype : donnees integrees a la page
   if (window.GFDrive) return window.GFDrive.demarrer();                 // version en ligne : donnees du Drive
