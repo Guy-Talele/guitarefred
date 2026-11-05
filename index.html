@@ -212,7 +212,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 04/11/2026 09:40</p>
+  <p class="discret" id="version">Version de la page : 05/11/2026 08:40</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -703,6 +703,7 @@ function retirerFavoris(liste) {                  // garde la trace des retraits
   for (const x of liste) favoris.retires.push({ instrument: x.instrument, fondamentale: x.fondamentale, intervalles: x.intervalles, forme: x.forme, retire: t });
 }
 function enregistrerFavoris() {
+  completerRenversements(); completerJumeaux();   // regles : renversements des formes sans basse, paires guitalele / guitare
   sauverFavoris(); majNbFav();
   if (window.GFDrive) window.GFDrive.planifier();
 }
@@ -722,7 +723,7 @@ function poserFav(acc, racinePc, intervalles, nom, forme, present) {
   const deja = favoris.favoris.filter((x) => x.forme === forme && correspond(x, acc, racinePc, intervalles));
   if (present && !deja.length)
     favoris.favoris.push({ instrument: acc, fondamentale: NOMS_NOTES[mod12(racinePc)], intervalles, nom, forme, ajoute: horodatage() });
-  else if (!present) retirerFavoris(deja);
+  else if (!present) { retirerFavoris(deja); retirerFamille(deja); }
 }
 // Regles entre instruments : guitalele <-> guitare (ajout et retrait ; la guitare joue l'accord une quarte plus bas) ;
 // guitalele ou guitare -> ukulele (ajout seulement, si ses 4 cordes aigues jouent toutes les notes) ; ukulele : rien.
@@ -744,17 +745,69 @@ function cascade(acc, racinePc, intervalles, forme, ajout) {
 }
 // Guitalele et guitare vont toujours par paires (meme forme, accord une quarte plus bas a la guitare) : un favori
 // arrive par import ou depuis une ancienne version sans son jumeau le recoit. Le ukulele n'est pas concerne.
+// Accords sans basse : la forme (cordes graves en trop etouffees) vaut pour l'accord et pour ses renversements
+function estSansBasse(acc, intervalles, forme) {
+  const f = (forme || '').split(' '), k = 6 - (intervalles || '').split(' ').length;
+  return (acc === 'guitalele' || acc === 'guitare') && f.length === 6 && k >= 2 && f.slice(0, k).every((x) => x === 'x');
+}
+function familleInv(rc, intervalles) {           // renversements presents dans la base : [classe, intervalles, nom]
+  if (!M) return [];
+  const classes = intervalles.split(' ').map((i) => mod12(rc + INTERVALLES.indexOf(i)));
+  const out = [];
+  for (const b of classes.slice(1)) {
+    const t = M.parNotes.get(G.cleDe(classes.map((c) => c - b)));
+    if (t) out.push([b, t.notes, t.item]);
+  }
+  return out;
+}
+// index des favoris (une cle par favori) : les verifications restent rapides avec des dizaines de milliers de favoris
+function cleIndex(instr, pc, intervalles, forme) {
+  return instr === 'ukulele' ? 'u|' + [...notesAccord(pc, intervalles)].sort((a, b) => a - b).join(',') + '|' + forme
+    : instr + '|' + pc + '|' + intervalles + '|' + forme;
+}
+function indexFavoris() {
+  const s = new Set();
+  for (const x of favoris.favoris) {
+    let pc; try { pc = G.classe(x.fondamentale); } catch (e) { continue; }
+    if (x.intervalles && x.forme) s.add(cleIndex(x.instrument, pc, x.intervalles, x.forme));
+  }
+  return s;
+}
+function completerRenversements() {
+  let ajout = 0;
+  const idx = indexFavoris();
+  for (const x of favoris.favoris.slice()) {
+    if (!x.intervalles || !estSansBasse(x.instrument, x.intervalles, x.forme)) continue;
+    let rc; try { rc = G.classe(x.fondamentale); } catch (e) { continue; }
+    for (const [b, iv, nom] of familleInv(rc, x.intervalles)) {
+      const k = cleIndex(x.instrument, b, iv, x.forme);
+      if (!idx.has(k)) {
+        favoris.favoris.push({ instrument: x.instrument, fondamentale: NOMS_NOTES[b], intervalles: iv, nom, forme: x.forme, ajoute: x.ajoute || horodatage() });
+        idx.add(k); ajout++;
+      }
+    }
+  }
+  return ajout;
+}
+function retirerFamille(retires) {               // retrait d'un favori sans basse : ses renversements aussi
+  for (const r of retires) {
+    if (!estSansBasse(r.instrument, r.intervalles, r.forme)) continue;
+    const n = notesFav(r);
+    retirerFavoris(favoris.favoris.filter((x) => x.instrument === r.instrument && x.forme === r.forme && memesNotes(notesFav(x), n)));
+  }
+}
 function completerJumeaux() {
   let ajout = 0;
+  const idx = indexFavoris();
   for (const x of favoris.favoris.slice()) {
     if (x.instrument !== 'guitalele' && x.instrument !== 'guitare') continue;
     let rc; try { rc = G.classe(x.fondamentale); } catch (e) { continue; }
     if (!x.intervalles || !x.forme) continue;
     const autre = x.instrument === 'guitalele' ? 'guitare' : 'guitalele';
-    const r2 = mod12(rc + (autre === 'guitare' ? -5 : 5));
-    if (!favoris.favoris.some((y) => y.forme === x.forme && correspond(y, autre, r2, x.intervalles))) {
+    const r2 = mod12(rc + (autre === 'guitare' ? -5 : 5)), k = cleIndex(autre, r2, x.intervalles, x.forme);
+    if (!idx.has(k)) {
       favoris.favoris.push({ instrument: autre, fondamentale: NOMS_NOTES[r2], intervalles: x.intervalles, nom: x.nom || '', forme: x.forme, ajoute: x.ajoute || horodatage() });
-      ajout++;
+      idx.add(k); ajout++;
     }
   }
   return ajout;
@@ -788,13 +841,16 @@ function placements(gf, r0) {
 function generiqueFav(acc, r0, intervalles, nom, gf, present) {
   if (present) { for (const [fo, rc] of placements(gf, r0)) poserFav(acc, rc, intervalles, nom, fo, true); return; }
   const cle = gf.join(' ');
+  const retires = [];
   for (let rac = 0; rac < 12; rac++) {
-    retirerFavoris(favoris.favoris.filter((x) => {
+    const lot = favoris.favoris.filter((x) => {
       if (!correspond(x, acc, rac, intervalles)) return false;
       const t = x.forme.split(' ');
       return !(t.includes('0') || t.every((v) => v === 'x')) && normaliserForme(t)[0].join(' ') === cle;
-    }));
+    });
+    retirerFavoris(lot); retires.push(...lot);
   }
+  retirerFamille(retires);
 }
 function basculerGenerique(acc, r0, r, gf) {
   const present = !generiquesFav(acc, r.notes).has(gf.join(' '));
@@ -1400,6 +1456,7 @@ async function demarrer(donnees) {
     const octets = await degonfler(donnees.formes);
     M = new G.Moteur(donnees, octets);
     DONNEES = donnees;
+    if (completerRenversements() + completerJumeaux()) { sauverFavoris(); majNbFav(); }
     COUL = Object.assign({}, COUL_DEFAUT, M.couleurs);
     majInstruments(); majNbFav();
     const derniere = lire('gf.derniere', '');
@@ -1534,8 +1591,10 @@ window.GFDrive = (function () {
   }
   const cles = (o) => new Set([...(o.favoris || []).map(cle), ...(o.retires || []).map((x) => 'r|' + cle(x) + '|' + x.retire)]);
   const memes = (a, b) => { const x = cles(a), y = cles(b); return x.size === y.size && [...x].every((k) => y.has(k)); };
+  let encore = false;                        // une demande arrivee pendant une synchronisation : on la refait ensuite
   async function synchroniser() {
-    if (!connecte() || occupe) return;
+    if (!connecte()) return;
+    if (occupe) { encore = true; return; }
     occupe = true; message = 'Synchronisation…'; afficherEtat();
     try {
       const d = await dossiers();
@@ -1550,7 +1609,7 @@ window.GFDrive = (function () {
       let fusion = fusionner(favoris, distant);
       if (ancien) fusion = fusionner(fusion, JSON.parse(await lireFichier(ancien.id) || '{}'));
       favoris.favoris = fusion.favoris; favoris.retires = fusion.retires; favoris.version = 2;
-      completerJumeaux();                                   // paires guitalele / guitare toujours completes
+      completerRenversements(); completerJumeaux();         // renversements des formes sans basse, paires guitalele / guitare
       sauverFavoris(); majNbFav();
       if (!f || ancien || modifie || (relu && !memes(favoris, distant))) {
         if (f) {
@@ -1572,6 +1631,7 @@ window.GFDrive = (function () {
       if (etat.res && etat.vue === 'accords') afficherPositions();
     } catch (e) { message = e.message === 'connexion' ? 'Reconnexion nécessaire.' : 'Synchronisation impossible (' + e.message + ').'; }
     occupe = false; afficherEtat();
+    if (encore) { encore = false; setTimeout(synchroniser, 200); }
   }
   function planifier() { modifie = true; ecrire('gf.drive.modifie', true); if (!connecte()) return; clearTimeout(minuterie); minuterie = setTimeout(synchroniser, 1500); }
 
