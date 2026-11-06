@@ -236,7 +236,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 06/11/2026 13:32</p>
+  <p class="discret" id="version">Version de la page : 06/11/2026 14:30</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -256,11 +256,11 @@ footer .liens { margin-top: .5rem; }
   const NOTE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
   const ACCORDAGES = {
     guitalele: { nom: 'Guitalélé (A D G C E A)', court: 'Guitalélé', cordes: ['A', 'D', 'G', 'C', 'E', 'a'],
-      midi: [45, 50, 55, 60, 64, 69], decalage: 5, frettesCarte: 12, toniqueType: 4 },
+      midi: [45, 50, 55, 60, 64, 69], decalage: 5, frettesCarte: 12, toniqueType: 5 },
     guitare: { nom: 'Guitare (E A D G B E)', court: 'Guitare', cordes: ['E', 'A', 'D', 'G', 'B', 'e'],
-      midi: [40, 45, 50, 55, 59, 64], decalage: 0, frettesCarte: 19, toniqueType: 11 },
+      midi: [40, 45, 50, 55, 59, 64], decalage: 0, frettesCarte: 19, toniqueType: 0 },
     ukulele: { nom: 'Ukulélé (G C E A)', court: 'Ukulélé', cordes: ['G', 'C', 'E', 'A'],
-      midi: [55, 60, 64, 69], decalage: 5, renversements: true, frettesCarte: 12, toniqueType: 2 },
+      midi: [55, 60, 64, 69], decalage: 5, renversements: true, frettesCarte: 12, toniqueType: 3 },
   };
   const CORDES_ABSENTES = 2;
   const NOMS_INDEX = ['C', 'C# Db', 'D', 'D# Eb', 'E', 'F', 'F# Gb', 'G', 'G# Ab', 'A', 'A# Bb', 'B'];
@@ -1261,7 +1261,7 @@ function vueHarmo() {
 }
 function restitution(c, d) {
   const r = c.degres[d.resto], gen = !c.h.ton;
-  const dec = gen ? mod12(c.A.toniqueType - r.racine) : 0;            // generique : tonique du mode a la 7e case de la corde grave
+  const dec = gen ? mod12(c.A.toniqueType - r.racine) : 0;            // generique : tonique du mode a la 8e case de la corde grave (on voit sa quarte en haut)
   const tonLab = mod12((c.h.etiquettes === 'accord' ? d.racine : r.racine) + dec);   // intervalles du mode, ou de l'accord
   const accord = new Set(d.sel.map((x) => mod12(d.racine + dec + x)));
   const svg = svgManche(c.pcs.map((p) => mod12(p + dec)), tonLab, etat.acc, accord, gen ? G.FRETTES_TYPE + 1 : null, gen);
@@ -1293,7 +1293,7 @@ async function plancheHarmo() {
   g2.fillStyle = '#fff'; g2.fillRect(0, 0, cv.width, cv.height);
   g2.fillStyle = '#1a237e'; g2.font = `700 52px ${police}`; g2.fillText(`Harmonisation : ${c.fam[1]}, degré I = ${nomMode(c, c.degres[0])}`, marge, marge + 48);
   g2.fillStyle = '#444b6e'; g2.font = `400 28px ${police}`;
-  g2.fillText(`${c.A.nom} · intervalles affichés ${c.h.etiquettes === 'accord' ? 'de l’accord' : 'du mode'}${c.h.ton ? '' : ' · cartes génériques (tonique du mode de restitution à la 7e case de la corde grave)'}`, marge, marge + 96);
+  g2.fillText(`${c.A.nom} · intervalles affichés ${c.h.etiquettes === 'accord' ? 'de l’accord' : 'du mode'}${c.h.ton ? '' : ' · cartes génériques (tonique du mode de restitution à la 8e case de la corde grave)'}`, marge, marge + 96);
   const ecrire1 = (texte, x, y, taille, gras, coul) => {       // texte coupe a la largeur du manche et de l'espace qui suit
     g2.fillStyle = coul; g2.font = `${gras ? 700 : 400} ${taille}px ${police}`;
     let t = texte; while (t.length > 3 && g2.measureText(t).width > larg + ecart * 0.9) t = t.slice(0, -2);
