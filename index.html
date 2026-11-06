@@ -65,7 +65,8 @@ button { cursor: pointer; }
   padding: .35rem .5rem; font-size: .95rem; min-height: 2.5rem;
 }
 .instruments button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 700; }
-.onglets { display: flex; gap: 1.2rem; border-bottom: 1px solid var(--ligne); }
+.onglets { display: flex; gap: .9rem 1.1rem; border-bottom: 1px solid var(--ligne); overflow-x: auto; scrollbar-width: none; }
+.onglets button { white-space: nowrap; }
 .onglets button { border: 0; background: transparent; padding: .25rem 0 .45rem; color: var(--discret); border-bottom: 3px solid transparent; margin-bottom: -1px; min-height: 2.2rem; }
 .onglets button[aria-selected="true"] { color: var(--encre); font-weight: 700; border-bottom-color: var(--accent); }
 form.recherche { display: flex; gap: .5rem; }
@@ -158,6 +159,28 @@ details.pli[open] > summary::after { content: "−"; }
 .gamme h2 { font-size: 1.05rem; margin: 0 0 .45rem; }
 .choix-ton { display: flex; align-items: center; gap: .5rem; min-height: 2.4rem; margin-bottom: .4rem; }
 .choix-ton select { border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); padding: .3rem .4rem; }
+.harmo-choix { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: .5rem .9rem; margin-bottom: .6rem; }
+.harmo-choix label { display: grid; gap: .2rem; font-weight: 700; color: var(--discret); font-size: .9rem; }
+.harmo-choix select { font: inherit; font-weight: 400; color: var(--encre); border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); padding: .35rem .4rem; min-height: 2.4rem; }
+.degre { background: var(--surface); border: 1px solid var(--ligne); border-radius: .7rem; padding: .7rem .9rem; margin: .7rem 0; }
+.degre h3 { margin: 0 0 .5rem; font-size: 1.1rem; }
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chip { min-width: 2.7rem; height: 2.7rem; border-radius: 999px; border: 2.5px solid var(--c); background: #fff; color: var(--c); font-weight: 700; font-size: 1rem; opacity: .55; }
+.chip.on { background: var(--c); color: #fff; opacity: 1; }
+.nom-accord { margin: .55rem 0; }
+.nom-accord small { color: var(--discret); }
+.btn.petit { min-height: 2rem; padding: .15rem .6rem; font-size: .9rem; margin-left: .3rem; }
+.resto { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.resto label { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.resto select { font: inherit; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); padding: .3rem .4rem; min-height: 2.4rem; }
+.cadre-h { overflow-x: auto; background: var(--surface); border: 1px solid var(--ligne); border-radius: .6rem; }
+.table-harmo { border-collapse: collapse; width: 100%; font-size: .92rem; }
+.table-harmo th, .table-harmo td { text-align: left; padding: .35rem .6rem; border-bottom: 1px solid var(--ligne); white-space: nowrap; }
+.grille-harmo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+@media (min-width: 48rem) { .grille-harmo { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.carte-harmo { margin: 0; background: #fff; color: #1c2140; border-radius: .6rem; padding: .4rem; cursor: pointer; }
+.carte-harmo figcaption { font-size: .85rem; margin-bottom: .3rem; }
+.carte-harmo svg { width: 100%; height: auto; display: block; }
 .renv-base { background: var(--surface); border: 1px solid var(--ligne); border-radius: .6rem; padding: .7rem .9rem; margin-bottom: .6rem; display: grid; gap: .4rem; }
 .renv-base h3 { margin: 0; font-size: 1.05rem; }
 .renv-base .pastilles { margin: 0; }
@@ -196,6 +219,7 @@ footer .liens { margin-top: .5rem; }
     <div class="onglets" role="tablist" aria-label="Vue">
       <button type="button" role="tab" data-vue="accords" aria-selected="true">Accords</button>
       <button type="button" role="tab" data-vue="gammes" aria-selected="false">Gammes</button>
+      <button type="button" role="tab" data-vue="harmo" aria-selected="false">Harmonisation</button>
       <button type="button" role="tab" data-vue="base" aria-selected="false">Base</button>
     </div>
     <div class="instruments" role="group" aria-label="Instrument">
@@ -212,7 +236,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 05/11/2026 08:40</p>
+  <p class="discret" id="version">Version de la page : 06/11/2026 08:25</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -1146,6 +1170,7 @@ function basculerVue(vue, dessiner = true) {
   if (!dessiner) return;
   if (vue === 'base') vueBase();
   else if (vue === 'gammes') vueGammes();
+  else if (vue === 'harmo') vueHarmo();
   else if (etat.res) afficher(); else accueil();
 }
 function vueGammes() {
@@ -1171,6 +1196,165 @@ function ouvrirGamme(rang, k) {
   const svg = svgManche(pcs, tonique, etat.acc, null, ton ? null : G.FRETTES_TYPE + 1, !ton), titre = ton ? `${ton} ${nom}` : nom;
   ouvrirDialogue(titre, sous, svg, [boutonPng(titre, sous, svg, nomPng(String(rang).padStart(3, '0'), titre, ton ? '' : 'Type', etat.acc)), ['Fermer', () => dlg().close(), true]]);
 }
+// ---------------------------------------------------------------- onglet Harmonisation
+// Une gamme, le mode du degre I et, au choix, sa fondamentale. Pour chaque degre : l'accord (choisi parmi les
+// intervalles du mode de ce degre) et la restitution, c'est-a-dire la carte du manche de la gamme vue depuis le
+// mode choisi, avec les notes de l'accord en surbrillance.
+const ROMAINS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+function harmoEtat() {
+  if (!etat.harmo) {
+    const memo = lire('gf.harmo', null);
+    etat.harmo = memo && DONNEES.familles.some((f) => f[0] === memo.rang) ? memo
+      : { rang: (DONNEES.familles[0] || [])[0], depart: 0, ton: '', etiquettes: 'mode', degres: {} };
+  }
+  return etat.harmo;
+}
+const harmoSauver = () => ecrire('gf.harmo', etat.harmo);
+function harmoCalcul() {
+  const h = harmoEtat(), A = ACCORDAGES[etat.acc];
+  const fam = DONNEES.familles.find((f) => f[0] === h.rang) || DONNEES.familles[0];
+  const modes = fam[2], depart = Math.min(h.depart || 0, modes.length - 1);
+  const ivs1 = [...modes[depart][1]].sort((a, b) => a - b);
+  const T = h.ton ? G.classe(h.ton) : A.toniqueType;          // sans fondamentale : reference de l'instrument, carte generique
+  const degres = ivs1.map((off, k) => {
+    const ivs = ivs1.map((x) => mod12(x - off)).sort((a, b) => a - b);
+    const m = modes.find((md) => [...md[1]].sort((a, b) => a - b).join(',') === ivs.join(','));
+    const ch = h.degres[k] || {};
+    return { k, off, racine: mod12(T + off), ivs, mode: m ? m[0] : 'mode ' + (k + 1),
+      sel: (ch.sel || [0]).filter((x) => ivs.includes(x)), resto: ch.resto != null && ch.resto < ivs1.length ? ch.resto : k };
+  });
+  return { h, A, fam, modes, depart, ivs1, T, degres, pcs: ivs1.map((x) => mod12(T + x)) };
+}
+function nomDegre(c, d) {                     // « Bb 6 », ou le nom selon Base.txt si l'accord n'est pas dans la base
+  if (d.sel.length < 2) return null;
+  const cle = G.cleDe(d.sel), t = M.parNotes.get(cle);
+  const nom = t ? t.item : G.nommerSelonBase(d.sel).nom;
+  return { nom: (c.h.ton ? NOMS_NOTES[d.racine] + ' ' : '') + nom, item: nom, dansBase: !!t, tel: t ? t.tel : null, cle };
+}
+const nomMode = (c, d) => (c.h.ton ? NOMS_NOTES[d.racine] + ' ' : '') + d.mode;
+function vueHarmo() {
+  const c = harmoCalcul(), h = c.h;
+  const opt = (v, l, sel) => `<option value="${esc(v)}"${sel ? ' selected' : ''}>${esc(l)}</option>`;
+  let html = `<section class="harmo-choix">
+    <label>Instrument <select data-h="acc">${Object.entries(ACCORDAGES).map(([k, A]) => opt(k, A.court, k === etat.acc)).join('')}</select></label>
+    <label>Gamme <select data-h="rang">${DONNEES.familles.map(([rg, titre]) => opt(rg, String(rg).padStart(3, '0') + ' · ' + titre, rg === h.rang)).join('')}</select></label>
+    <label>Degré I <select data-h="depart">${c.modes.map(([nom], i) => opt(i, nom, i === c.depart)).join('')}</select></label>
+    <label>Fondamentale <select data-h="ton">${['', ...NOMS_NOTES].map((n) => opt(n, n || 'aucune', n === (h.ton || ''))).join('')}</select></label>
+    <label>Intervalles affichés <select data-h="etiquettes">${opt('mode', 'du mode', h.etiquettes !== 'accord')}${opt('accord', 'de l’accord', h.etiquettes === 'accord')}</select></label>
+  </section>
+  <p class="discret">${esc(c.fam[1])} : ${c.degres.length} degrés à partir de ${esc(nomMode(c, c.degres[0]))}. Pour chaque degré, touche les intervalles de l’accord (F est déjà choisi) ; son nom s’affiche dès le deuxième.</p>`;
+  for (const d of c.degres) {
+    const n = nomDegre(c, d);
+    html += `<section class="degre"><h3>Degré ${ROMAINS[d.k]}${h.ton ? ' · ' + NOMS_NOTES[d.racine] : ''} · ${esc(d.mode)}</h3>
+      <div class="chips">${d.ivs.map((iv) => {
+        const lab = INTERVALLES[iv], on = d.sel.includes(iv);
+        return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-h="iv" data-k="${d.k}" data-iv="${iv}" aria-pressed="${on}">${esc(lab)}</button>`;
+      }).join('')}</div>
+      <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(h.ton ? NOMS_NOTES[d.racine] + ' ' + n.item : n.item)}">Voir l’accord</button>`
+        : '<small>nom selon Base.txt, absent de ta base</small>'}` : '<span class="discret">Choisis au moins un deuxième intervalle.</span>'}</p>
+      <div class="resto"><label>Restitution dans le mode <select data-h="resto" data-k="${d.k}">${c.degres.map((e) => opt(e.k, `${e.mode} (degré ${ROMAINS[e.k]})`, e.k === d.resto)).join('')}</select></label>
+      <button type="button" class="btn" data-h="carte" data-k="${d.k}">Voir la restitution</button></div></section>`;
+  }
+  html += `<section class="bloc"><button type="button" class="btn plein" data-h="global">Restitution globale</button></section><div id="harmo-global"></div>`;
+  main().innerHTML = html;
+  if (etat.harmoGlobal) afficherGlobal();
+}
+function restitution(c, d) {
+  const r = c.degres[d.resto], gen = !c.h.ton;
+  const tonLab = c.h.etiquettes === 'accord' ? d.racine : r.racine;   // intervalles du mode de restitution, ou de l'accord
+  const accord = new Set(d.sel.map((x) => mod12(d.racine + x)));
+  const svg = svgManche(c.pcs, tonLab, etat.acc, accord, gen ? G.FRETTES_TYPE + 1 : null, gen);
+  const n = nomDegre(c, d);
+  const titre = `Degré ${ROMAINS[d.k]} · ${n ? n.nom : 'accord à choisir'}`;
+  const sous = `${c.A.nom} · gamme ${c.fam[1]}, degré I = ${nomMode(c, c.degres[0])} · mode du degré : ${nomMode(c, d)} · ` +
+    `restitution dans le mode ${nomMode(c, r)} (degré ${ROMAINS[r.k]}) · intervalles affichés ${c.h.etiquettes === 'accord' ? 'de l’accord' : 'du mode'}` +
+    (n ? ` · accord : ${n.cle}` : '') + (gen ? ' · carte générique' : '');
+  return { svg, titre, sous, n, r };
+}
+function ouvrirRestitution(k) {
+  const c = harmoCalcul(), d = c.degres[k], x = restitution(c, d);
+  ouvrirDialogue(x.titre, x.sous, x.svg, [boutonPng(x.titre, x.sous, x.svg, nomPng('harmonisation', c.fam[1], 'degre', ROMAINS[k], x.n ? x.n.nom : '', etat.acc)),
+    ['Fermer', () => dlg().close(), true]]);
+}
+function afficherGlobal() {
+  const c = harmoCalcul(), z = document.getElementById('harmo-global');
+  if (!z) return;
+  let h = `<h2>Restitution globale : ${esc(c.fam[1])}, degré I = ${esc(nomMode(c, c.degres[0]))}</h2>
+    <div class="cadre-h"><table class="table-harmo"><thead><tr><th>Degré</th><th>Mode</th><th>Accord</th><th>Intervalles</th><th>Restitution</th></tr></thead><tbody>`;
+  for (const d of c.degres) {
+    const n = nomDegre(c, d);
+    h += `<tr><td>${ROMAINS[d.k]}${c.h.ton ? ' · ' + NOMS_NOTES[d.racine] : ''}</td><td>${esc(d.mode)}</td><td>${n ? esc(n.nom) : '—'}</td><td>${esc(G.cleDe(d.sel))}</td><td>${esc(c.degres[d.resto].mode)}</td></tr>`;
+  }
+  h += `</tbody></table></div><p><button type="button" class="btn plein" data-h="planche">Télécharger la planche (PNG)</button></p><div class="grille-harmo">`;
+  for (const d of c.degres) {
+    const x = restitution(c, d);
+    h += `<figure class="carte-harmo" data-h="carte" data-k="${d.k}"><figcaption><b>${esc(x.titre)}</b><br><small>${esc(nomMode(c, d))} · restitution ${esc(nomMode(c, x.r))}</small></figcaption>${x.svg}</figure>`;
+  }
+  z.innerHTML = h + '</div>';
+}
+async function plancheHarmo() {
+  const c = harmoCalcul(), L = 1080, marge = 40, ecart = 24, par = 3, police = "'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif";
+  const cell = (L - 2 * marge - (par - 1) * ecart) / par;
+  const cartes = [];
+  for (const d of c.degres) {
+    const x = restitution(c, d), vb = x.svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+    cartes.push({ d, x, img: await imageSvg(x.svg), h: cell * Number(vb[2]) / Number(vb[1]) });
+  }
+  const lignesTexte = 3, hTexte = 28 * lignesTexte + 8;
+  const rangs = []; for (let k = 0; k < cartes.length; k += par) rangs.push(cartes.slice(k, k + par));
+  const hauts = rangs.map((r) => hTexte + Math.max(...r.map((x) => x.h)));
+  const tete = marge + 54 + 40 + 20;
+  const cv = document.createElement('canvas'), g = cv.getContext('2d');
+  cv.width = L; cv.height = Math.ceil(tete + hauts.reduce((s, x) => s + x + ecart, 0) + marge);
+  g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+  g.fillStyle = '#1a237e'; g.font = `700 44px ${police}`; g.fillText(`Harmonisation : ${c.fam[1]}`, marge, marge + 40);
+  g.fillStyle = '#444b6e'; g.font = `400 26px ${police}`;
+  g.fillText(`${c.A.nom} · degré I = ${nomMode(c, c.degres[0])}${c.h.ton ? '' : ' · cartes génériques'} · intervalles ${c.h.etiquettes === 'accord' ? 'de l’accord' : 'du mode'}`, marge, marge + 84);
+  let y = tete;
+  rangs.forEach((rang, i) => {
+    rang.forEach((x, j) => {
+      const cx = marge + j * (cell + ecart);
+      g.fillStyle = '#1a237e'; g.font = `700 24px ${police}`;
+      g.fillText(`${ROMAINS[x.d.k]} · ${x.n ? x.n.nom : '—'}`.slice(0, 32), cx, y + 24);
+      g.fillStyle = '#444b6e'; g.font = `400 19px ${police}`;
+      g.fillText(`mode : ${nomMode(c, x.d)}`.slice(0, 40), cx, y + 50);
+      g.fillText(`restitution : ${nomMode(c, x.x.r)}`.slice(0, 40), cx, y + 74);
+      g.drawImage(x.img, cx, y + hTexte, cell, x.h);
+    });
+    y += hauts[i] + ecart;
+  });
+  const blob = await new Promise((ok) => cv.toBlob(ok, 'image/png'));
+  const nom = nomPng('harmonisation', c.fam[1], nomMode(c, c.degres[0]), etat.acc);
+  const fichier = new File([blob], nom, { type: 'image/png' });
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent) && navigator.canShare && navigator.canShare({ files: [fichier] })) return navigator.share({ files: [fichier] });
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = nom; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-h]');
+  if (!t || t.tagName === 'SELECT') return;
+  const h = harmoEtat(), k = Number(t.dataset.k);
+  if (t.dataset.h === 'iv') {
+    const c = harmoCalcul(), d = c.degres[k], iv = Number(t.dataset.iv);
+    const sel = d.sel.includes(iv) ? d.sel.filter((x) => x !== iv) : [...d.sel, iv].sort((a, b) => a - b);
+    h.degres[k] = Object.assign({}, h.degres[k], { sel }); harmoSauver(); vueHarmo();
+  } else if (t.dataset.h === 'carte') ouvrirRestitution(k);
+  else if (t.dataset.h === 'global') { etat.harmoGlobal = true; afficherGlobal(); document.getElementById('harmo-global').scrollIntoView({ behavior: 'smooth' }); }
+  else if (t.dataset.h === 'planche') plancheHarmo().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
+});
+document.addEventListener('change', (ev) => {
+  const t = ev.target;
+  if (!t.dataset || !t.dataset.h || t.tagName !== 'SELECT') return;
+  const h = harmoEtat();
+  if (t.dataset.h === 'acc') { etat.acc = t.value; ecrire('gf.acc', etat.acc); majInstruments(); }
+  else if (t.dataset.h === 'rang') { h.rang = Number(t.value); h.depart = 0; h.degres = {}; }
+  else if (t.dataset.h === 'depart') { h.depart = Number(t.value); h.degres = {}; }
+  else if (t.dataset.h === 'ton') h.ton = t.value;
+  else if (t.dataset.h === 'etiquettes') h.etiquettes = t.value;
+  else if (t.dataset.h === 'resto') { const k = Number(t.dataset.k); h.degres[k] = Object.assign({}, h.degres[k], { resto: Number(t.value) }); }
+  harmoSauver(); vueHarmo();
+});
+
 function vueBase() {
   const b = etat.base || (etat.base = { texte: '', racine: '' });
   const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === b.racine ? ' selected' : ''}>${n || 'aucune'}</option>`).join('');
@@ -1382,6 +1566,7 @@ document.addEventListener('click', (ev) => {
     etat.acc = t.dataset.acc; ecrire('gf.acc', etat.acc); majInstruments(); etat.pos = null;
     if (etat.vue === 'base') return;
     if (etat.vue === 'gammes') return vueGammes();
+    if (etat.vue === 'harmo') return vueHarmo();
     const s = document.getElementById('saisie').value.trim();
     if (s) rechercher(s); else accueil();          // les frettes et la position dependent de l'instrument
   }
