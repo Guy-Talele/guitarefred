@@ -171,6 +171,7 @@ details.pli[open] > summary::after { content: "−"; }
 .nom-accord small { color: var(--discret); }
 .btn.petit { min-height: 2rem; padding: .15rem .6rem; font-size: .9rem; margin-left: .3rem; }
 .resto { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.boutons-harmo { display: flex; flex-wrap: wrap; gap: .5rem; }
 .resto label { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
 .resto select { font: inherit; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); padding: .3rem .4rem; min-height: 2.4rem; }
 .cadre-h { overflow-x: auto; background: var(--surface); border: 1px solid var(--ligne); border-radius: .6rem; }
@@ -236,7 +237,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 06/11/2026 18:30</p>
+  <p class="discret" id="version">Version de la page : 07/11/2026 12:14</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -945,7 +946,7 @@ function svgManche(pcs, tonique, acc, accord, nbFrettes, generique = false) {
   const yv = r * 1.3, ys = generique ? r * 0.6 : yv + r * 1.35, bas = ys + nbFrettes * ey;
   const L = generique ? mg + ex * (n - 1) + r * 1.15 : largeur;
   let s = '';
-  for (let i = 0; i < n; i++) s += `<line x1="${mg + i * ex}" y1="${generique ? ys : yv}" x2="${mg + i * ex}" y2="${bas}" stroke="${GRILLE}" stroke-width="2"/>`;
+  for (let i = 0; i < n; i++) s += `<line x1="${mg + i * ex}" y1="${ys}" x2="${mg + i * ex}" y2="${bas}" stroke="${GRILLE}" stroke-width="2"/>`;   // les cordes partent du sillet
   if (!generique) s += `<line x1="${mg}" y1="${ys}" x2="${mg + ex * (n - 1)}" y2="${ys}" stroke="${SILLET}" stroke-width="${Math.max(3, r * 0.3)}"/>`;
   else s += `<line x1="${mg}" y1="${ys}" x2="${mg + ex * (n - 1)}" y2="${ys}" stroke="${GRILLE}" stroke-width="1.5"/>`;
   for (let k = 1; k <= nbFrettes; k++) {
@@ -1205,6 +1206,8 @@ function ouvrirGamme(rang, k) {
 // intervalles du mode de ce degre) et la restitution, c'est-a-dire la carte du manche de la gamme vue depuis le
 // mode choisi, avec les notes de l'accord en surbrillance.
 const ROMAINS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+// Harmonisation : Db et Gb plutot que C# et F# (une ecriture par note, et des noms de fichiers distincts)
+const NOMS_HARMO = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 function harmoEtat() {
   if (!etat.harmo) {
     const memo = lire('gf.harmo', null);
@@ -1233,9 +1236,9 @@ function nomDegre(c, d) {                     // « Bb 6 », ou le nom selon Bas
   if (d.sel.length < 2) return null;
   const cle = G.cleDe(d.sel), t = M.parNotes.get(cle);
   const nom = t ? t.item : G.nommerSelonBase(d.sel).nom;
-  return { nom: (c.h.ton ? NOMS_NOTES[d.racine] + ' ' : '') + nom, item: nom, dansBase: !!t, tel: t ? t.tel : null, cle };
+  return { nom: (c.h.ton ? NOMS_HARMO[d.racine] + ' ' : '') + nom, item: nom, dansBase: !!t, tel: t ? t.tel : null, cle };
 }
-const nomMode = (c, d) => (c.h.ton ? NOMS_NOTES[d.racine] + ' ' : '') + d.mode;
+const nomMode = (c, d) => (c.h.ton ? NOMS_HARMO[d.racine] + ' ' : '') + d.mode;
 function vueHarmo() {
   const c = harmoCalcul(), h = c.h;
   const opt = (v, l, sel) => `<option value="${esc(v)}"${sel ? ' selected' : ''}>${esc(l)}</option>`;
@@ -1243,24 +1246,25 @@ function vueHarmo() {
     <label>Instrument <select data-h="acc">${Object.entries(ACCORDAGES).map(([k, A]) => opt(k, A.court, k === etat.acc)).join('')}</select></label>
     <label>Gamme <select data-h="rang">${DONNEES.familles.map(([rg, titre]) => opt(rg, String(rg).padStart(3, '0') + ' · ' + titre, rg === h.rang)).join('')}</select></label>
     <label>Degré I <select data-h="depart">${c.modes.map(([nom], i) => opt(i, nom, i === c.depart)).join('')}</select></label>
-    <label>Fondamentale <select data-h="ton">${['', ...NOMS_NOTES].map((n) => opt(n, n || 'aucune', n === (h.ton || ''))).join('')}</select></label>
+    <label>Fondamentale <select data-h="ton">${['', ...NOMS_HARMO].map((n) => opt(n, n || 'aucune', n === (h.ton ? NOMS_HARMO[G.classe(h.ton)] : ''))).join('')}</select></label>
     <label>Intervalles affichés <select data-h="etiquettes">${opt('mode', 'du mode', h.etiquettes !== 'accord')}${opt('accord', 'de l’accord', h.etiquettes === 'accord')}</select></label>
   </section>
   <p class="discret">${esc(c.fam[1])} : ${c.degres.length} degrés à partir de ${esc(nomMode(c, c.degres[0]))}. Pour chaque degré, touche les intervalles de l’accord (F est déjà choisi) ; son nom s’affiche dès le deuxième.</p>`;
   for (const d of c.degres) {
     const n = nomDegre(c, d);
-    html += `<section class="degre"><h3>Degré ${ROMAINS[d.k]}${h.ton ? ' · ' + NOMS_NOTES[d.racine] : ''} · ${esc(d.mode)}</h3>
+    html += `<section class="degre"><h3>Degré ${ROMAINS[d.k]}${h.ton ? ' · ' + NOMS_HARMO[d.racine] : ''} · ${esc(d.mode)}</h3>
       <div class="chips">${d.ivs.map((iv) => {
         const lab = INTERVALLES[iv], on = d.sel.includes(iv);
         return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-h="iv" data-k="${d.k}" data-iv="${iv}" aria-pressed="${on}">${esc(lab)}</button>`;
       }).join('')}</div>
-      <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(h.ton ? NOMS_NOTES[d.racine] + ' ' + n.item : n.item)}">Voir l’accord</button>`
+      <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(h.ton ? NOMS_HARMO[d.racine] + ' ' + n.item : n.item)}">Voir l’accord</button>`
         : '<small>nom selon Base.txt, absent de ta base</small>'}` : '<span class="discret">Choisis au moins un deuxième intervalle.</span>'}</p>
       <div class="resto"><label>Restitution dans le mode <select data-h="resto" data-k="${d.k}">${c.degres.map((e) => opt(e.k, `${e.mode} (degré ${ROMAINS[e.k]})`, e.k === d.resto)).join('')}</select></label>
       <button type="button" class="btn" data-h="carte" data-k="${d.k}">Voir la restitution</button></div></section>`;
   }
-  html += `<section class="bloc"><button type="button" class="btn plein" data-h="planche">Télécharger la restitution globale (PNG)</button>
-    <p class="discret">Tous les degrés côte à côte, à partir du degré I, en format paysage.</p></section>`;
+  html += `<section class="bloc"><div class="boutons-harmo"><button type="button" class="btn plein" data-h="planche">Télécharger la restitution globale (PNG)</button>
+    <button type="button" class="btn" data-h="planche12">… dans les 12 tonalités</button></div>
+    <p class="discret">Tous les degrés côte à côte, à partir du degré I, en format paysage. « … dans les 12 tonalités » donne les 12 planches de A à Ab, avec les mêmes accords et les mêmes restitutions.</p></section>`;
   main().innerHTML = html;
 }
 function restitution(c, d) {
@@ -1281,10 +1285,14 @@ function ouvrirRestitution(k) {
   ouvrirDialogue(x.titre, x.sous, x.svg, [boutonPng(x.titre, x.sous, x.svg, nomPng('harmonisation', c.fam[1], 'degre', ROMAINS[k], x.n ? x.n.nom : '', etat.acc)),
     ['Fermer', () => dlg().close(), true]]);
 }
-async function plancheHarmo() {
-  // tous les degres sur une seule rangee, separes par un espace egal a la moitie d'un manche
-  const c = harmoCalcul(), police = "'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif";
-  const larg = c.A.cordes.length === 6 ? 330 : 240, ecart = larg * 0.5, marge = 60;
+async function plancheHarmo(ton) {
+  // tous les degres sur une seule rangee, separes par un espace egal au quart d'un manche ;
+  // ton : une autre fondamentale que celle choisie (export dans les 12 tonalites), sans toucher au reglage
+  let c;
+  if (ton === undefined) c = harmoCalcul();
+  else { const h = harmoEtat(), garde = h.ton; h.ton = ton; c = harmoCalcul(); h.ton = garde; c.h = Object.assign({}, h, { ton }); }
+  const police = "'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif";
+  const larg = c.A.cordes.length === 6 ? 330 : 240, ecart = larg * 0.25, marge = 60;
   const cartes = [];
   for (const d of c.degres) {
     const x = restitution(c, d), vb = x.svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
@@ -1305,18 +1313,39 @@ async function plancheHarmo() {
   };
   cartes.forEach((x, j) => {
     const cx = marge + j * (larg + ecart);
-    ecrire1(`Degré ${ROMAINS[x.d.k]}${c.h.ton ? ' · ' + NOMS_NOTES[x.d.racine] : ''}`, cx, tete + 30, 30, true, '#1a237e');
+    ecrire1(`Degré ${ROMAINS[x.d.k]}${c.h.ton ? ' · ' + NOMS_HARMO[x.d.racine] : ''}`, cx, tete + 30, 30, true, '#1a237e');
     ecrire1(x.x.n ? x.x.n.nom + (x.x.n.dansBase ? '' : ' (hors base)') : 'accord à choisir', cx, tete + 62, 27, true, '#1c2140');
     ecrire1(`mode : ${nomMode(c, x.d)}`, cx, tete + 94, 22, false, '#444b6e');
     ecrire1(`restitution : ${nomMode(c, x.x.r)}`, cx, tete + 122, 22, false, '#444b6e');
     g2.drawImage(x.img, cx, tete + hTexte, larg, x.h);
   });
   const blob = await new Promise((ok) => cv.toBlob(ok, 'image/png'));
-  const nom = nomPng('harmonisation', c.fam[1], nomMode(c, c.degres[0]), etat.acc);
-  const fichier = new File([blob], nom, { type: 'image/png' });
-  if (/iPad|iPhone|iPod/.test(navigator.userAgent) && navigator.canShare && navigator.canShare({ files: [fichier] })) return navigator.share({ files: [fichier] });
-  const url = URL.createObjectURL(blob), a = document.createElement('a');
-  a.href = url; a.download = nom; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+  // nom : une lettre par note, dans l'ordre a partir de A, pour classer les fichiers par nom
+  // (A a, Bb b, B c, C d, Db e, D f, Eb g, E h, F i, Gb j, G k, Ab l) ; sans fondamentale : z_generique, en dernier
+  const lettre = c.h.ton ? String.fromCharCode(97 + mod12(G.classe(c.h.ton) - 9)) : 'z generique';
+  const nom = nomPng(lettre, c.fam[1], nomMode(c, c.degres[0]), etat.acc);
+  return new File([blob], nom, { type: 'image/png' });
+}
+async function donnerFichiers(fichiers) {          // iPhone : un seul partage ; ailleurs : un telechargement par fichier
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent) && navigator.canShare && navigator.canShare({ files: fichiers })) return navigator.share({ files: fichiers });
+  for (const f of fichiers) {
+    const url = URL.createObjectURL(f), a = document.createElement('a');
+    a.href = url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    await new Promise((ok) => setTimeout(ok, 350));
+  }
+}
+async function planches12(bouton) {               // la restitution globale dans les 12 tonalites, de A a Ab (a_ ... l_)
+  const libelle = bouton.textContent, fichiers = [];
+  bouton.disabled = true;
+  try {
+    for (let i = 0; i < 12; i++) {
+      const ton = NOMS_HARMO[(9 + i) % 12];
+      bouton.textContent = `Préparation… ${ton} (${i + 1}/12)`;
+      fichiers.push(await plancheHarmo(ton));
+    }
+    await donnerFichiers(fichiers);
+  } finally { bouton.disabled = false; bouton.textContent = libelle; }
 }
 document.addEventListener('click', (ev) => {
   const t = ev.target.closest('[data-h]');
@@ -1327,7 +1356,8 @@ document.addEventListener('click', (ev) => {
     const sel = d.sel.includes(iv) ? d.sel.filter((x) => x !== iv) : [...d.sel, iv].sort((a, b) => a - b);
     h.degres[k] = Object.assign({}, h.degres[k], { sel }); harmoSauver(); vueHarmo();
   } else if (t.dataset.h === 'carte') ouvrirRestitution(k);
-  else if (t.dataset.h === 'planche') plancheHarmo().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
+  else if (t.dataset.h === 'planche') plancheHarmo().then((f) => donnerFichiers([f])).catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
+  else if (t.dataset.h === 'planche12') planches12(t).catch((e) => { if (e && e.name !== 'AbortError') alert('Planches non créées : ' + e.message); });
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target;
