@@ -172,6 +172,8 @@ details.pli[open] > summary::after { content: "−"; }
 .btn.petit { min-height: 2rem; padding: .15rem .6rem; font-size: .9rem; margin-left: .3rem; }
 .resto { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
 .boutons-harmo { display: flex; flex-wrap: wrap; gap: .5rem; }
+.harmo-choix .case-harmo { display: flex; align-items: center; gap: .5rem; font-weight: 400; color: var(--encre); font-size: 1rem; grid-column: 1 / -1; min-height: 2.4rem; }
+.resto label.grise { opacity: .5; }
 .resto label { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
 .resto select { font: inherit; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); padding: .3rem .4rem; min-height: 2.4rem; }
 .cadre-h { overflow-x: auto; background: var(--surface); border: 1px solid var(--ligne); border-radius: .6rem; }
@@ -237,7 +239,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 07/11/2026 12:14</p>
+  <p class="discret" id="version">Version de la page : 07/11/2026 13:26</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -1217,21 +1219,34 @@ function harmoEtat() {
   return etat.harmo;
 }
 const harmoSauver = () => ecrire('gf.harmo', etat.harmo);
-function harmoCalcul() {
-  const h = harmoEtat(), A = ACCORDAGES[etat.acc];
-  const fam = DONNEES.familles.find((f) => f[0] === h.rang) || DONNEES.familles[0];
-  const modes = fam[2], depart = Math.min(h.depart || 0, modes.length - 1);
-  const ivs1 = [...modes[depart][1]].sort((a, b) => a - b);
+// Les accords et les restitutions sont ranges par degre « absolu » de la gamme (le pas : 0 = premier mode de la gamme,
+// 1 = le suivant…) : ils suivent leur mode quand on change le mode du degre I.
+// ton, depart : une autre fondamentale ou un autre mode en degre I, sans toucher au reglage (exports).
+function harmoCalcul(ton, depart) {
+  const h0 = harmoEtat(), A = ACCORDAGES[etat.acc];
+  const fam = DONNEES.familles.find((f) => f[0] === h0.rang) || DONNEES.familles[0];
+  const modes = fam[2], n = modes[0][1].length;
+  if (h0.v !== 2) {                                 // anciens reglages : degres numerotes depuis le degre I
+    const d0 = Math.min(h0.depart || 0, modes.length - 1), nv = {};
+    for (const [k, v] of Object.entries(h0.degres || {})) nv[(d0 + Number(k)) % n] = Object.assign({}, v, v.resto != null ? { resto: (d0 + v.resto) % n } : {});
+    h0.degres = nv; h0.v = 2;
+  }
+  const h = ton === undefined && depart === undefined ? h0
+    : Object.assign({}, h0, ton !== undefined ? { ton } : {}, depart !== undefined ? { depart } : {});
+  const dep = Math.min(h.depart || 0, modes.length - 1);
+  const ivs1 = [...modes[dep][1]].sort((a, b) => a - b);
   const T = h.ton ? G.classe(h.ton) : A.toniqueType;          // sans fondamentale : reference de l'instrument, carte generique
   const degres = ivs1.map((off, k) => {
     const ivs = ivs1.map((x) => mod12(x - off)).sort((a, b) => a - b);
     const m = modes.find((md) => [...md[1]].sort((a, b) => a - b).join(',') === ivs.join(','));
-    const ch = h.degres[k] || {};
-    return { k, off, racine: mod12(T + off), ivs, mode: m ? m[0] : 'mode ' + (k + 1),
-      sel: (ch.sel || [0]).filter((x) => ivs.includes(x)), resto: ch.resto != null && ch.resto < ivs1.length ? ch.resto : k };
+    const pas = (dep + k) % n, ch = h.degres[pas] || {};
+    const resto = h.restoDegre1 ? 0 : mod12n((ch.resto != null ? ch.resto : pas) - dep, n);   // 0 : le mode du degre I
+    return { k, pas, off, racine: mod12(T + off), ivs, mode: m ? m[0] : 'mode ' + (k + 1),
+      sel: (ch.sel || [0]).filter((x) => ivs.includes(x)), resto };
   });
-  return { h, A, fam, modes, depart, ivs1, T, degres, pcs: ivs1.map((x) => mod12(T + x)) };
+  return { h, A, fam, modes, depart: dep, ivs1, T, degres, pcs: ivs1.map((x) => mod12(T + x)) };
 }
+const mod12n = (x, n) => ((x % n) + n) % n;
 function nomDegre(c, d) {                     // « Bb 6 », ou le nom selon Base.txt si l'accord n'est pas dans la base
   if (d.sel.length < 2) return null;
   const cle = G.cleDe(d.sel), t = M.parNotes.get(cle);
@@ -1248,6 +1263,7 @@ function vueHarmo() {
     <label>Degré I <select data-h="depart">${c.modes.map(([nom], i) => opt(i, nom, i === c.depart)).join('')}</select></label>
     <label>Fondamentale <select data-h="ton">${['', ...NOMS_HARMO].map((n) => opt(n, n || 'aucune', n === (h.ton ? NOMS_HARMO[G.classe(h.ton)] : ''))).join('')}</select></label>
     <label>Intervalles affichés <select data-h="etiquettes">${opt('mode', 'du mode', h.etiquettes !== 'accord')}${opt('accord', 'de l’accord', h.etiquettes === 'accord')}</select></label>
+    <label class="case-harmo"><input type="checkbox" data-h="resto1" ${h.restoDegre1 ? 'checked' : ''}> Restituer tous les degrés dans le mode du degré I</label>
   </section>
   <p class="discret">${esc(c.fam[1])} : ${c.degres.length} degrés à partir de ${esc(nomMode(c, c.degres[0]))}. Pour chaque degré, touche les intervalles de l’accord (F est déjà choisi) ; son nom s’affiche dès le deuxième.</p>`;
   for (const d of c.degres) {
@@ -1259,12 +1275,13 @@ function vueHarmo() {
       }).join('')}</div>
       <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(h.ton ? NOMS_HARMO[d.racine] + ' ' + n.item : n.item)}">Voir l’accord</button>`
         : '<small>nom selon Base.txt, absent de ta base</small>'}` : '<span class="discret">Choisis au moins un deuxième intervalle.</span>'}</p>
-      <div class="resto"><label>Restitution dans le mode <select data-h="resto" data-k="${d.k}">${c.degres.map((e) => opt(e.k, `${e.mode} (degré ${ROMAINS[e.k]})`, e.k === d.resto)).join('')}</select></label>
+      <div class="resto"><label class="${h.restoDegre1 ? 'grise' : ''}">Restitution dans le mode <select data-h="resto" data-k="${d.k}" ${h.restoDegre1 ? 'disabled' : ''}>${c.degres.map((e) => opt(e.k, `${e.mode} (degré ${ROMAINS[e.k]})`, e.k === d.resto)).join('')}</select></label>
       <button type="button" class="btn" data-h="carte" data-k="${d.k}">Voir la restitution</button></div></section>`;
   }
   html += `<section class="bloc"><div class="boutons-harmo"><button type="button" class="btn plein" data-h="planche">Télécharger la restitution globale (PNG)</button>
-    <button type="button" class="btn" data-h="planche12">… dans les 12 tonalités</button></div>
-    <p class="discret">Tous les degrés côte à côte, à partir du degré I, en format paysage. « … dans les 12 tonalités » donne les 12 planches de A à Ab, avec les mêmes accords et les mêmes restitutions.</p></section>`;
+    <button type="button" class="btn" data-h="planche12">… dans les 12 tonalités</button>
+    <button type="button" class="btn" data-h="planchesModes">… dans tous les modes</button></div>
+    <p class="discret">Tous les degrés côte à côte, à partir du degré I, en format paysage. « … dans les 12 tonalités » donne les 12 planches de A à Ab ; « … dans tous les modes » fait de même avec chaque mode en degré I, à partir du mode choisi, dans une archive ZIP. Les accords restent dans leurs modes.</p></section>`;
   main().innerHTML = html;
 }
 function restitution(c, d) {
@@ -1285,12 +1302,10 @@ function ouvrirRestitution(k) {
   ouvrirDialogue(x.titre, x.sous, x.svg, [boutonPng(x.titre, x.sous, x.svg, nomPng('harmonisation', c.fam[1], 'degre', ROMAINS[k], x.n ? x.n.nom : '', etat.acc)),
     ['Fermer', () => dlg().close(), true]]);
 }
-async function plancheHarmo(ton) {
+async function plancheHarmo(ton, depart) {
   // tous les degres sur une seule rangee, separes par un espace egal au quart d'un manche ;
-  // ton : une autre fondamentale que celle choisie (export dans les 12 tonalites), sans toucher au reglage
-  let c;
-  if (ton === undefined) c = harmoCalcul();
-  else { const h = harmoEtat(), garde = h.ton; h.ton = ton; c = harmoCalcul(); h.ton = garde; c.h = Object.assign({}, h, { ton }); }
+  // ton, depart : une autre fondamentale ou un autre mode en degre I (exports), sans toucher au reglage
+  const c = harmoCalcul(ton, depart);
   const police = "'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif";
   const larg = c.A.cordes.length === 6 ? 330 : 240, ecart = larg * 0.25, marge = 60;
   const cartes = [];
@@ -1335,6 +1350,30 @@ async function donnerFichiers(fichiers) {          // iPhone : un seul partage ;
     await new Promise((ok) => setTimeout(ok, 350));
   }
 }
+async function chargerZip() {
+  if (!window.JSZip) await new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload = ok; s.onerror = () => ko(new Error('JSZip introuvable (connexion ?)')); document.head.appendChild(s); });
+  return window.JSZip;
+}
+async function planchesModes(bouton) {             // chaque mode en degre I a son tour, dans les 12 tonalites
+  const c = harmoCalcul(), nb = c.modes.length;
+  if (!confirm(`${nb} modes × 12 tonalités : ${nb * 12} planches, réunies dans une archive ZIP (un dossier par mode). Continuer ?`)) return;
+  const libelle = bouton.textContent; bouton.disabled = true;
+  try {
+    const JSZip = await chargerZip(), zip = new JSZip();
+    for (let j = 0; j < nb; j++) {
+      const dep = (c.depart + j) % nb, dossier = zip.folder(`${String(j + 1).padStart(2, '0')} ${c.modes[dep][0]}`.replace(/[\\/:*?"<>|]+/g, '-'));
+      for (let i = 0; i < 12; i++) {
+        const ton = NOMS_HARMO[(9 + i) % 12];
+        bouton.textContent = `Préparation… ${c.modes[dep][0]}, ${ton} (${j * 12 + i + 1}/${nb * 12})`;
+        const f = await plancheHarmo(ton, dep);
+        dossier.file(f.name, f);
+      }
+    }
+    bouton.textContent = 'Archive en cours…';
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+    await donnerFichiers([new File([blob], nomPng(c.fam[1], 'tous les modes', etat.acc).replace(/\.png$/, '.zip'), { type: 'application/zip' })]);
+  } finally { bouton.disabled = false; bouton.textContent = libelle; }
+}
 async function planches12(bouton) {               // la restitution globale dans les 12 tonalites, de A a Ab (a_ ... l_)
   const libelle = bouton.textContent, fichiers = [];
   bouton.disabled = true;
@@ -1349,26 +1388,32 @@ async function planches12(bouton) {               // la restitution globale dans
 }
 document.addEventListener('click', (ev) => {
   const t = ev.target.closest('[data-h]');
-  if (!t || t.tagName === 'SELECT') return;
+  if (!t || t.tagName === 'SELECT' || t.tagName === 'INPUT') return;
   const h = harmoEtat(), k = Number(t.dataset.k);
   if (t.dataset.h === 'iv') {
     const c = harmoCalcul(), d = c.degres[k], iv = Number(t.dataset.iv);
     const sel = d.sel.includes(iv) ? d.sel.filter((x) => x !== iv) : [...d.sel, iv].sort((a, b) => a - b);
-    h.degres[k] = Object.assign({}, h.degres[k], { sel }); harmoSauver(); vueHarmo();
+    h.degres[d.pas] = Object.assign({}, h.degres[d.pas], { sel }); harmoSauver(); vueHarmo();
   } else if (t.dataset.h === 'carte') ouvrirRestitution(k);
   else if (t.dataset.h === 'planche') plancheHarmo().then((f) => donnerFichiers([f])).catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
   else if (t.dataset.h === 'planche12') planches12(t).catch((e) => { if (e && e.name !== 'AbortError') alert('Planches non créées : ' + e.message); });
+  else if (t.dataset.h === 'planchesModes') planchesModes(t).catch((e) => { if (e && e.name !== 'AbortError') alert('Planches non créées : ' + e.message); });
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target;
-  if (!t.dataset || !t.dataset.h || t.tagName !== 'SELECT') return;
+  if (!t.dataset || !t.dataset.h) return;
+  if (t.dataset.h === 'resto1') { harmoEtat().restoDegre1 = t.checked; harmoSauver(); vueHarmo(); return; }
+  if (t.tagName !== 'SELECT') return;
   const h = harmoEtat();
   if (t.dataset.h === 'acc') { etat.acc = t.value; ecrire('gf.acc', etat.acc); majInstruments(); }
   else if (t.dataset.h === 'rang') { h.rang = Number(t.value); h.depart = 0; h.degres = {}; }
-  else if (t.dataset.h === 'depart') { h.depart = Number(t.value); h.degres = {}; }
+  else if (t.dataset.h === 'depart') h.depart = Number(t.value);       // les accords restent dans leurs modes
   else if (t.dataset.h === 'ton') h.ton = t.value;
   else if (t.dataset.h === 'etiquettes') h.etiquettes = t.value;
-  else if (t.dataset.h === 'resto') { const k = Number(t.dataset.k); h.degres[k] = Object.assign({}, h.degres[k], { resto: Number(t.value) }); }
+  else if (t.dataset.h === 'resto') {             // le mode de restitution, retenu par son pas dans la gamme
+    const c = harmoCalcul(), d = c.degres[Number(t.dataset.k)];
+    h.degres[d.pas] = Object.assign({}, h.degres[d.pas], { resto: c.degres[Number(t.value)].pas });
+  }
   harmoSauver(); vueHarmo();
 });
 
