@@ -239,7 +239,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 08/11/2026 07:25</p>
+  <p class="discret" id="version">Version de la page : 08/11/2026 08:40</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -895,9 +895,9 @@ function majNbFav() { document.getElementById('nb-fav').textContent = favoris.fa
 
 // ---------------------------------------------------------------- dessins SVG
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-function svgPastille(x, y, r, iv, fond, ep) {
+function svgPastille(x, y, r, iv, fond, ep, pointilles) {
   const c = COUL[iv] || '#333';
-  return `<circle cx="${x}" cy="${y}" r="${r}" fill="${fond || '#fff'}" stroke="${c}" stroke-width="${ep || Math.max(1.5, r * 0.12)}"/>` +
+  return `<circle cx="${x}" cy="${y}" r="${r}" fill="${fond || '#fff'}" stroke="${c}" stroke-width="${ep || Math.max(1.5, r * 0.12)}"${pointilles ? ` stroke-dasharray="${r * 0.32} ${r * 0.22}"` : ''}/>` +
     `<text x="${x}" y="${y}" fill="${c}" font-size="${r * (iv.length > 1 ? 0.78 : 0.95)}" font-weight="700" text-anchor="middle" dominant-baseline="central">${esc(iv)}</text>`;
 }
 // grille d'accord : sa couleur dit sur quelle corde est la note la plus grave jouee. En position fondamentale, c'est
@@ -940,7 +940,8 @@ function svgDiagramme(forme, acc, racinePc, generique, largeur = 160) {
   s += `<text x="${largeur / 2}" y="${h + r * 0.75}" font-size="${r * 0.8}" fill="#444" text-anchor="middle" dominant-baseline="central">${esc(forme.join(' '))}</text>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" font-family="'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif" viewBox="0 0 ${largeur} ${h + r * 1.6}" role="img" aria-label="Position ${esc(forme.join(' '))}">${s}</svg>`;
 }
-function svgManche(pcs, tonique, acc, accord, nbFrettes, generique = false) {
+function svgManche(pcs, tonique, acc, accord, nbFrettes, generique = false, emprunts = null) {
+  // emprunts : notes de l'accord absentes du mode dessine, montrees en pointilles
   const A = ACCORDAGES[acc], n = A.cordes.length, largeur = n === 6 ? 300 : 220;
   nbFrettes = nbFrettes || A.frettesCarte;
   const ex = largeur / (n - 1 + 0.42 * 2.75 + 0.42 * 1.15), ey = ex * 0.95, r = ex * 0.42;
@@ -957,7 +958,7 @@ function svgManche(pcs, tonique, acc, accord, nbFrettes, generique = false) {
     if (!generique && [3, 5, 7, 9, 12, 15, 17, 19].includes(k))
       s += `<text x="${mg - r * 1.3}" y="${y - ey / 2}" font-size="${r * 0.8}" font-weight="${k === 12 ? 700 : 400}" fill="#555" text-anchor="end" dominant-baseline="central">${k}</text>`;
   }
-  const ens = new Set(pcs.map(mod12));
+  const ens = new Set([...pcs.map(mod12), ...(emprunts ? [...emprunts].map(mod12) : [])]), modeSeul = new Set(pcs.map(mod12));
   if (generique && nbFrettes >= 8) {                     // repere : la 8e case, celle de la tonique sur la corde grave
     const yr = ys + 7.5 * ey;
     s += `<polygon points="${r * 0.15},${yr - r * 0.5} ${r * 0.15},${yr + r * 0.5} ${r * 0.85},${yr}" fill="${SILLET}"/>`;
@@ -966,7 +967,7 @@ function svgManche(pcs, tonique, acc, accord, nbFrettes, generique = false) {
     const note = A.midi[i] + k;
     if (!ens.has(mod12(note))) continue;
     const iv = INTERVALLES[mod12(note - tonique)], dans = accord && accord.has(mod12(note));
-    s += svgPastille(mg + i * ex, k === 0 ? yv : ys + (k - 0.5) * ey, r, iv, dans ? '#fff3b0' : '#fff', dans ? r * 0.2 : r * 0.1);
+    s += svgPastille(mg + i * ex, k === 0 ? yv : ys + (k - 0.5) * ey, r, iv, dans ? '#fff3b0' : '#fff', dans ? r * 0.2 : r * 0.1, !modeSeul.has(mod12(note)));
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" font-family="'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif" viewBox="0 0 ${L} ${bas + r * 0.8}" role="img" aria-label="Carte du manche">${s}</svg>`;
 }
@@ -1357,10 +1358,12 @@ async function plancheHarmo(ton, depart) {
     const c = libreCalcul(ton), items = c.accords.map((a) => {
       const x = restitutionLibre(c, a);
       return { svg: x.svg, l1: `Accord ${a.i + 1}${c.h.ton ? ' · ' + NOMS_HARMO[a.racine] : ''}`, l2: x.n ? x.n.nom + (x.n.dansBase ? '' : ' (hors base)') : 'accord à choisir',
-        l3: `mode : ${x.modeTxt}`, l4: a.fam ? `gamme : ${a.fam[1]}` : '' };
+        l3: `mode : ${x.modeTxt}`, l4: c.accords[a.resto] !== a ? `restitution : ${x.restoTxt}` : (a.fam ? `gamme : ${a.fam[1]}` : '') };
     });
     const blob = await dessinerPlanche(`Harmonisation libre${c.L.titre ? ' : ' + c.L.titre : ''}${c.h.ton ? ' en ' + NOMS_HARMO[c.T] : ''}`,
-      `${c.A.nom} · ${c.accords.length} accords${c.h.ton ? '' : ' · cartes génériques (repère ▸ : 8e case, tonique du mode sur la corde grave)'}`, items, h.parLigne || 'tous', c.A);
+      `${c.A.nom} · ${c.accords.length} accords · intervalles affichés ${c.h.etiquettes === 'accord' ? 'de l’accord' : 'du mode'}` +
+      (c.accords.some((a) => restitutionLibre(c, a).emprunts) ? ' · en pointillés : notes empruntées, absentes du mode de restitution' : '') +
+      (c.h.ton ? '' : ' · cartes génériques (repère ▸ : 8e case, tonique du mode sur la corde grave)'), items, h.parLigne || 'tous', c.A);
     return new File([blob], nomPng(lettreTon(c.h.ton), c.L.titre || 'harmonisation libre', c.h.ton ? NOMS_HARMO[c.T] : '', etat.acc), { type: 'image/png' });
   }
   const c = harmoCalcul(ton, depart);
@@ -1460,7 +1463,7 @@ function libreEtat() {
   const h = harmoEtat();
   if (!h.libre) h.libre = { titre: '', nb: 4, accords: [] };
   const L = h.libre;
-  while (L.accords.length < L.nb) L.accords.push({ r: 0, sel: [0], rang: null, mode: null });
+  while (L.accords.length < L.nb) L.accords.push({ r: 0, sel: [0], rang: null, mode: null, resto: null });
   return L;
 }
 const contient = (ivs, sel) => sel.every((x) => ivs.includes(x));
@@ -1473,7 +1476,8 @@ function libreCalcul(ton) {
     const md = fam && a.mode != null ? fam[2][a.mode] || null : null;
     const ivsMode = md ? [...md[1]].sort((x, y) => x - y) : null;
     const dispo = ivsMode || [...Array(12).keys()];
-    return { i, r: a.r || 0, racine: mod12(T + (a.r || 0)), sel: (a.sel || [0]).filter((x) => dispo.includes(x)), fam, md, ivsMode, dispo };
+    return { i, r: a.r || 0, racine: mod12(T + (a.r || 0)), sel: (a.sel || [0]).filter((x) => dispo.includes(x)), fam, md, ivsMode, dispo,
+      resto: L.resto1 ? 0 : (a.resto != null && a.resto < L.nb ? a.resto : i) };    // accord dont le mode sert a la restitution
   });
   return { h: Object.assign({}, h, { ton: tonEff }), A, T, L, accords };
 }
@@ -1482,16 +1486,23 @@ function nomLibre(c, a) {
   const cle = G.cleDe(a.sel), t = M.parNotes.get(cle), nom = t ? t.item : G.nommerSelonBase(a.sel).nom;
   return { nom: (c.h.ton ? NOMS_HARMO[a.racine] + ' ' : '') + nom, item: nom, dansBase: !!t, tel: t ? t.tel : null, cle };
 }
+const modeLibreTxt = (c, a) => (a.md ? `${c.h.ton ? NOMS_HARMO[a.racine] + ' ' : ''}${a.md[0]}` : 'aucun (notes de l’accord)');
 function restitutionLibre(c, a) {
-  const gen = !c.h.ton, ivs = a.ivsMode || a.sel;                // sans mode : les notes de l'accord seulement
-  const dec = gen ? mod12(c.A.toniqueType - a.racine) : 0;      // generique : tonique a la 8e case de la corde grave
-  const accord = new Set(a.sel.map((x) => mod12(a.racine + dec + x)));
-  const svg = svgManche(ivs.map((x) => mod12(a.racine + dec + x)), mod12(a.racine + dec), etat.acc, accord, gen ? G.FRETTES_TYPE + 1 : null, gen);
-  const n = nomLibre(c, a);
-  const modeTxt = a.md ? `${c.h.ton ? NOMS_HARMO[a.racine] + ' ' : ''}${a.md[0]}` : 'aucun (notes de l’accord)';
-  return { svg, n, modeTxt, titre: `Accord ${a.i + 1} · ${n ? n.nom : 'accord à choisir'}`,
+  // la restitution : le mode d'un accord de la suite (le sien par defaut) sur la fondamentale de cet accord ; les notes de
+  // l'accord absentes de ce mode (emprunts a une autre gamme) sont ajoutees en pointilles
+  const b = c.accords[a.resto] || a, gen = !c.h.ton, ivs = b.ivsMode || b.sel;   // mode sans gamme : les notes de l'accord
+  const dec = gen ? mod12(c.A.toniqueType - b.racine) : 0;      // generique : tonique du mode a la 8e case de la corde grave
+  const pcs = ivs.map((x) => mod12(b.racine + dec + x)), accord = new Set(a.sel.map((x) => mod12(a.racine + dec + x)));
+  const emprunts = new Set([...accord].filter((p) => !pcs.includes(p)));
+  const tonLab = mod12((c.h.etiquettes === 'accord' ? a.racine : b.racine) + dec);
+  const svg = svgManche(pcs, tonLab, etat.acc, accord, gen ? G.FRETTES_TYPE + 1 : null, gen, emprunts);
+  const n = nomLibre(c, a), modeTxt = modeLibreTxt(c, a);
+  const restoTxt = b === a ? modeTxt : `${modeLibreTxt(c, b)} (accord ${b.i + 1})`;
+  const empTxt = [...emprunts].map((p) => (c.h.ton ? NOMS_HARMO[mod12(p - dec)] : INTERVALLES[mod12(p - a.racine - dec)])).join(' ');
+  return { svg, n, modeTxt, restoTxt, emprunts: empTxt, titre: `Accord ${a.i + 1} · ${n ? n.nom : 'accord à choisir'}`,
     sous: `${c.A.nom} · ${c.L.titre || 'harmonisation libre'} · mode : ${modeTxt}${a.fam ? ' (gamme ' + a.fam[1] + ')' : ''}` +
-      (n ? ` · accord : ${n.cle}` : '') + (gen ? ' · carte générique' : '') };
+      (b === a ? '' : ` · restitution dans le mode ${restoTxt}`) + (empTxt ? ` · notes empruntées, en pointillés : ${empTxt}` : '') +
+      ` · intervalles affichés ${c.h.etiquettes === 'accord' ? 'de l’accord' : 'du mode'}` + (n ? ` · accord : ${n.cle}` : '') + (gen ? ' · carte générique' : '') };
 }
 function vueLibre() {
   const h = harmoEtat(), c = libreCalcul(), L = c.L;
@@ -1500,6 +1511,8 @@ function vueLibre() {
     <label>Fondamentale <select data-h="ton">${['', ...NOMS_HARMO].map((n) => optH(n, n || 'aucune', n === (h.ton ? NOMS_HARMO[G.classe(h.ton)] : ''))).join('')}</select></label>
     <label>Nombre d’accords <select data-l="nb">${Array.from({ length: 24 }, (_, i) => optH(i + 1, i + 1, i + 1 === L.nb)).join('')}</select></label>
     <label>Titre (planche, fichier) <input type="text" data-l="titre" value="${esc(L.titre || '')}" placeholder="ex. cycle des quartes"></label>
+    <label>Intervalles affichés <select data-h="etiquettes">${optH('mode', 'du mode', h.etiquettes !== 'accord')}${optH('accord', 'de l’accord', h.etiquettes === 'accord')}</select></label>
+    <label class="case-harmo"><input type="checkbox" data-l="resto1" ${L.resto1 ? 'checked' : ''}> Restituer tous les accords dans le mode de l’accord 1</label>
   </section>
   <div class="boutons-harmo"><button type="button" class="btn" data-l="quartes">Cycle des quartes</button>
     <button type="button" class="btn" data-l="dominantes">Cycle des dominantes</button>
@@ -1521,7 +1534,8 @@ function vueLibre() {
       }).join('')}</div>
       <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(h.ton ? NOMS_HARMO[a.racine] + ' ' + n.item : n.item)}">Voir l’accord</button>`
         : '<small>nom selon Base.txt, absent de ta base</small>'}` : '<span class="discret">Choisis au moins un deuxième intervalle.</span>'}
-        <button type="button" class="btn petit" data-l="carte" data-i="${a.i}">Voir la restitution</button></p></section>`;
+      </p><div class="resto"><label class="${L.resto1 ? 'grise' : ''}">Restitution dans le mode de <select data-l="resto" data-i="${a.i}" ${L.resto1 ? 'disabled' : ''}>${c.accords.map((b) => optH(b.i, b === a ? 'son propre mode' : `l’accord ${b.i + 1} · ${modeLibreTxt(c, b)}`, b.i === a.resto)).join('')}</select></label>
+        <button type="button" class="btn" data-l="carte" data-i="${a.i}">Voir la restitution</button></div></section>`;
   }
   html += `<section class="bloc"><div class="boutons-harmo"><button type="button" class="btn plein" data-h="planche">Télécharger la restitution globale (PNG)</button>
     <button type="button" class="btn" data-h="planche12">… dans les 12 tonalités</button></div>
@@ -1561,6 +1575,8 @@ document.addEventListener('change', (ev) => {
   else if (l === 'r') libreModifier(i, { r: Number(t.value) });
   else if (l === 'rang') libreModifier(i, { rang: t.value === '' ? null : Number(t.value), mode: null });
   else if (l === 'mode') libreModifier(i, { mode: t.value === '' ? null : Number(t.value) });
+  else if (l === 'resto') libreModifier(i, { resto: Number(t.value) === i ? null : Number(t.value) });
+  else if (l === 'resto1') { L.resto1 = t.checked; harmoSauver(); vueLibre(); }
 });
 function vueBase() {
   const b = etat.base || (etat.base = { texte: '', racine: '' });
