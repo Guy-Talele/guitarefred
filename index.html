@@ -177,6 +177,7 @@ details.pli[open] > summary::after { content: "−"; }
 .barre-son input[type="range"] { width: 8rem; accent-color: var(--accent); }
 .barre-son select { font: inherit; font-size: .92rem; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); color: var(--encre); padding: .25rem .35rem; min-height: 2.3rem; }
 .tempo-val { min-width: 2.2rem; font-variant-numeric: tabular-nums; }
+.degre.en-cours { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
 .harmo-choix .case-harmo { display: flex; align-items: center; gap: .5rem; font-weight: 400; color: var(--encre); font-size: 1rem; grid-column: 1 / -1; min-height: 2.4rem; }
 .resto label.grise { opacity: .5; }
 .resto label { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
@@ -244,7 +245,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 09/11/2026 15:24</p>
+  <p class="discret" id="version">Version de la page : 09/11/2026 15:36</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -1279,7 +1280,7 @@ function vueHarmo() {
     <label>Intervalles affichés <select data-h="etiquettes">${opt('mode', 'du mode', h.etiquettes !== 'accord')}${opt('accord', 'de l’accord', h.etiquettes === 'accord')}</select></label>
     <label class="case-harmo"><input type="checkbox" data-h="resto1" ${h.restoDegre1 ? 'checked' : ''}> Restituer tous les degrés dans le mode du degré I</label>
   </section>
-  <p class="discret">${esc(c.fam[1])} : ${c.degres.length} degrés à partir de ${esc(nomMode(c, c.degres[0]))}. Pour chaque degré, touche les intervalles de l’accord (F est déjà choisi) ; son nom s’affiche dès le deuxième.</p>`;
+  <p class="discret">${esc(c.fam[1])} : ${c.degres.length} degrés à partir de ${esc(nomMode(c, c.degres[0]))}. Pour chaque degré, touche les intervalles de l’accord (F est déjà choisi) ; son nom s’affiche dès le deuxième.</p>` + barreSuite();
   for (const d of c.degres) {
     const n = nomDegre(c, d);
     html += `<section class="degre"><h3>Degré ${ROMAINS[d.k]}${h.ton ? ' · ' + NOMS_HARMO[d.racine] : ''} · ${esc(d.mode)}</h3>
@@ -1525,7 +1526,7 @@ function vueLibre() {
   <div class="boutons-harmo"><button type="button" class="btn" data-l="quartes">Cycle des quartes</button>
     <button type="button" class="btn" data-l="dominantes">Cycle des dominantes</button>
     <button type="button" class="btn" data-l="effacer">Tout effacer</button></div>
-  <p class="discret">Pour chaque accord : sa fondamentale${h.ton ? '' : ' (par rapport à la référence ; choisis une fondamentale pour voir les notes)'}, ses intervalles et, si tu veux, une gamme et un mode. Les intervalles limitent les gammes et les modes proposés, et un mode limite les intervalles. « Cycle des quartes » prend les quartes réelles du mode de l’accord 1 s’il est choisi (C ionien : C F B E A D G, chaque accord dans son mode), sinon des quartes justes ; choisir ensuite le mode de l’accord 1 met le cycle à jour. « Cycle des dominantes » met des accords 7 en Mixo, de quarte juste en quarte juste.</p>`;
+  <p class="discret">Pour chaque accord : sa fondamentale${h.ton ? '' : ' (par rapport à la référence ; choisis une fondamentale pour voir les notes)'}, ses intervalles et, si tu veux, une gamme et un mode. Les intervalles limitent les gammes et les modes proposés, et un mode limite les intervalles. « Cycle des quartes » prend les quartes réelles du mode de l’accord 1 s’il est choisi (C ionien : C F B E A D G, chaque accord dans son mode), sinon des quartes justes ; choisir ensuite le mode de l’accord 1 met le cycle à jour. « Cycle des dominantes » met des accords 7 en Mixo, de quarte juste en quarte juste.</p>` + barreSuite();
   for (const a of c.accords) {
     const fams = DONNEES.familles.filter((f) => f[2].some((m) => contient(m[1], a.sel)));
     const modes = a.fam ? a.fam[2].map((m, idx) => [m, idx]).filter(([m]) => contient(m[1], a.sel)) : [];
@@ -1792,17 +1793,26 @@ function corde(midi) {
   cacheCordes.set(midi, son);
   return son;
 }
-function arreterSon() { for (const s of sources) { try { s.stop(); } catch (e) { /* deja fini */ } } sources = []; }
-function jouer(notes, volume = 0.32) {            // notes : [{ midi, t (s), d (s, facultatif) }]
-  arreterSon();
-  const ctx = contexteAudio(), t0 = ctx.currentTime + 0.06;
+function arreterSon() {
+  for (const s of sources) { try { s.stop(); } catch (e) { /* deja fini */ } }
+  sources = [];
+  arreterSuite();
+}
+function planifier(notes, t0, volume = 0.32) {   // notes : [{ midi, t (s), d (s, facultatif), v (volume, facultatif) }]
+  const ctx = contexteAudio();
+  sources = sources.filter((s) => !s.fini);
   for (const nt of notes) {
     const c = corde(nt.midi), src = ctx.createBufferSource(), g = ctx.createGain();
     src.buffer = c.buf; src.playbackRate.value = c.vitesse;
-    g.gain.setValueAtTime(volume, t0 + nt.t);
-    if (nt.d) g.gain.setTargetAtTime(0, t0 + nt.t + nt.d, 0.06);
+    g.gain.setValueAtTime(nt.v || volume, t0 + nt.t);
+    if (nt.d) g.gain.setTargetAtTime(0, t0 + nt.t + nt.d, 0.05);
+    src.onended = () => { src.fini = true; };
     src.connect(g).connect(ctx.destination); src.start(t0 + nt.t); sources.push(src);
   }
+}
+function jouer(notes, volume = 0.32) {
+  arreterSon();
+  planifier(notes, contexteAudio().currentTime + 0.06, volume);
 }
 const temps = () => 60 / lecture.tempo;
 function jouerAccord(midis) {                     // midis : du grave a l'aigu (ordre des cordes, ou voicing serre)
@@ -1830,6 +1840,78 @@ function midisAccord(racine, sel, A) {           // voicing serre a partir de la
   const base = midiAuDessus(racine, grave(A) + 5);
   return [...new Set(sel)].sort((x, y) => x - y).map((iv) => base + iv);
 }
+// ---------------------------------------------------------------- lecture de toute la suite (harmonisation)
+// Chaque accord dure « tpa » temps. Plaque ou gratte : un coup par temps (le premier un peu plus fort) ; arpeges : deux
+// notes par temps, en tournant sur les notes de l'accord. En boucle, chaque passage est recalcule : une modification de
+// la suite est entendue au passage suivant. L'accord en cours est surligne.
+let suite = null;                                 // { minuteries, debut, actif }
+function accordsSuite() {                        // [{ k, racine, sel }] : degres d'une gamme ou accords de la suite libre
+  const h = harmoEtat();
+  if (h.type === 'libre') return libreCalcul().accords.map((a) => ({ k: a.i, racine: a.racine, sel: a.sel }));
+  const c = harmoCalcul();
+  return c.degres.map((d) => ({ k: d.k, racine: d.racine, sel: d.sel }));
+}
+function notesSuite(A) {
+  const b = temps(), tpa = Number(lecture.tpa) || 4, acc = accordsSuite(), notes = [], marques = [];
+  acc.forEach((a, n) => {
+    const debut = n * tpa * b, midis = midisAccord(a.racine, a.sel.length ? a.sel : [0], A);
+    marques.push([a.k, debut]);
+    if (lecture.jeu === 'plaque' || lecture.jeu === 'gratte') {
+      for (let t = 0; t < tpa; t++) midis.forEach((m, i) => notes.push({ midi: m, t: debut + t * b + (lecture.jeu === 'gratte' ? i * Math.min(0.04, b / 12) : 0),
+        d: b * 0.92, v: t === 0 ? 0.3 : 0.2 }));
+    } else {
+      let ordre = midis.slice();
+      if (lecture.jeu === 'arp-descendant') ordre.reverse();
+      else if (lecture.jeu === 'arp-ar' && ordre.length > 2) ordre = ordre.concat(ordre.slice(1, -1).reverse());
+      for (let k = 0; k < tpa * 2; k++) notes.push({ midi: ordre[k % ordre.length], t: debut + k * b / 2, d: b * 1.5, v: 0.3 });
+    }
+  });
+  return { notes, marques, duree: acc.length * tpa * b };
+}
+function surligner(k) {
+  document.querySelectorAll('.degre.en-cours').forEach((e) => e.classList.remove('en-cours'));
+  const e = k == null ? null : document.querySelectorAll('.degre')[k];
+  if (e) e.classList.add('en-cours');
+}
+function arreterSuite() {
+  if (!suite) return;
+  suite.minuteries.forEach(clearTimeout); suite = null; surligner(null);
+  const b = document.querySelector('[data-suite="jouer"]'); if (b) b.textContent = '▶ Écouter la suite';
+}
+function passage(t0) {                           // programme un passage de la suite, et le suivant si « en boucle »
+  const ctx = contexteAudio(), A = ACCORDAGES[etat.acc], p = notesSuite(A);
+  if (!p.marques.length) return arreterSuite();
+  planifier(p.notes, t0);
+  for (const [k, debut] of p.marques) suite.minuteries.push(setTimeout(() => surligner(k), Math.max(0, (t0 + debut - ctx.currentTime) * 1000)));
+  const fin = t0 + p.duree;
+  suite.minuteries.push(setTimeout(() => {
+    if (!suite) return;
+    if (lecture.boucle) passage(fin);
+    else suite.minuteries.push(setTimeout(() => { arreterSon(); }, 1500));
+  }, Math.max(0, (fin - ctx.currentTime - 0.25) * 1000)));
+}
+function jouerSuite() {
+  arreterSon();
+  suite = { minuteries: [] };
+  const b = document.querySelector('[data-suite="jouer"]'); if (b) b.textContent = '▶ Reprendre du début';
+  passage(contexteAudio().currentTime + 0.1);
+}
+function barreSuite() {
+  const o = (v, l, s) => `<option value="${v}"${s ? ' selected' : ''}>${l}</option>`;
+  return `<section class="bloc"><div class="barre-son">
+    <button type="button" class="btn plein" data-suite="jouer">▶ Écouter la suite</button>
+    <button type="button" class="btn" data-suite="stop" aria-label="Arrêter">■</button>
+    <label>Tempo <input type="range" min="40" max="200" step="5" value="${lecture.tempo}" data-son-r="tempo"> <span class="tempo-val">${lecture.tempo}</span></label>
+    <label>Temps par accord <select data-son-r="tpa">${[1, 2, 3, 4, 8].map((n) => o(n, n, (Number(lecture.tpa) || 4) === n)).join('')}</select></label>
+    <select data-son-r="jeu">${o('plaque', 'plaqué', lecture.jeu === 'plaque')}${o('gratte', 'gratté', lecture.jeu === 'gratte')}${o('arp-montant', 'arpège montant', lecture.jeu === 'arp-montant')}${o('arp-descendant', 'arpège descendant', lecture.jeu === 'arp-descendant')}${o('arp-ar', 'arpège aller-retour', lecture.jeu === 'arp-ar')}</select>
+    <label><input type="checkbox" data-son-r="boucle" ${lecture.boucle ? 'checked' : ''}> En boucle</label>
+  </div></section>`;
+}
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-suite]');
+  if (!t) return;
+  if (t.dataset.suite === 'stop') arreterSon(); else jouerSuite();
+});
 // barre de lecture d'une fenetre : spec = { forme } (position d'accord) ou { gamme: { ton, ivs }, accord: { racine, sel } }
 function barreSon(spec) {
   sonCourant = Object.assign({ acc: etat.acc }, spec);
@@ -1856,13 +1938,13 @@ document.addEventListener('click', (ev) => {
 document.addEventListener('input', (ev) => {
   const t = ev.target;
   if (!t.dataset || !t.dataset.sonR) return;
-  lecture[t.dataset.sonR] = t.dataset.sonR === 'jeu' || t.dataset.sonR === 'sens' ? t.value : Number(t.value);
+  lecture[t.dataset.sonR] = t.type === 'checkbox' ? t.checked : (t.dataset.sonR === 'jeu' || t.dataset.sonR === 'sens' ? t.value : Number(t.value));
   if (t.dataset.sonR === 'tempo') t.parentElement.querySelector('.tempo-val').textContent = t.value;
   ecrire('gf.lecture', lecture);
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target;
-  if (t.dataset && t.dataset.sonR) { lecture[t.dataset.sonR] = ['jeu', 'sens'].includes(t.dataset.sonR) ? t.value : Number(t.value); ecrire('gf.lecture', lecture); }
+  if (t.dataset && t.dataset.sonR) { lecture[t.dataset.sonR] = t.type === 'checkbox' ? t.checked : (['jeu', 'sens'].includes(t.dataset.sonR) ? t.value : Number(t.value)); ecrire('gf.lecture', lecture); }
 });
 function ouvrirDialogue(titre, sous, corps, boutons, son) {
   if (!son) sonCourant = null;
