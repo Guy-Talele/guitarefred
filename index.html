@@ -239,7 +239,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 08/11/2026 08:40</p>
+  <p class="discret" id="version">Version de la page : 09/11/2026 08:38</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -1517,7 +1517,7 @@ function vueLibre() {
   <div class="boutons-harmo"><button type="button" class="btn" data-l="quartes">Cycle des quartes</button>
     <button type="button" class="btn" data-l="dominantes">Cycle des dominantes</button>
     <button type="button" class="btn" data-l="effacer">Tout effacer</button></div>
-  <p class="discret">Pour chaque accord : sa fondamentale${h.ton ? '' : ' (par rapport à la référence ; choisis une fondamentale pour voir les notes)'}, ses intervalles et, si tu veux, une gamme et un mode. Les intervalles limitent les gammes et les modes proposés, et un mode limite les intervalles. Les cycles remplissent les fondamentales, de quarte en quarte, sur le nombre d’accords choisi ; « Cycle des dominantes » met aussi un accord 7 en Mixo.</p>`;
+  <p class="discret">Pour chaque accord : sa fondamentale${h.ton ? '' : ' (par rapport à la référence ; choisis une fondamentale pour voir les notes)'}, ses intervalles et, si tu veux, une gamme et un mode. Les intervalles limitent les gammes et les modes proposés, et un mode limite les intervalles. « Cycle des quartes » prend les quartes réelles du mode de l’accord 1 s’il est choisi (C ionien : C F B E A D G, chaque accord dans son mode), sinon des quartes justes ; choisir ensuite le mode de l’accord 1 met le cycle à jour. « Cycle des dominantes » met des accords 7 en Mixo, de quarte juste en quarte juste.</p>`;
   for (const a of c.accords) {
     const fams = DONNEES.familles.filter((f) => f[2].some((m) => contient(m[1], a.sel)));
     const modes = a.fam ? a.fam[2].map((m, idx) => [m, idx]).filter(([m]) => contient(m[1], a.sel)) : [];
@@ -1542,8 +1542,32 @@ function vueLibre() {
     <p class="discret">Les accords de la suite côte à côte, ${String(h.parLigne || 'tous') === 'tous' ? 'tous sur une ligne' : h.parLigne + ' par ligne'}. « … dans les 12 tonalités » transpose toute la suite, de A à Ab.</p></section>`;
   main().innerHTML = html;
 }
+// cycle des quartes « reel » : les quartes prises dans le mode de l'accord 1 (C ionien : C F B E A D G, avec B et non Bb),
+// et pour chaque accord le mode de cette gamme sur sa fondamentale (F lydien, B locrien...)
+function prochaineQuarte(ivs, j) {
+  if (ivs.length === 7) return (j + 3) % 7;            // gamme de 7 notes : la 4e note au-dessus
+  for (const d of [5, 6, 4, 7, 3]) { const t = ivs.findIndex((x) => mod12(x - ivs[j]) === d); if (t >= 0) return t; }
+  return (j + 1) % ivs.length;                          // autres gammes : la note la plus proche d'une quarte juste
+}
+function quartesDuMode(L) {
+  const a0 = L.accords[0], fam = a0 && a0.rang != null ? DONNEES.familles.find((f) => f[0] === a0.rang) : null;
+  const md = fam && a0.mode != null ? fam[2][a0.mode] : null;
+  if (!md) return false;
+  const ivs = [...md[1]].sort((x, y) => x - y);
+  let j = 0;
+  for (let k = 0; k < L.nb; k++) {
+    if (k > 0) j = prochaineQuarte(ivs, j);
+    const rot = ivs.map((x) => mod12(x - ivs[j])).sort((x, y) => x - y).join(',');
+    const mi = fam[2].findIndex((m) => [...m[1]].sort((x, y) => x - y).join(',') === rot);
+    L.accords[k] = Object.assign({}, L.accords[k], { r: mod12((a0.r || 0) + ivs[j]) }, k > 0 ? { rang: fam[0], mode: mi >= 0 ? mi : null } : {});
+  }
+  return true;
+}
 function libreModifier(i, change) {
-  const L = libreEtat(); L.accords[i] = Object.assign({}, L.accords[i], change); harmoSauver(); vueLibre();
+  const L = libreEtat(); L.accords[i] = Object.assign({}, L.accords[i], change);
+  if ('r' in change) L.cycle = null;                     // une fondamentale changee a la main : le cycle n'est plus suivi
+  else if (i === 0 && L.cycle === 'quartes' && ('mode' in change || 'rang' in change)) quartesDuMode(L);
+  harmoSauver(); vueLibre();
 }
 document.addEventListener('click', (ev) => {
   const t = ev.target.closest('[data-l]');
@@ -1557,20 +1581,22 @@ document.addEventListener('click', (ev) => {
     ouvrirDialogue(x.titre, x.sous, x.svg, [boutonPng(x.titre, x.sous, x.svg, nomPng(c.L.titre || 'harmonisation libre', 'accord', i + 1, x.n ? x.n.nom : '', etat.acc)), ['Fermer', () => dlg().close(), true]]);
   } else if (l === 'quartes' || l === 'dominantes') {
     const maj = DONNEES.familles.find((f) => f[0] === 1), mixo = maj ? maj[2].findIndex((m) => [...m[1]].sort((x, y) => x - y).join(',') === '0,2,4,5,7,9,10') : -1;
-    L.accords = L.accords.map((a, k) => (k >= L.nb ? a : Object.assign({}, a, { r: (5 * k) % 12 },
-      l === 'dominantes' ? { sel: [0, 4, 7, 10], rang: mixo >= 0 ? 1 : null, mode: mixo >= 0 ? mixo : null } : {})));
+    L.cycle = l;
+    if (l === 'dominantes' || !quartesDuMode(L))        // sans mode pour l'accord 1 : quartes justes, de 5 en 5 demi-tons
+      L.accords = L.accords.map((a, k) => (k >= L.nb ? a : Object.assign({}, a, { r: (5 * k) % 12 },
+        l === 'dominantes' ? { sel: [0, 4, 7, 10], rang: mixo >= 0 ? 1 : null, mode: mixo >= 0 ? mixo : null } : {})));
     if (!L.titre) L.titre = l === 'quartes' ? 'cycle des quartes' : 'cycle des dominantes';
     harmoSauver(); vueLibre();
   } else if (l === 'effacer') {
     if (!confirm('Effacer les accords de la suite ?')) return;
-    L.accords = []; L.titre = ''; harmoSauver(); vueLibre();
+    L.accords = []; L.titre = ''; L.cycle = null; harmoSauver(); vueLibre();
   }
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target;
   if (!t.dataset || !t.dataset.l) return;
   const L = libreEtat(), i = Number(t.dataset.i), l = t.dataset.l;
-  if (l === 'nb') { L.nb = Number(t.value); libreEtat(); harmoSauver(); vueLibre(); }
+  if (l === 'nb') { L.nb = Number(t.value); libreEtat(); if (L.cycle === 'quartes') quartesDuMode(L); harmoSauver(); vueLibre(); }
   else if (l === 'titre') { L.titre = t.value.trim(); harmoSauver(); }
   else if (l === 'r') libreModifier(i, { r: Number(t.value) });
   else if (l === 'rang') libreModifier(i, { rang: t.value === '' ? null : Number(t.value), mode: null });
