@@ -234,6 +234,7 @@ footer .liens { margin-top: .5rem; }
       <button type="button" role="tab" data-vue="accords" aria-selected="true">Accords</button>
       <button type="button" role="tab" data-vue="gammes" aria-selected="false">Gammes</button>
       <button type="button" role="tab" data-vue="harmo" aria-selected="false">Harmonisation</button>
+      <button type="button" role="tab" data-vue="suites" aria-selected="false">Suites</button>
       <button type="button" role="tab" data-vue="base" aria-selected="false">Base</button>
     </div>
     <div class="instruments" role="group" aria-label="Instrument">
@@ -250,7 +251,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 12/11/2026 15:33</p>
+  <p class="discret" id="version">Version de la page : 12/11/2026 21:57</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -1189,7 +1190,8 @@ function basculerVue(vue, dessiner = true) {
   if (!dessiner) return;
   if (vue === 'base') vueBase();
   else if (vue === 'gammes') vueGammes();
-  else if (vue === 'harmo') { derniereSyncSuites = 0; vueHarmo(); }
+  else if (vue === 'harmo') vueHarmo();
+  else if (vue === 'suites') { derniereSyncSuites = 0; vueSuites(); }
   else if (etat.res) afficher(); else accueil();
 }
 function vueGammes() {
@@ -1688,55 +1690,86 @@ function texteSynchro(r) {                      // le compte rendu, lisible
   if (r.effacees.length) p.push(`supprimée${r.effacees.length > 1 ? 's' : ''} sur un autre appareil, retirée${r.effacees.length > 1 ? 's' : ''} ici : ${q(r.effacees)}`);
   return p.length ? p.join(' ; ') + '.' : 'rien à changer, tout est à jour.';
 }
-function blocSuites() {
-  return `<section class="bloc"><h3 class="titre-bloc">Mes suites d’accords</h3>
+function blocSuites() {                          // dans l'onglet Harmonisation : enregistrer la suite en cours
+  return `<section class="bloc"><h3 class="titre-bloc">Enregistrer cette suite</h3>
     <div class="barre-son"><input type="text" class="nom-suite" data-suites="nom" value="${esc(nomSuiteDefaut())}" aria-label="Nom de la suite">
-      <button type="button" class="btn plein" data-suites="enregistrer">Enregistrer</button>
-      <button type="button" class="btn" data-suites="importer">Importer un fichier</button>
-      <input type="file" id="fichier-suite" accept=".json,application/json" hidden></div>
+      <button type="button" class="btn plein" data-suites="enregistrer">Enregistrer</button></div>
+    <p class="discret" id="etat-enreg">Les suites enregistrées sont dans l’onglet Suites, d’où on les charge.</p></section>`;
+}
+const dateHeure = (iso) => {                      // « 12/11/2026 à 15:33:08 », heure de l'appareil
+  const d = new Date(iso); if (isNaN(d)) return '';
+  return d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+};
+const quandSuite = (e) => (e.drive ? dateHeure(e.drive) : dateHeure(e.modifLocal || ((e.suite || {}).enregistre || '') + 'Z'));
+function vueSuites() {
+  main().innerHTML = `<section class="bloc"><h2 class="titre-bloc">Mes suites d’accords</h2>
+    <div class="barre-son"><input type="search" class="nom-suite" id="cherche-suite" placeholder="Chercher une suite…" aria-label="Chercher une suite">
+      <label>Trier <select id="tri-suites"><option value="nom">par nom</option><option value="date">par date</option></select></label></div>
     <div class="barre-son"><button type="button" class="btn" data-suites="synchro">Synchroniser maintenant</button>
+      <button type="button" class="btn" data-suites="importer">Importer un fichier</button>
+      <input type="file" id="fichier-suite" accept=".json,application/json" hidden>
       <button type="button" class="btn" data-drive="connecter" id="suites-connecter" hidden>Se connecter à Google Drive</button></div>
     <p class="discret" id="etat-suites">Chargement de la liste…</p><div id="liste-suites"></div></section>`;
+  afficherSuites();
 }
 let derniereSyncSuites = 0;
 const heure = () => new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+let suitesVues = {};
 async function afficherSuites(message, forcer) {  // synchronise (a l'ouverture de l'onglet, apres chaque changement, sur demande)
   const zone = document.getElementById('liste-suites'), et = document.getElementById('etat-suites');
   if (!zone) return;
-  let loc, r = null, erreur = null;
+  let loc, erreur = null;
   if (forcer || Date.now() - derniereSyncSuites > 60000) {
-    if (et && drivePret()) et.textContent = 'Synchronisation des suites avec le Drive…';
-    try { ({ loc, r } = await synchroniserSuites()); if (r) derniereSyncSuites = Date.now(); }
+    if (et && drivePret()) et.textContent = 'Synchronisation avec le Drive…';
+    try { const s = await synchroniserSuites(); loc = s.loc; if (s.r) derniereSyncSuites = Date.now(); }
     catch (e) { erreur = e.message; loc = await suitesLocales(); }
   } else loc = await suitesLocales();
-  const noms = Object.keys(loc).filter((n) => !loc[n].supprime).sort((a, b) => a.localeCompare(b, 'fr'));
-  const enAttente = Object.values(loc).filter((e) => e.aEnvoyer || e.supprime).length;
+  suitesVues = loc;
   if (!document.getElementById('liste-suites')) return;
   const connecte = drivePret(), bouton = document.getElementById('suites-connecter');
   if (bouton) bouton.hidden = connecte;
-  let etatTxt;
-  if (erreur) etatTxt = `Synchronisation impossible (${erreur}) : liste de cet appareil.${enAttente ? ` ${enAttente} changement(s) en attente d’envoi.` : ''}`;
-  else if (r) etatTxt = `Synchronisé à ${heure()} : ${texteSynchro(r)} ${noms.length} suite(s) dans GuitareFred/SUITES.`;
-  else if (connecte) etatTxt = `Drive connecté : ${noms.length} suite(s) dans GuitareFred/SUITES.`;
-  else etatTxt = `Drive non connecté : ${noms.length} suite(s) sur cet appareil.${enAttente ? ` ${enAttente} changement(s) partiront dans le Drive à la connexion.` : ''}`;
-  et.textContent = (message ? message + ' ' : '') + etatTxt;
-  zone.innerHTML = noms.length ? `<ul class="liste-suites">${noms.map((n) => {
-    const s = loc[n].suite || {}, quand = (s.enregistre || '').replace('T', ' ').slice(0, 16);
-    return `<li><span><b>${esc(n)}</b> <small>${esc(quand)}${loc[n].aEnvoyer ? ' · à envoyer' : (loc[n].id ? ' · dans le Drive' : '')}</small></span>
-      <span><button type="button" class="btn petit" data-suites="charger" data-nom="${esc(n)}">Charger</button>
-      <button type="button" class="btn petit" data-suites="exporter" data-nom="${esc(n)}">Exporter</button>
-      <button type="button" class="btn petit" data-suites="supprimer" data-nom="${esc(n)}">Supprimer</button></span></li>`;
-  }).join('')}</ul>` : '';
+  const enAttente = Object.values(loc).filter((e) => e.aEnvoyer || e.supprime).length;
+  et.textContent = (message ? message + ' ' : '') + (erreur ? `Drive injoignable (${erreur}).` : connecte ? 'Drive connecté.' : 'Drive non connecté.') +
+    (enAttente ? ` ${enAttente} changement(s) à envoyer.` : '');
+  listerSuites();
 }
-window.synchroSuites = () => { if (document.getElementById('liste-suites')) afficherSuites('', true); };
+function listerSuites() {
+  const zone = document.getElementById('liste-suites'), loc = suitesVues;
+  if (!zone) return;
+  const q = ((document.getElementById('cherche-suite') || {}).value || '').toLowerCase().trim();
+  const tri = (document.getElementById('tri-suites') || {}).value || 'nom';
+  const date = (n) => new Date(loc[n].drive || loc[n].modifLocal || ((loc[n].suite || {}).enregistre || '') + 'Z').getTime() || 0;
+  let noms = Object.keys(loc).filter((n) => !loc[n].supprime && (!q || n.toLowerCase().includes(q)));
+  noms.sort(tri === 'date' ? (a, b) => date(b) - date(a) : (a, b) => a.localeCompare(b, 'fr'));
+  zone.innerHTML = `<p class="discret">${noms.length} suite(s)${q ? ' trouvée(s)' : ''}.</p>` + (noms.length ? `<ul class="liste-suites">${noms.map((n) => `<li>
+      <span><b>${esc(n)}</b> <small>modifiée le ${esc(quandSuite(loc[n]))}${loc[n].aEnvoyer ? ' · à envoyer' : ''}</small></span>
+      <span><button type="button" class="btn petit plein" data-suites="charger" data-nom="${esc(n)}">Charger</button>
+      <button type="button" class="btn petit" data-suites="exporter" data-nom="${esc(n)}">Exporter</button>
+      <button type="button" class="btn petit" data-suites="supprimer" data-nom="${esc(n)}">Supprimer</button></span></li>`).join('')}</ul>` : '');
+}
+document.addEventListener('input', (ev) => { if (ev.target.id === 'cherche-suite') listerSuites(); });
+document.addEventListener('change', (ev) => { if (ev.target.id === 'tri-suites') listerSuites(); });
+window.synchroSuites = () => {                  // a la connexion : la liste si elle est affichee, sinon en silence
+  if (document.getElementById('liste-suites')) afficherSuites('', true);
+  else synchroniserSuites().then(() => { derniereSyncSuites = Date.now(); }).catch(() => {});
+};
 async function enregistrerSuite(nom, suite) {
   nom = nom.replace(/[\\/:*?"<>|]+/g, '-').trim();
   if (!nom) return alert('Donne un nom à la suite.');
   const loc = await suitesLocales();
   if (loc[nom] && !loc[nom].supprime && !confirm(`Une suite « ${nom} » existe déjà. La remplacer ?`)) return;
-  loc[nom] = Object.assign({}, loc[nom], { suite: Object.assign(suite, { nom }), aEnvoyer: true, supprime: false });
+  loc[nom] = Object.assign({}, loc[nom], { suite: Object.assign(suite, { nom }), aEnvoyer: true, supprime: false, modifLocal: new Date().toISOString() });
   await idbEcrire('suites', loc);
-  await afficherSuites(`« ${nom} » enregistrée.`, true);
+  const et = document.getElementById('etat-enreg');
+  if (et) et.textContent = 'Enregistrement…';
+  let texte;
+  try {
+    const { loc: l2 } = await synchroniserSuites(); derniereSyncSuites = Date.now();
+    texte = l2[nom] && !l2[nom].aEnvoyer ? `« ${nom} » enregistrée dans le Drive, modifiée le ${quandSuite(l2[nom])}.`
+      : `« ${nom} » enregistrée sur cet appareil le ${quandSuite(loc[nom])} ; elle partira dans le Drive à la connexion.`;
+  } catch (e) { texte = `« ${nom} » enregistrée sur cet appareil (Drive injoignable : ${e.message}).`; }
+  if (document.getElementById('etat-enreg')) document.getElementById('etat-enreg').textContent = texte;
+  if (document.getElementById('liste-suites')) await afficherSuites(texte);
 }
 document.addEventListener('click', async (ev) => {
   const t = ev.target.closest('[data-suites]');
@@ -1753,8 +1786,8 @@ document.addEventListener('click', async (ev) => {
         try { const { loc: l2, r } = await synchroniserSuites(); if (l2[nom]) suite = l2[nom].suite; if (r && r.majs.includes(nom)) note = ' (version modifiée sur un autre appareil)'; derniereSyncSuites = Date.now(); }
         catch (e) { note = ' (Drive injoignable : version de cet appareil)'; }
       }
-      appliquerSuite(suite); arreterSon(); vueHarmo();
-      setTimeout(() => { const et = document.getElementById('etat-suites'); if (et) et.textContent = `« ${nom} » chargée${note}. ` + et.textContent; }, 300);
+      appliquerSuite(suite); arreterSon(); basculerVue('harmo');
+      const et = document.getElementById('etat-enreg'); if (et) et.textContent = `« ${nom} » chargée${note}.`;
     } else if (t.dataset.suites === 'exporter') {
       const url = URL.createObjectURL(new Blob([JSON.stringify(loc[nom].suite, null, 1)], { type: 'application/json' })), a = document.createElement('a');
       a.href = url; a.download = nom + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 3000);
