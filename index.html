@@ -250,7 +250,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 12/11/2026 11:12</p>
+  <p class="discret" id="version">Version de la page : 12/11/2026 15:33</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -1189,7 +1189,7 @@ function basculerVue(vue, dessiner = true) {
   if (!dessiner) return;
   if (vue === 'base') vueBase();
   else if (vue === 'gammes') vueGammes();
-  else if (vue === 'harmo') vueHarmo();
+  else if (vue === 'harmo') { derniereSyncSuites = 0; vueHarmo(); }
   else if (etat.res) afficher(); else accueil();
 }
 function vueGammes() {
@@ -1652,21 +1652,41 @@ const nomSuiteDefaut = () => {
 async function suitesLocales() { try { return (await idbLire('suites')) || {}; } catch (e) { return {}; } }
 const drivePret = () => window.GFDrive && GFDrive.connecte && GFDrive.connecte();
 async function synchroniserSuites() {           // le Drive fait foi ; ce qui a ete fait hors connexion y est envoye
-  const loc = await suitesLocales();
-  if (!drivePret()) return loc;
+  const loc = await suitesLocales(), r = { envoyees: [], remplacees: [], recues: [], majs: [], supprimees: [], effacees: [] };
+  if (!drivePret()) return { loc, r: null };
   const dist = await GFDrive.suitesLister(), parNom = new Map(dist.map((f) => [f.name.replace(/\.json$/, ''), f]));
   for (const [nom, e] of Object.entries(loc)) {
     const f = parNom.get(nom);
-    if (e.supprime) { if (f) await GFDrive.suiteSupprimer(f.id); delete loc[nom]; continue; }
-    if (e.aEnvoyer) { const r = await GFDrive.suiteEcrire(nom, JSON.stringify(e.suite), f && f.id); Object.assign(e, { id: r.id, drive: r.modifiedTime, aEnvoyer: false }); continue; }
-    if (!f && e.id) delete loc[nom];             // supprimee depuis un autre appareil
+    if (e.supprime) { if (f) { await GFDrive.suiteSupprimer(f.id); parNom.delete(nom); } delete loc[nom]; r.supprimees.push(nom); continue; }
+    if (e.aEnvoyer) {
+      const res = await GFDrive.suiteEcrire(nom, JSON.stringify(e.suite), f && f.id);
+      (f ? r.remplacees : r.envoyees).push(nom);
+      Object.assign(e, { id: res.id, drive: res.modifiedTime, aEnvoyer: false });
+      if (f) parNom.set(nom, Object.assign({}, f, { modifiedTime: res.modifiedTime }));
+      continue;
+    }
+    if (!f && e.id) { delete loc[nom]; r.effacees.push(nom); }            // supprimee depuis un autre appareil
   }
   for (const [nom, f] of parNom) {
     const e = loc[nom];
-    if (!e || (e.drive !== f.modifiedTime && !e.aEnvoyer)) loc[nom] = { suite: await GFDrive.suiteLire(f.id), id: f.id, drive: f.modifiedTime, aEnvoyer: false };
+    if (!e || (e.drive !== f.modifiedTime && !e.aEnvoyer)) {
+      loc[nom] = { suite: await GFDrive.suiteLire(f.id), id: f.id, drive: f.modifiedTime, aEnvoyer: false };
+      (e ? r.majs : r.recues).push(nom);
+    }
   }
   await idbEcrire('suites', loc);
-  return loc;
+  return { loc, r };
+}
+function texteSynchro(r) {                      // le compte rendu, lisible
+  const q = (l) => l.map((n) => `« ${n} »`).join(', ');
+  const p = [];
+  if (r.envoyees.length) p.push(`envoyée${r.envoyees.length > 1 ? 's' : ''} dans le Drive : ${q(r.envoyees)}`);
+  if (r.remplacees.length) p.push(`mise${r.remplacees.length > 1 ? 's' : ''} à jour dans le Drive : ${q(r.remplacees)}`);
+  if (r.recues.length) p.push(`reçue${r.recues.length > 1 ? 's' : ''} d’un autre appareil : ${q(r.recues)}`);
+  if (r.majs.length) p.push(`modifiée${r.majs.length > 1 ? 's' : ''} sur un autre appareil, reprise${r.majs.length > 1 ? 's' : ''} ici : ${q(r.majs)}`);
+  if (r.supprimees.length) p.push(`supprimée${r.supprimees.length > 1 ? 's' : ''} du Drive : ${q(r.supprimees)}`);
+  if (r.effacees.length) p.push(`supprimée${r.effacees.length > 1 ? 's' : ''} sur un autre appareil, retirée${r.effacees.length > 1 ? 's' : ''} ici : ${q(r.effacees)}`);
+  return p.length ? p.join(' ; ') + '.' : 'rien à changer, tout est à jour.';
 }
 function blocSuites() {
   return `<section class="bloc"><h3 class="titre-bloc">Mes suites d’accords</h3>
@@ -1674,29 +1694,41 @@ function blocSuites() {
       <button type="button" class="btn plein" data-suites="enregistrer">Enregistrer</button>
       <button type="button" class="btn" data-suites="importer">Importer un fichier</button>
       <input type="file" id="fichier-suite" accept=".json,application/json" hidden></div>
+    <div class="barre-son"><button type="button" class="btn" data-suites="synchro">Synchroniser maintenant</button>
+      <button type="button" class="btn" data-drive="connecter" id="suites-connecter" hidden>Se connecter à Google Drive</button></div>
     <p class="discret" id="etat-suites">Chargement de la liste…</p><div id="liste-suites"></div></section>`;
 }
 let derniereSyncSuites = 0;
-async function afficherSuites(message, forcer) {  // le Drive est consulte au plus une fois par minute, ou apres un changement
+const heure = () => new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+async function afficherSuites(message, forcer) {  // synchronise (a l'ouverture de l'onglet, apres chaque changement, sur demande)
   const zone = document.getElementById('liste-suites'), et = document.getElementById('etat-suites');
   if (!zone) return;
-  let loc;
-  try {
-    if (forcer || Date.now() - derniereSyncSuites > 60000) { loc = await synchroniserSuites(); if (drivePret()) derniereSyncSuites = Date.now(); }
-    else loc = await suitesLocales();
-  } catch (e) { loc = await suitesLocales(); message = (message ? message + ' ' : '') + 'Drive injoignable : liste de cet appareil.'; }
+  let loc, r = null, erreur = null;
+  if (forcer || Date.now() - derniereSyncSuites > 60000) {
+    if (et && drivePret()) et.textContent = 'Synchronisation des suites avec le Drive…';
+    try { ({ loc, r } = await synchroniserSuites()); if (r) derniereSyncSuites = Date.now(); }
+    catch (e) { erreur = e.message; loc = await suitesLocales(); }
+  } else loc = await suitesLocales();
   const noms = Object.keys(loc).filter((n) => !loc[n].supprime).sort((a, b) => a.localeCompare(b, 'fr'));
+  const enAttente = Object.values(loc).filter((e) => e.aEnvoyer || e.supprime).length;
   if (!document.getElementById('liste-suites')) return;
-  et.textContent = (message ? message + ' ' : '') + (drivePret() ? `Drive connecté : ${noms.length} suite(s) dans GuitareFred/SUITES.`
-    : `Drive non connecté : ${noms.length} suite(s) sur cet appareil ; elles partiront dans le Drive à la prochaine connexion.`);
+  const connecte = drivePret(), bouton = document.getElementById('suites-connecter');
+  if (bouton) bouton.hidden = connecte;
+  let etatTxt;
+  if (erreur) etatTxt = `Synchronisation impossible (${erreur}) : liste de cet appareil.${enAttente ? ` ${enAttente} changement(s) en attente d’envoi.` : ''}`;
+  else if (r) etatTxt = `Synchronisé à ${heure()} : ${texteSynchro(r)} ${noms.length} suite(s) dans GuitareFred/SUITES.`;
+  else if (connecte) etatTxt = `Drive connecté : ${noms.length} suite(s) dans GuitareFred/SUITES.`;
+  else etatTxt = `Drive non connecté : ${noms.length} suite(s) sur cet appareil.${enAttente ? ` ${enAttente} changement(s) partiront dans le Drive à la connexion.` : ''}`;
+  et.textContent = (message ? message + ' ' : '') + etatTxt;
   zone.innerHTML = noms.length ? `<ul class="liste-suites">${noms.map((n) => {
     const s = loc[n].suite || {}, quand = (s.enregistre || '').replace('T', ' ').slice(0, 16);
-    return `<li><span><b>${esc(n)}</b> <small>${esc(quand)}${loc[n].aEnvoyer ? ' · à envoyer' : ''}</small></span>
+    return `<li><span><b>${esc(n)}</b> <small>${esc(quand)}${loc[n].aEnvoyer ? ' · à envoyer' : (loc[n].id ? ' · dans le Drive' : '')}</small></span>
       <span><button type="button" class="btn petit" data-suites="charger" data-nom="${esc(n)}">Charger</button>
       <button type="button" class="btn petit" data-suites="exporter" data-nom="${esc(n)}">Exporter</button>
       <button type="button" class="btn petit" data-suites="supprimer" data-nom="${esc(n)}">Supprimer</button></span></li>`;
   }).join('')}</ul>` : '';
 }
+window.synchroSuites = () => { if (document.getElementById('liste-suites')) afficherSuites('', true); };
 async function enregistrerSuite(nom, suite) {
   nom = nom.replace(/[\\/:*?"<>|]+/g, '-').trim();
   if (!nom) return alert('Donne un nom à la suite.');
@@ -1713,9 +1745,16 @@ document.addEventListener('click', async (ev) => {
   try {
     if (t.dataset.suites === 'enregistrer') await enregistrerSuite(document.querySelector('[data-suites="nom"]').value, suiteActuelle(''));
     else if (t.dataset.suites === 'importer') document.getElementById('fichier-suite').click();
+    else if (t.dataset.suites === 'synchro') await afficherSuites('', true);
     else if (t.dataset.suites === 'charger') {
       if (!confirm(`Remplacer l’harmonisation en cours par « ${nom} » ?`)) return;
-      appliquerSuite(loc[nom].suite); arreterSon(); vueHarmo();
+      let suite = loc[nom].suite, note = '';
+      if (drivePret()) {                         // la version la plus recente, au cas ou un autre PC l'aurait modifiee
+        try { const { loc: l2, r } = await synchroniserSuites(); if (l2[nom]) suite = l2[nom].suite; if (r && r.majs.includes(nom)) note = ' (version modifiée sur un autre appareil)'; derniereSyncSuites = Date.now(); }
+        catch (e) { note = ' (Drive injoignable : version de cet appareil)'; }
+      }
+      appliquerSuite(suite); arreterSon(); vueHarmo();
+      setTimeout(() => { const et = document.getElementById('etat-suites'); if (et) et.textContent = `« ${nom} » chargée${note}. ` + et.textContent; }, 300);
     } else if (t.dataset.suites === 'exporter') {
       const url = URL.createObjectURL(new Blob([JSON.stringify(loc[nom].suite, null, 1)], { type: 'application/json' })), a = document.createElement('a');
       a.href = url; a.download = nom + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 3000);
@@ -2440,6 +2479,7 @@ window.GFDrive = (function () {
     afficherEtat();
     try { await verifierReference(); } catch (e) { message = 'Drive : ' + e.message; }
     await synchroniser();
+    if (window.synchroSuites) window.synchroSuites('connexion');        // les suites d'accords aussi
   }
 
   // ---------- affichage
@@ -2465,9 +2505,10 @@ window.GFDrive = (function () {
     if (!t) return;
     const a = t.dataset.drive;
     if (a === 'connecter') connecter().catch((e) => { message = e.message; afficherEtat(); });
-    else if (a === 'synchroniser') (async () => {      // la reference du Drive d'abord, puis les favoris
+    else if (a === 'synchroniser') (async () => {      // la reference du Drive d'abord, puis les favoris et les suites
       try { await verifierReference(); } catch (e) { message = 'Drive : ' + e.message; }
       await synchroniser();
+      if (window.synchroSuites) window.synchroSuites('bouton');
     })();
     else if (a === 'reference') document.getElementById('fichier-ref').click();
   });
