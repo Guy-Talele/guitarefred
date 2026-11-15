@@ -198,6 +198,9 @@ details.pli[open] > summary::after { content: "−"; }
 .renv-base { background: var(--surface); border: 1px solid var(--ligne); border-radius: .6rem; padding: .7rem .9rem; margin-bottom: .6rem; display: grid; gap: .4rem; }
 .renv-base h3 { margin: 0; font-size: 1.05rem; }
 .renv-base .pastilles { margin: 0; }
+.formulaire-base .chips { margin-bottom: .7rem; }
+.chip:disabled { cursor: default; }
+.rangee-base { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin-bottom: 1rem; }
 .renv-base .pastille { width: 2.2rem; height: 2.2rem; font-size: .88rem; }
 .etat { display: inline-block; align-self: center; border-radius: 999px; padding: .05rem .6rem; font-size: .85rem; font-weight: 700; border: 1.5px solid currentColor; }
 .etat.ok { color: #2e7d32; } .etat.corr { color: #b26a00; } .etat.abs { color: var(--erreur); }
@@ -251,7 +254,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 12/11/2026 21:57</p>
+  <p class="discret" id="version">Version de la page : 15/11/2026 17:26</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -1809,14 +1812,23 @@ document.addEventListener('change', async (ev) => {
   } catch (e) { alert('Import : ' + e.message); }
   t.value = '';
 });
+// les intervalles choisis dans l'onglet Base (F toujours present), d'apres le texte retenu
+function selBase() {
+  const b = etat.base || {};
+  try { return [...new Set([0, ...G.parseIntervalles(b.texte || 'F')].map(mod12))].sort((x, y) => x - y); } catch (e) { return [0]; }
+}
 function vueBase() {
   const b = etat.base || (etat.base = { texte: '', racine: '' });
   const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === b.racine ? ' selected' : ''}>${n || 'aucune'}</option>`).join('');
-  let h = `<form class="formulaire-base" id="form-base" autocomplete="off">
-    <div class="rangee"><input id="saisie-base" value="${esc(b.texte)}" placeholder="F 3M b5 7M" aria-label="Intervalles" enterkeyhint="go">
-    <button type="submit" class="btn plein">Nommer</button></div>
-    <label>Fondamentale pour les liens <select id="racine-base">${opts}</select></label></form>`;
-  if (b.texte) {
+  const sel = selBase();
+  let h = `<section class="formulaire-base">
+    <div class="chips">${INTERVALLES.map((lab, iv) => {
+      const on = sel.includes(iv);
+      return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-b="iv" data-iv="${iv}" aria-pressed="${on}" ${iv === 0 ? 'disabled title="La fondamentale fait toujours partie de l’accord"' : ''}>${esc(lab)}</button>`;
+    }).join('')}</div>
+    <div class="rangee-base"><label>Fondamentale pour les liens <select id="racine-base">${opts}</select></label>
+      <button type="button" class="btn" data-b="effacer">Tout effacer</button></div></section>`;
+  if (sel.length >= 2) {
     let lignes;
     try { lignes = M.base(b.texte); } catch (e) { main().innerHTML = h + `<p class="message">${esc(e.message)}</p>`; return; }
     for (const x of lignes) {
@@ -1831,10 +1843,22 @@ function vueBase() {
         ${x.remarques.map((rq) => `<div class="discret">${esc(rq)}</div>`).join('')}</div>`;
     }
   } else {
-    h += '<p class="discret">Saisis les intervalles de l’accord, séparés par des espaces : F 3M b5 7M, ou R 3 b5 maj7. La base indique le nom de l’accord et de chacun de ses renversements ; un nom de la base mène à sa recherche.</p>';
+    h += '<p class="discret">Touche les intervalles de l’accord (F est déjà choisi) : dès le deuxième, la base indique le nom de l’accord et de chacun de ses renversements ; un nom de la base mène à sa recherche.</p>';
   }
   main().innerHTML = h;
 }
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-b]');
+  if (!t) return;
+  const b = etat.base || (etat.base = { texte: '', racine: '' });
+  if (t.dataset.b === 'effacer') b.texte = '';
+  else {
+    const iv = Number(t.dataset.iv), sel = selBase();
+    const nv = sel.includes(iv) ? sel.filter((x) => x !== iv) : [...sel, iv].sort((x, y) => x - y);
+    b.texte = nv.length > 1 ? G.cleDe(nv) : '';
+  }
+  vueBase();
+});
 
 // ---------------------------------------------------------------- fenetres
 const dlg = () => document.getElementById('dlg');
@@ -2247,7 +2271,7 @@ document.addEventListener('change', (ev) => {
   if (t.id === 'favseul') { etat.favSeul = t.checked; etat.lot = 1; afficherPositions(); majGrisage(); return; }
   if (t.dataset.corde !== undefined) { etat.pos[Number(t.dataset.corde)] = t.value; return; }
   if (t.id === 'ton-gamme') { etat.tonGamme = t.value; return; }
-  if (t.id === 'racine-base') { etat.base = { texte: document.getElementById('saisie-base').value.trim(), racine: t.value }; vueBase(); return; }
+  if (t.id === 'racine-base') { etat.base = { texte: (etat.base || {}).texte || '', racine: t.value }; vueBase(); return; }
   if (t.id === 'fichier' && t.files[0]) {
     const lireTexte = (f) => f.name.endsWith('.gz')         // sauvegarde compressee du Drive (favoris_AAAA-MM-JJ.json.gz)
       ? new Response(f.stream().pipeThrough(new DecompressionStream('gzip'))).text() : f.text();
@@ -2275,12 +2299,6 @@ document.addEventListener('change', (ev) => {
   }
 });
 document.getElementById('form').addEventListener('submit', (ev) => { ev.preventDefault(); rechercher(document.getElementById('saisie').value); });
-document.addEventListener('submit', (ev) => {
-  if (ev.target.id !== 'form-base') return;
-  ev.preventDefault();
-  etat.base = { texte: document.getElementById('saisie-base').value.trim(), racine: document.getElementById('racine-base').value };
-  vueBase();
-});
 document.addEventListener('toggle', (ev) => { if (ev.target.id === 'pli-position') etat.posOuvert = ev.target.open; }, true);
 
 // ---------------------------------------------------------------- chargement des donnees
