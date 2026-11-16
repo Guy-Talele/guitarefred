@@ -272,7 +272,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 16/11/2026 10:23</p>
+  <p class="discret" id="version">Version de la page : 16/11/2026 10:50</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -2009,7 +2009,11 @@ function vueArpeges() {
     <div class="grille-arp">${liste.map((e, i) => `<figure class="mini-arp"><figcaption><b>Forme ${i + 1}</b><br><small>${esc(e.tags)}</small></figcaption>
       ${e.svg}<div class="boutons-mini"><button type="button" class="btn petit" data-arpa="reprendre" data-i="${i}">Reprendre</button>
       <button type="button" class="btn petit" data-arpa="supprimer" data-id="${esc(e.e.f.id)}">Supprimer</button></div></figure>`).join('')}</div>
-    ${liste.length ? '' : '<p class="discret">Aucune forme pour cet accord.</p>'}</section>`;
+    ${liste.length ? '' : '<p class="discret">Aucune forme pour cet accord.</p>'}
+    <p class="discret">Échange avec le programme PC : « Exporter » ici puis « Importer » dans l’onglet Arpèges du PC, ou l’inverse. Les deux côtés fusionnent sans rien perdre.</p>
+    <div class="boutons-harmo"><button type="button" class="btn" data-arpa="exporter">Exporter les formes (arpeges.json)</button>
+      <button type="button" class="btn" data-arpa="importer">Importer un arpeges.json (fusion)</button>
+      <input type="file" id="arp-fichier" accept=".json,application/json" hidden></div></section>`;
   main().innerHTML = h;
   etat.arpListe = liste;
 }
@@ -2175,7 +2179,10 @@ document.addEventListener('click', (ev) => {
     if (e.ton && e.ton !== s.ton) s.ton = e.ton;            // forme a cordes a vide : sa tonalite
     s.sel = e.cases.map(([c, k]) => `${c},${k}`); s.sansBasse = !e.e.f.basse && e.cases.some(([c]) => c <= 2);
     arpGarder(); vueArpeges(); window.scrollTo({ top: 0, behavior: 'smooth' });
-  } else if (t.dataset.arpa === 'planche') plancheArpeges().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
+  } else if (t.dataset.arpa === 'exporter') {
+    donnerFichiers([new File([JSON.stringify(arpeges)], 'arpeges.json', { type: 'application/json' })]).catch(() => {});
+  } else if (t.dataset.arpa === 'importer') document.getElementById('arp-fichier').click();
+  else if (t.dataset.arpa === 'planche') plancheArpeges().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target, s = etat.arp;
@@ -2183,11 +2190,24 @@ document.addEventListener('change', (ev) => {
   if (t.id === 'ton-arp') { s.ton = t.value; s.sel = []; arpGarder(); vueArpeges(); }
   else if (t.id === 'arp-sansbasse') { s.sansBasse = t.checked; arpGarder(); vueArpeges(); }
   else if (t.id === 'arp-parligne') { s.parLigne = t.value; arpGarder(); }
+  else if (t.id === 'arp-fichier' && t.files[0]) { importerArpeges(t.files[0]); t.value = ''; }
 });
 document.addEventListener('submit', (ev) => {
   if (ev.target.id !== 'form-arp') return;
   ev.preventDefault(); choisirAccordArp(document.getElementById('saisie-arp').value);
 });
+async function importerArpeges(fichier) {        // un arpeges.json du programme PC (ou d'ailleurs) : fusion, puis Drive
+  try {
+    const autre = JSON.parse(await fichier.text());
+    if (!autre || !Array.isArray(autre.formes)) throw new Error('ce fichier n’est pas un fichier de formes d’arpège');
+    const avant = new Set(arpeges.formes.map((f) => f.id));
+    arpeges = fusionArp(arpeges, autre); await sauverArpeges();
+    const apres = new Set(arpeges.formes.map((f) => f.id));
+    const plus = [...apres].filter((i) => !avant.has(i)).length, moins = [...avant].filter((i) => !apres.has(i)).length;
+    etat.arpMsg = `Import de ${fichier.name} : ${plus} forme${plus > 1 ? 's' : ''} ajoutée${plus > 1 ? 's' : ''}, ${moins} retirée${moins > 1 ? 's' : ''}.`;
+  } catch (e) { etat.arpMsg = `Fichier non importé (${e.message}).`; }
+  vueArpeges(); synchroArpegesVue();
+}
 async function plancheArpeges() {
   const s = arpEtat(), A = ACCORDAGES[etat.acc], liste = formesAffichees(), nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null);
   const items = liste.map((e, i) => ({ svg: e.svg, l1: `Forme ${i + 1}`, l2: e.tags.split(' · ').slice(0, 2).join(' · '), l3: e.tags.split(' · ').slice(2).join(' · ') }));
