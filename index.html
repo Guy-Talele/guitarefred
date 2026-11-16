@@ -218,6 +218,8 @@ details.pli[open] > summary::after { content: "−"; }
 .mini-arp figcaption { font-size: .72rem; line-height: 1.25; }
 .mini-arp figcaption small { color: #5d6585; }
 .mini-arp svg { width: 100%; height: auto; display: block; }
+.mini-arp > button.ouvrir-arp { all: unset; display: block; width: 100%; cursor: zoom-in; border-radius: .4rem; }
+.mini-arp > button.ouvrir-arp:focus-visible { outline: 3px solid var(--accent); }
 .boutons-mini { display: grid; gap: .2rem; }
 .boutons-mini .btn.petit { margin: 0; width: 100%; min-height: 1.8rem; padding: .1rem .2rem; font-size: .75rem; }
 @media (min-width: 48rem) {
@@ -281,7 +283,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 16/11/2026 12:19</p>
+  <p class="discret" id="version">Version de la page : 16/11/2026 16:07</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
   <div class="liens">
@@ -2086,8 +2088,9 @@ function vueArpeges() {
       `<button type="button" class="lien" data-arpton="${esc(t)}">${esc(t + ' ' + nomCle(s.cle))}<small>${nb} forme${nb > 1 ? 's' : ''} à cordes à vide</small></button>`).join('')}</div>` : ''}
     ${liste.length ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpa="planche">Télécharger la planche (PNG)</button>
       <label>Formes par ligne <select id="arp-parligne">${['tous', '2', '3', '4', '5', '6', '8', '10'].map((v) => opt(v, v, String(s.parLigne) === v)).join('')}</select></label></div>` : ''}
+    ${liste.length ? '<p class="discret">Touche une forme pour l’agrandir.</p>' : ''}
     <div class="grille-arp">${liste.map((e, i) => `<figure class="mini-arp"><figcaption><b>Forme ${i + 1}</b><br><small>${esc(e.tags)}</small></figcaption>
-      ${e.svg}<div class="boutons-mini"><button type="button" class="btn petit" data-arpa="reprendre" data-i="${i}">Reprendre</button>
+      <button type="button" class="ouvrir-arp" data-arpa="agrandir" data-i="${i}" aria-label="Agrandir la forme ${i + 1}">${e.svg}</button><div class="boutons-mini"><button type="button" class="btn petit" data-arpa="reprendre" data-i="${i}">Reprendre</button>
       <button type="button" class="btn petit" data-arpa="supprimer" data-id="${esc(e.e.f.id)}">Supprimer</button></div></figure>`).join('')}</div>
     ${liste.length ? '' : '<p class="discret">Aucune forme pour cet accord.</p>'}
     <p class="discret">Échange avec le programme PC : « Tout exporter » et « Importer un fichier », en bas de page (favoris, formes et suites dans un seul fichier).</p></section>`;
@@ -2228,6 +2231,22 @@ function choisirAccordArp(saisie) {
   etat.arpMsg = '';
   Object.assign(arpEtat(), { cle, ton, sel: [], sansBasse: false }); arpGarder(); vueArpeges();
 }
+function reprendreForme(i) {                      // la forme revient sur la carte pour etre modifiee
+  const s = arpEtat(), e = etat.arpListe && etat.arpListe[i];
+  if (!e) return;
+  if (e.ton && e.ton !== s.ton) s.ton = e.ton;            // forme a cordes a vide : sa tonalite
+  s.sel = e.cases.map(([c, k]) => `${c},${k}`); s.sansBasse = !e.e.f.basse && e.cases.some(([c]) => c <= 2);
+  arpGarder(); vueArpeges(); window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function ouvrirFormeArp(i) {                      // une forme enregistree en grand, comme un diagramme d'accord (pas de son : choix de Fred)
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], e = etat.arpListe && etat.arpListe[i];
+  if (!e) return;
+  const nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null), titre = `${nom} · forme ${i + 1}`, sous = `${A.nom} · ${e.tags}`;
+  ouvrirDialogue(titre, sous, e.svg, [
+    ['Reprendre', () => { dlg().close(); reprendreForme(i); }, false],
+    boutonPng(titre, sous, e.svg, nomPng('arpege', nom, s.ton ? '' : 'generique', etat.acc, 'forme' + (i + 1))),
+    ['Fermer', () => dlg().close(), true]]);
+}
 document.addEventListener('click', (ev) => {
   const t = ev.target.closest('[data-arp],[data-arpiv],[data-arpa],[data-versarp],[data-arprenv],[data-arpton]');
   if (!t) return;
@@ -2251,12 +2270,9 @@ document.addEventListener('click', (ev) => {
   } else if (t.dataset.arpa === 'enregistrer') enregistrerForme();
   else if (t.dataset.arpa === 'effacer') { s.sel = []; vueArpeges(); }
   else if (t.dataset.arpa === 'supprimer') supprimerForme(t.dataset.id);
-  else if (t.dataset.arpa === 'reprendre') {
-    const e = etat.arpListe[Number(t.dataset.i)];
-    if (e.ton && e.ton !== s.ton) s.ton = e.ton;            // forme a cordes a vide : sa tonalite
-    s.sel = e.cases.map(([c, k]) => `${c},${k}`); s.sansBasse = !e.e.f.basse && e.cases.some(([c]) => c <= 2);
-    arpGarder(); vueArpeges(); window.scrollTo({ top: 0, behavior: 'smooth' });
-  } else if (t.dataset.arpa === 'planche') plancheArpeges().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
+  else if (t.dataset.arpa === 'reprendre') reprendreForme(Number(t.dataset.i));
+  else if (t.dataset.arpa === 'agrandir') ouvrirFormeArp(Number(t.dataset.i));
+  else if (t.dataset.arpa === 'planche') plancheArpeges().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target, s = etat.arp;
@@ -2952,7 +2968,8 @@ window.GFDrive = (function () {
     occupe = false; afficherEtat();
     if (encore) { encore = false; setTimeout(synchroniser, 200); }
   }
-  function planifier() { modifie = true; ecrire('gf.drive.modifie', true); if (!connecte()) return; clearTimeout(minuterie); minuterie = setTimeout(synchroniser, 1500); }
+  // hors connexion, la ligne Drive dit aussitot que des favoris attendent d'etre envoyes
+  function planifier() { modifie = true; ecrire('gf.drive.modifie', true); if (!connecte()) { afficherEtat(); return; } clearTimeout(minuterie); minuterie = setTimeout(synchroniser, 1500); }
 
   // ---------- reference : donnees_web.json
   function valider(d) { if (!d || !Array.isArray(d.items) || !Array.isArray(d.groupes) || typeof d.formes !== 'string') throw new Error('ce fichier n’est pas un donnees_web.json'); }
