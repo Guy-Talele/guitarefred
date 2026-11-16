@@ -201,7 +201,7 @@ details.pli[open] > summary::after { content: "−"; }
 .formulaire-base .chips { margin-bottom: .7rem; }
 .chip:disabled { cursor: default; }
 .rangee-base { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin-bottom: 1rem; }
-.arp-choix { display: grid; gap: .7rem; }
+.arp-choix { display: grid; grid-template-columns: minmax(0, 1fr); gap: .7rem; }   /* jamais plus large que l'ecran */
 .arp-choix .rangee { display: flex; gap: .5rem; }
 .arp-choix input { flex: 1; font: inherit; border: 1.5px solid var(--ligne); border-radius: .5rem; background: var(--surface); color: var(--encre); padding: .45rem .6rem; min-width: 0; }
 .arp-choix select { font: inherit; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); color: var(--encre); padding: .3rem .4rem; min-height: 2.4rem; }
@@ -212,12 +212,21 @@ details.pli[open] > summary::after { content: "−"; }
 .carte-arp { max-width: 25rem; margin: .8rem auto 1.2rem; background: #fff; border-radius: .7rem; padding: .5rem; }
 .carte-arp svg { width: 100%; height: auto; display: block; }
 .case-arp { cursor: pointer; }
-.grille-arp { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .7rem; margin-top: .7rem; }
-.mini-arp { margin: 0; background: #fff; color: #1c2140; border-radius: .6rem; padding: .5rem; display: grid; gap: .35rem; align-content: start; }
-.mini-arp figcaption { font-size: .85rem; line-height: 1.3; }
+/* formes d'arpege enregistrees : 3 par rangee sur telephone, comme les diagrammes d'accords */
+.grille-arp { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; margin-top: .7rem; }
+.mini-arp { margin: 0; background: #fff; color: #1c2140; border-radius: .5rem; padding: .3rem; display: grid; gap: .25rem; align-content: start; }
+.mini-arp figcaption { font-size: .72rem; line-height: 1.25; }
 .mini-arp figcaption small { color: #5d6585; }
 .mini-arp svg { width: 100%; height: auto; display: block; }
-.boutons-mini { display: flex; flex-wrap: wrap; gap: .3rem; }
+.boutons-mini { display: grid; gap: .2rem; }
+.boutons-mini .btn.petit { margin: 0; width: 100%; min-height: 1.8rem; padding: .1rem .2rem; font-size: .75rem; }
+@media (min-width: 48rem) {
+  .grille-arp { grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .7rem; }
+  .mini-arp { padding: .5rem; gap: .35rem; border-radius: .6rem; }
+  .mini-arp figcaption { font-size: .85rem; line-height: 1.3; }
+  .boutons-mini { display: flex; flex-wrap: wrap; gap: .3rem; }
+  .boutons-mini .btn.petit { width: auto; min-height: 2rem; padding: .15rem .6rem; font-size: .9rem; }
+}
 .renv-base .pastille { width: 2.2rem; height: 2.2rem; font-size: .88rem; }
 .etat { display: inline-block; align-self: center; border-radius: 999px; padding: .05rem .6rem; font-size: .85rem; font-weight: 700; border: 1.5px solid currentColor; }
 .etat.ok { color: #2e7d32; } .etat.corr { color: #b26a00; } .etat.abs { color: var(--erreur); }
@@ -272,7 +281,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 16/11/2026 11:31</p>
+  <p class="discret" id="version">Version de la page : 16/11/2026 12:19</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
   <div class="liens">
