@@ -272,7 +272,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 16/11/2026 09:55</p>
+  <p class="discret" id="version">Version de la page : 16/11/2026 10:23</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -1850,7 +1850,7 @@ function selBase() {
 //   pour l'accord lu depuis cette basse, sous lequel elle est rangee. Sinon, elle vaut pour l'accord et tous ses
 //   renversements. Ukulele : jamais de basse. Guitalele et guitare (memes intervalles entre cordes) partagent leurs formes.
 const ARP_REPERE = 8, ARP_YMAX = ARP_REPERE - 1, ARP_YMIN = ARP_REPERE - (G.FRETTES_TYPE + 1);   // cases 1..21 -> 7..-13
-let arpeges = { version: 1, formes: [], retires: [] }, arpegesCharges = false, arpSync = '';
+let arpeges = { version: 1, formes: [], retires: [] }, arpegesCharges = false, arpSync = { etat: '' };
 const famArp = (acc) => (acc === 'ukulele' ? 'uke' : 'g6');
 const ivsCle = (cle) => cle.split(' ').map((i) => INTERVALLES.indexOf(i));
 const nomCle = (cle) => { const t = M.parNotes.get(cle); return t ? t.item : G.nommerSelonBase(ivsCle(cle)).nom; };
@@ -2001,7 +2001,7 @@ function vueArpeges() {
   const tons = new Map();
   if (gen) for (const e of formesPour(s.cle, famArp(etat.acc))) if (!e.generique) { const t = NOMS_NOTES[mod12(A.midi[0] + e.r)]; tons.set(t, (tons.get(t) || 0) + 1); }
   h += `<section class="bloc"><h2 class="titre-bloc">Formes enregistrées pour ${esc(nomAvecTon(s.cle, pcR))} (${liste.length})</h2>
-    <p class="discret" id="arp-sync">${esc(arpSync)}</p>
+    <div id="arp-sync">${htmlSyncArp()}</div>
     ${tons.size ? `<p class="discret">Formes à cordes à vide, propres à une tonalité (choisis-la comme fondamentale) :</p><div class="liens">${[...tons].map(([t, nb]) =>
       `<button type="button" class="lien" data-arpton="${esc(t)}">${esc(t + ' ' + nomCle(s.cle))}<small>${nb} forme${nb > 1 ? 's' : ''} à cordes à vide</small></button>`).join('')}</div>` : ''}
     ${liste.length ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpa="planche">Télécharger la planche (PNG)</button>
@@ -2092,25 +2092,45 @@ function fusionArp(a, b) {
     retires: [...ret].filter(([, t]) => t >= limite).map(([id, retire]) => ({ id, retire })) };
 }
 const signature = (a) => JSON.stringify([(a.formes || []).map((f) => f.id).sort(), (a.retires || []).map((x) => x.id).sort()]);
+// ce qui est parti dans le Drive a la derniere synchronisation reussie : le reste attend d'etre envoye
+const envoyes = () => new Set(lire('gf.arp.envoyes', []));
+const enAttente = () => { const e = envoyes(); return arpeges.formes.filter((f) => !e.has(f.id)).length + arpeges.retires.filter((x) => !e.has('r' + x.id)).length; };
 async function syncArpDrive() {          // (nom distinct de window.synchroArpeges, appele par le module Drive)
   if (!(window.GFDrive && GFDrive.connecte && GFDrive.connecte())) return 'non';
-  const dist = (await GFDrive.arpegesLire()) || { formes: [], retires: [] };
-  const fus = fusionArp(arpeges, dist);
+  const lu = await GFDrive.arpegesLire();
+  let fus = arpeges;
+  for (const c of lu.contenus) fus = fusionArp(fus, c);
+  fus = fusionArp(fus, { formes: [], retires: [] });
   arpeges = fus; await sauverArpeges();
-  if (signature(fus) !== signature(dist)) await GFDrive.arpegesEcrire(JSON.stringify(fus));
+  if (!lu.nb || lu.nb > 1 || lu.contenus.some((c) => signature(c) !== signature(fus))) await GFDrive.arpegesEcrire(JSON.stringify(fus));
+  ecrire('gf.arp.envoyes', [...fus.formes.map((f) => f.id), ...fus.retires.map((x) => 'r' + x.id)]);
   return 'ok';
+}
+function htmlSyncArp() {
+  const n = arpeges.formes.length, p = enAttente(), tot = `${n} forme${n > 1 ? 's' : ''} en tout (tous accords et instruments)`;
+  const att = p ? ` ${p} changement${p > 1 ? 's' : ''} de cet appareil pas encore envoyé${p > 1 ? 's' : ''} au Drive.` : '';
+  const bouton = '<p><button type="button" class="btn plein" data-drive="connecter">Se connecter à Google Drive</button></p>';
+  if (arpSync.etat === 'encours') return '<p class="discret">Synchronisation avec le Drive…</p>';
+  if (arpSync.etat === 'ok') return `<p class="discret">Drive : synchronisé à ${esc(arpSync.heure)} · ${tot}.</p>`;
+  if (arpSync.etat === 'erreur') return `<p class="message">Drive injoignable (${esc(arpSync.err)}) : ${tot} sur cet appareil.${att}</p>`;
+  if (arpSync.etat === 'non') return `<p class="message">Drive non connecté : ${tot} sur cet appareil.${att || ' Rien en attente.'}</p>${bouton}`;
+  return '';
 }
 async function synchroArpegesVue() {
   const zone = () => document.getElementById('arp-sync');
-  if (zone()) zone().textContent = 'Synchronisation avec le Drive…';
+  arpSync = { etat: 'encours' }; if (zone()) zone().innerHTML = htmlSyncArp();
   try {
     const r = await syncArpDrive();
-    arpSync = r === 'ok' ? `Drive : synchronisé à ${new Date().toLocaleTimeString('fr-FR')}.`
-      : 'Drive non connecté : formes gardées sur cet appareil ; elles partiront dans le Drive à la connexion.';
-  } catch (e) { arpSync = `Drive injoignable (${e.message}) : formes de cet appareil.`; }
+    arpSync = r === 'ok' ? { etat: 'ok', heure: new Date().toLocaleTimeString('fr-FR') } : { etat: 'non' };
+  } catch (e) { arpSync = e.message === 'connexion' ? { etat: 'non' } : { etat: 'erreur', err: e.message }; }
   if (etat.vue === 'arpeges' && zone()) vueArpeges();
 }
 window.synchroArpeges = () => { if (!arpegesCharges) chargerArpeges().then(synchroArpegesVue); else synchroArpegesVue(); };
+document.addEventListener('gf-drive', () => {        // connexion expiree : on le montre aussitot
+  if (arpSync.etat === 'ok') arpSync = { etat: 'non' };
+  if (etat.vue === 'arpeges' && document.getElementById('arp-sync')) vueArpeges();
+});
+document.addEventListener('gf-drive-visible', () => { if (etat.vue === 'arpeges' && arpegesCharges) synchroArpegesVue(); });
 
 // ---------- evenements
 function choisirAccordArp(saisie) {
@@ -2696,7 +2716,7 @@ window.GFDrive = (function () {
   const SCOPE = 'https://www.googleapis.com/auth/drive.file';
   const API = 'https://www.googleapis.com/drive/v3/files', UP = 'https://www.googleapis.com/upload/drive/v3/files';
   const SAUVEGARDES = 60, GARDE_RETRAITS_JOURS = 180;
-  let jeton = null, expire = 0, client = null, ids = null, minuterie = null, derniereSync = null, message = '', infoRef = '', occupe = false;
+  let jeton = null, expire = 0, client = null, ids = null, minuterie = null, finJeton = null, derniereSync = null, message = '', infoRef = '', occupe = false;
   let modifie = !!lire('gf.drive.modifie', false);   // des changements locaux attendent d'etre envoyes
   const configure = () => CLIENT_ID && !CLIENT_ID.startsWith('/*');
 
@@ -2719,6 +2739,8 @@ window.GFDrive = (function () {
           if (r && r.access_token) {
             jeton = r.access_token; expire = Date.now() + ((r.expires_in || 3600) - 60) * 1000;
             ecrire('gf.drive.connu', true); message = '';
+            clearTimeout(finJeton);                  // l'autorisation Google dure une heure : on le dit quand elle tombe
+            finJeton = setTimeout(expiree, expire - Date.now() + 500);
             apresConnexion();
           } else { message = 'Connexion refusée.'; afficherEtat(); }
         },
@@ -2727,12 +2749,22 @@ window.GFDrive = (function () {
     client.requestAccessToken({ prompt: lire('gf.drive.connu', false) ? '' : 'consent' });
   }
   const connecte = () => jeton && Date.now() < expire;
+  function expiree() {
+    if (connecte()) return;
+    jeton = null; message = 'Connexion expirée (elle dure une heure) : reconnecte-toi pour synchroniser.'; afficherEtat();
+    document.dispatchEvent(new Event('gf-drive'));
+  }
+  document.addEventListener('visibilitychange', () => {   // telephone remis en marche : l'etat affiche doit etre le vrai
+    if (document.visibilityState !== 'visible') return;
+    if (jeton && !connecte()) expiree();
+    else if (connecte()) document.dispatchEvent(new Event('gf-drive-visible'));
+  });
 
   // ---------- appels a l'API du Drive
   async function appel(url, opts = {}) {
-    if (!connecte()) { jeton = null; afficherEtat(); throw new Error('connexion'); }
+    if (!connecte()) { if (jeton) expiree(); throw new Error('connexion'); }
     const r = await fetch(url, Object.assign({}, opts, { headers: Object.assign({ Authorization: 'Bearer ' + jeton }, opts.headers || {}) }));
-    if (r.status === 401) { jeton = null; afficherEtat(); throw new Error('connexion'); }
+    if (r.status === 401) { expire = 0; expiree(); throw new Error('connexion'); }
     if (!r.ok) throw new Error('Drive ' + r.status);
     return r;
   }
@@ -2911,7 +2943,7 @@ window.GFDrive = (function () {
          <div class="liens"><button class="btn" type="button" data-drive="synchroniser">Synchroniser</button>
          <button class="btn" type="button" data-drive="reference">Mettre à jour la référence</button>
          <input type="file" id="fichier-ref" accept=".json,application/json" hidden></div>`
-      : `<p>Drive : non connecté.${message ? ' ' + esc(message) : ''}</p>
+      : `<p>Drive : non connecté.${message ? ' ' + esc(message) : ''}${modifie ? ' Des favoris modifiés sur cet appareil attendent d’être envoyés.' : ''}</p>
          <div class="liens"><button class="btn plein" type="button" data-drive="connecter">Se connecter à Google Drive</button></div>`;
   }
   document.addEventListener('click', (ev) => {
@@ -2946,9 +2978,20 @@ window.GFDrive = (function () {
   }
   const suiteSupprimer = async (id) => appel(API + '/' + id, { method: 'DELETE' });
   // formes d'arpege : un seul fichier, GuitareFred/ARPEGES/arpeges.json
-  const arpegesFichier = async () => fichier('arpeges.json', (await dossiers()).arpeges);
-  async function arpegesLire() { const f = await arpegesFichier(); return f ? JSON.parse((await lireFichier(f.id)) || '{}') : null; }
-  async function arpegesEcrire(texte) { const f = await arpegesFichier(); return f ? remplacer(f.id, texte) : creer('arpeges.json', (await dossiers()).arpeges, texte); }
+  // Tous les arpeges.json visibles par l'application sont lus (un seul en principe ; deux si deux appareils avaient cree
+  // chacun leur dossier ARPEGES) : la page les fusionne et les reecrit tous, si bien qu'aucun appareil ne lit un fichier en retard.
+  let arpFichiers = [];
+  async function arpegesLire() {
+    const d = await dossiers();
+    arpFichiers = await lister(`name='arpeges.json' and trashed=false`);
+    const out = [];
+    for (const f of arpFichiers) { try { out.push(JSON.parse((await lireFichier(f.id)) || '{}')); } catch (e) { /* fichier abime : ignore */ } }
+    return { contenus: out, nb: arpFichiers.length, dossier: d.arpeges };
+  }
+  async function arpegesEcrire(texte) {
+    if (!arpFichiers.length) return creer('arpeges.json', (await dossiers()).arpeges, texte);
+    for (const f of arpFichiers) await remplacer(f.id, texte);
+  }
   return { demarrer: demarrerDrive, planifier, fusionner, synchroniser, connecte: () => connecte(),
     suitesLister, suiteLire, suiteEcrire, suiteSupprimer, arpegesLire, arpegesEcrire, _etat: () => ({ jeton, ids }) };
 })();
