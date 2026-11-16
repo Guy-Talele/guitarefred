@@ -201,6 +201,23 @@ details.pli[open] > summary::after { content: "−"; }
 .formulaire-base .chips { margin-bottom: .7rem; }
 .chip:disabled { cursor: default; }
 .rangee-base { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin-bottom: 1rem; }
+.arp-choix { display: grid; gap: .7rem; }
+.arp-choix .rangee { display: flex; gap: .5rem; }
+.arp-choix input { flex: 1; font: inherit; border: 1.5px solid var(--ligne); border-radius: .5rem; background: var(--surface); color: var(--encre); padding: .45rem .6rem; min-width: 0; }
+.arp-choix select { font: inherit; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); color: var(--encre); padding: .3rem .4rem; min-height: 2.4rem; }
+.arp-couverts .pastille { opacity: .45; }
+.arp-couverts .pastille.couverte { opacity: 1; background: var(--c); border-color: var(--c); color: #fff !important; }
+.arp-etat { font-weight: 700; margin: .4rem 0; }
+.arp-etat.ok { color: var(--oui, #2e7d32); }
+.carte-arp { max-width: 25rem; margin: .8rem auto 1.2rem; background: #fff; border-radius: .7rem; padding: .5rem; }
+.carte-arp svg { width: 100%; height: auto; display: block; }
+.case-arp { cursor: pointer; }
+.grille-arp { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .7rem; margin-top: .7rem; }
+.mini-arp { margin: 0; background: #fff; color: #1c2140; border-radius: .6rem; padding: .5rem; display: grid; gap: .35rem; align-content: start; }
+.mini-arp figcaption { font-size: .85rem; line-height: 1.3; }
+.mini-arp figcaption small { color: #5d6585; }
+.mini-arp svg { width: 100%; height: auto; display: block; }
+.boutons-mini { display: flex; flex-wrap: wrap; gap: .3rem; }
 .renv-base .pastille { width: 2.2rem; height: 2.2rem; font-size: .88rem; }
 .etat { display: inline-block; align-self: center; border-radius: 999px; padding: .05rem .6rem; font-size: .85rem; font-weight: 700; border: 1.5px solid currentColor; }
 .etat.ok { color: #2e7d32; } .etat.corr { color: #b26a00; } .etat.abs { color: var(--erreur); }
@@ -235,6 +252,7 @@ footer .liens { margin-top: .5rem; }
   <div class="barre-int">
     <div class="onglets" role="tablist" aria-label="Vue">
       <button type="button" role="tab" data-vue="accords" aria-selected="true">Accords</button>
+      <button type="button" role="tab" data-vue="arpeges" aria-selected="false">Arpèges</button>
       <button type="button" role="tab" data-vue="gammes" aria-selected="false">Gammes</button>
       <button type="button" role="tab" data-vue="harmo" aria-selected="false">Harmonisation</button>
       <button type="button" role="tab" data-vue="suites" aria-selected="false">Suites</button>
@@ -254,7 +272,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 15/11/2026 17:26</p>
+  <p class="discret" id="version">Version de la page : 16/11/2026 09:00</p>
   <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Exporter les favoris</button>
@@ -1088,6 +1106,7 @@ function afficher() {
   const modes = M.modes(r.i);
   let h = blocPosition() + (a.entete || '') + `<h1 class="accord-nom">${esc(nomAccord(a))}<span class="tel">{${esc(r.tel)}}</span></h1>`;
   h += `<div class="pastilles" aria-label="Intervalles">${r.notes.split(' ').map((iv) => `<span class="pastille" style="color:${COUL[iv]}">${esc(iv)}</span>`).join('')}</div>`;
+  h += `<p><button type="button" class="btn" data-versarp="${esc(r.notes + '|' + (a.racine || ''))}">Formes d’arpège</button></p>`;
   if (r.semis.length > A.cordes.length) h += `<p class="encadre alerte">${esc(texteTropDeNotes(r.semis.length, A))}</p>`;
   if (renv.length) h += `<section class="bloc"><h2>${A.renversements ? 'Mêmes notes, autres noms (pas de basse au ukulélé : positions communes)' : 'Renversements'}</h2><div class="liens">${renv.map((x) => lienAccord(x.accord, x.basse, !!a.racine)).join('')}</div></section>`;
   if (vars.length) h += `<section class="bloc"><h2>Versions allégées</h2><div class="liens">${vars.map((v) => v.accord
@@ -1195,6 +1214,7 @@ function basculerVue(vue, dessiner = true) {
   else if (vue === 'gammes') vueGammes();
   else if (vue === 'harmo') vueHarmo();
   else if (vue === 'suites') { derniereSyncSuites = 0; vueSuites(); }
+  else if (vue === 'arpeges') { vueArpeges(); if (arpegesCharges) synchroArpegesVue(); }
   else if (etat.res) afficher(); else accueil();
 }
 function vueGammes() {
@@ -1817,6 +1837,335 @@ function selBase() {
   const b = etat.base || {};
   try { return [...new Set([0, ...G.parseIntervalles(b.texte || 'F')].map(mod12))].sort((x, y) => x - y); } catch (e) { return [0]; }
 }
+// ---------------------------------------------------------------- onglet Arpèges : formes d'arpège
+// Sur la carte d'arpège d'un accord (ses seules notes, sur tout le manche), on choisit des cases ; une forme est valide
+// des que tous les intervalles de l'accord y figurent (l'ordre de jeu est l'affaire du musicien).
+// Coordonnees : (corde, ordonnee), corde 1 = la plus grave, ordonnee 0 au repere (tonique, 8e case de la corde 1 sur la
+// carte generique), positive vers le sillet : ordonnee = 8 - case.
+// - Forme generique : transposable dans les 12 tonalites ; une meme forme decalee de 12 cases est la meme forme.
+// - Forme avec corde a vide, construite dans une tonalite : propre a cette tonalite.
+// - Basse : une forme qui utilise la corde 1 ou 2 a une basse (la note de la plus grave des deux) ; elle ne vaut que
+//   pour l'accord lu depuis cette basse, sous lequel elle est rangee. Sinon, elle vaut pour l'accord et tous ses
+//   renversements. Ukulele : jamais de basse. Guitalele et guitare (memes intervalles entre cordes) partagent leurs formes.
+const ARP_REPERE = 8, ARP_YMAX = ARP_REPERE - 1, ARP_YMIN = ARP_REPERE - (G.FRETTES_TYPE + 1);   // cases 1..21 -> 7..-13
+let arpeges = { version: 1, formes: [], retires: [] }, arpegesCharges = false, arpSync = '';
+const famArp = (acc) => (acc === 'ukulele' ? 'uke' : 'g6');
+const ivsCle = (cle) => cle.split(' ').map((i) => INTERVALLES.indexOf(i));
+const nomCle = (cle) => { const t = M.parNotes.get(cle); return t ? t.item : G.nommerSelonBase(ivsCle(cle)).nom; };
+const telCle = (cle) => { const t = M.parNotes.get(cle); return t ? t.tel : ''; };
+function arpEtat() {
+  if (!etat.arp) etat.arp = Object.assign({ cle: 'F 3M 5', ton: '', sansBasse: false, parLigne: '6' }, lire('gf.arp', {}), { sel: [] });
+  return etat.arp;
+}
+const arpGarder = () => { const s = etat.arp; ecrire('gf.arp', { cle: s.cle, ton: s.ton, sansBasse: s.sansBasse, parLigne: s.parLigne }); };
+async function chargerArpeges() {
+  try { const a = await idbLire('arpeges'); if (a && Array.isArray(a.formes)) arpeges = Object.assign({ retires: [] }, a); } catch (e) { /* premiere fois */ }
+  arpegesCharges = true;
+}
+const sauverArpeges = () => idbEcrire('arpeges', arpeges);
+
+// ---------- geometrie des formes
+function caler(cases) {                           // ramene une forme generique sur la carte (decalage d'octaves)
+  const ys = cases.map((x) => x[1]), mn = Math.min(...ys), mx = Math.max(...ys);
+  const lo = Math.ceil((mx - ARP_YMAX) / 12), hi = Math.floor((mn - ARP_YMIN) / 12);
+  if (lo > hi) return null;
+  let m = lo;
+  if (lo <= 0 && 0 <= hi) m = 0;                   // telle quelle si elle tient
+  else { let d = Infinity; for (let k = lo; k <= hi; k++) { const c = Math.abs((mn + mx) / 2 - 12 * k + 3); if (c < d) { d = c; m = k; } } }
+  return cases.map(([c, y]) => [c, y - 12 * m]);
+}
+const trierCases = (cases) => cases.slice().sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+function canon(cases) {                           // identique a une octave pres
+  const mn = Math.min(...cases.map((x) => x[1])), m = Math.floor(mn / 12);
+  return trierCases(cases.map(([c, y]) => [c, y - 12 * m])).map((x) => x.join(',')).join(' ');
+}
+function delta(cleS, cleX) {                      // l'accord X est l'accord S lu depuis son intervalle d (0 si meme accord)
+  for (const d of ivsCle(cleS)) if (G.cleDe(ivsCle(cleS).map((i) => i - d)) === cleX) return d;
+  return null;
+}
+function formesPour(cleX, fam) {                  // les formes valables pour cet accord, dans son repere
+  const out = [];
+  for (const f of arpeges.formes) {
+    if (f.famille !== fam) continue;
+    const d = f.basse ? (f.cle === cleX ? 0 : null) : delta(f.cle, cleX);
+    if (d === null) continue;
+    if (f.generique) { const cases = caler(f.cases.map(([c, y]) => [c, y + d])); if (cases) out.push({ f, d, generique: true, cases: trierCases(cases) }); }
+    else out.push({ f, d, generique: false, cases: f.cases.slice().sort((a, b) => a[1] - b[1] || a[0] - b[0]), r: mod12(f.r + d) });
+  }
+  return out;
+}
+function placer(casesY, rK, nb) {                 // forme generique -> cases d'une tonalite (racine a la case rK, corde 1)
+  const k0 = casesY.map(([c, y]) => [c, rK - y]), mn = Math.min(...k0.map((x) => x[1]));
+  const m = Math.ceil(-mn / 12), cases = k0.map(([c, k]) => [c, k + 12 * m]);
+  return Math.max(...cases.map((x) => x[1])) <= nb ? cases : null;
+}
+const coordsTxt = (cases, gen) => (gen ? cases.map(([c, y]) => `(${c},${y})`) : cases.map(([c, k]) => `${c}/${k}`)).join(' ');
+
+// ---------- la carte : cases cliquables (ou forme surlignee, pour les petites cartes)
+function svgArpege(acc, cle, ton, sel, opts = {}) {
+  const A = ACCORDAGES[acc], n = A.cordes.length, gen = !ton, T = gen ? A.toniqueType : G.classe(ton);
+  const nb = G.FRETTES_TYPE + (gen ? 1 : 0), largeur = n === 6 ? 300 : 220;
+  const ex = largeur / (n - 1 + 0.42 * 2.75 + 0.42 * 1.15), ey = ex * 0.95, r = ex * 0.42;
+  const mg = gen ? r * 2.0 : r * 2.75, yv = r * 1.3, ys = gen ? r * 0.6 : yv + r * 1.35, bas = ys + nb * ey;
+  const L = mg + ex * (n - 1) + r * (gen ? 2.9 : 1.15), ivs = new Set(ivsCle(cle));
+  const kmin = opts.lignes ? opts.lignes[0] : (gen ? 1 : 0), kmax = opts.lignes ? opts.lignes[1] : nb;
+  const haut = kmin === 0 ? 0 : ys + (kmin - 1) * ey - (gen && kmin === 1 ? r * 0.6 : 0), fond = ys + kmax * ey + r * 0.5;
+  let s = '';
+  for (let i = 0; i < n; i++) s += `<line x1="${mg + i * ex}" y1="${Math.max(ys, haut)}" x2="${mg + i * ex}" y2="${Math.min(bas, fond)}" stroke="${GRILLE}" stroke-width="2"/>`;
+  if (!gen && kmin === 0) s += `<line x1="${mg}" y1="${ys}" x2="${mg + ex * (n - 1)}" y2="${ys}" stroke="${SILLET}" stroke-width="${Math.max(3, r * 0.3)}"/>`;
+  for (let k = Math.max(gen ? 0 : 1, kmin - 1); k <= kmax; k++) {
+    const y = ys + k * ey;
+    if (k > 0 || gen) s += `<line x1="${mg}" y1="${y}" x2="${mg + ex * (n - 1)}" y2="${y}" stroke="${GRILLE}" stroke-width="1.5"/>`;
+    if (k < 1 || k < kmin) continue;
+    if (gen) {                                    // ordonnees de la grille, a droite
+      const o = ARP_REPERE - k;
+      s += `<text x="${mg + ex * (n - 1) + r * 1.55}" y="${y - ey / 2}" font-size="${r * 0.72}" font-weight="${o === 0 ? 700 : 400}" fill="${o === 0 ? SILLET : '#8a8fae'}" dominant-baseline="central">${o}</text>`;
+    } else if ([3, 5, 7, 9, 12, 15, 17, 19].includes(k))
+      s += `<text x="${mg - r * 1.3}" y="${y - ey / 2}" font-size="${r * 0.8}" font-weight="${k === 12 ? 700 : 400}" fill="#555" text-anchor="end" dominant-baseline="central">${k}</text>`;
+  }
+  if (gen && kmin <= ARP_REPERE && ARP_REPERE <= kmax) {
+    const yr = ys + (ARP_REPERE - 0.5) * ey;
+    s += `<polygon points="${r * 0.15},${yr - r * 0.5} ${r * 0.15},${yr + r * 0.5} ${r * 0.85},${yr}" fill="${SILLET}"/>`;
+  }
+  for (let i = 0; i < n; i++) for (let k = Math.max(gen ? 1 : 0, kmin); k <= kmax; k++) {
+    const iv = mod12(A.midi[i] + k - T);
+    if (!ivs.has(iv)) continue;
+    const lab = INTERVALLES[iv], c = COUL[lab] || '#333', on = sel.has(`${i + 1},${k}`), x = mg + i * ex, y = k === 0 ? yv : ys + (k - 0.5) * ey;
+    const att = opts.inactif ? '' : ` data-arp="${i + 1},${k}" role="button" aria-pressed="${on}" aria-label="corde ${i + 1}, ${gen ? 'ordonnée ' + (ARP_REPERE - k) : 'case ' + k}, ${lab}"`;
+    s += `<g class="case-arp"${att}${opts.inactif && !on ? ' opacity="0.28"' : ''}><circle cx="${x}" cy="${y}" r="${r}" fill="${on ? c : '#fff'}" stroke="${c}" stroke-width="${on ? r * 0.2 : r * 0.1}"/>` +
+      `<text x="${x}" y="${y}" fill="${on ? '#fff' : c}" font-size="${r * (lab.length > 1 ? 0.78 : 0.95)}" font-weight="700" text-anchor="middle" dominant-baseline="central">${esc(lab)}</text></g>`;
+  }
+  const h = Math.min(bas + r * 0.8, fond) - haut;
+  return `<svg xmlns="http://www.w3.org/2000/svg" font-family="'Atkinson Hyperlegible', 'Segoe UI', Arial, sans-serif" viewBox="0 0 ${L} ${h}" role="img" aria-label="Carte d’arpège"><g transform="translate(0,${-haut})">${s}</g></svg>`;
+}
+
+// ---------- la selection en cours
+function infosSelection() {
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], gen = !s.ton, T = gen ? A.toniqueType : G.classe(s.ton);
+  const cells = s.sel.map((x) => x.split(',').map(Number)), ivs = ivsCle(s.cle);
+  const couverts = new Set(cells.map(([c, k]) => mod12(A.midi[c - 1] + k - T)));
+  const manquants = ivs.filter((i) => !couverts.has(i));
+  const graves = A.renversements ? [] : cells.filter(([c]) => c <= 2);
+  let basse = null, cordeBasse = null;
+  if (graves.length) {                             // la note la plus grave de la plus grave des cordes 1 et 2
+    cordeBasse = Math.min(...graves.map((x) => x[0]));
+    const k = Math.min(...graves.filter((x) => x[0] === cordeBasse).map((x) => x[1]));
+    basse = mod12(A.midi[cordeBasse - 1] + k - T);
+  }
+  return { cells, couverts, manquants, valide: cells.length > 0 && !manquants.length, graves: graves.length > 0,
+    basse: s.sansBasse ? null : basse, basseVue: basse, cordeBasse, vide: !gen && cells.some(([, k]) => k === 0), T, gen };
+}
+const nomAvecTon = (cle, pc) => (pc === null ? '' : NOMS_NOTES[mod12(pc)] + ' ') + nomCle(cle);
+function texteBasse(x, s) {
+  const pcRacine = s.ton ? G.classe(s.ton) : null, ivs = ivsCle(s.cle);
+  if (ACCORDAGES[etat.acc].renversements) return 'Ukulélé : pas de basse, la forme vaut pour l’accord et tous ses renversements.';
+  if (x.basse === null) {
+    const autres = ivs.slice(1).map((d) => nomAvecTon(G.cleDe(ivs.map((i) => i - d)), pcRacine === null ? null : pcRacine + d));
+    return (x.graves ? 'Considérée sans basse' : 'Sans basse (cordes 1 et 2 non utilisées)') + ` : valable pour ${nomAvecTon(s.cle, pcRacine)}` +
+      (autres.length ? ` et ses renversements (${autres.join(', ')}).` : '.');
+  }
+  const lab = INTERVALLES[x.basse];
+  if (x.basse === 0) return `Basse ${lab} sur la corde ${x.cordeBasse} : valable pour ${nomAvecTon(s.cle, pcRacine)} seulement.`;
+  const cleB = G.cleDe(ivs.map((i) => i - x.basse));
+  return `Basse ${lab} sur la corde ${x.cordeBasse} : c’est une forme de « ${nomAvecTon(cleB, pcRacine === null ? null : pcRacine + x.basse)} » (l’accord lu depuis sa basse) ; elle sera rangée sous cet accord.`;
+}
+
+// ---------- la vue
+function vueArpeges() {
+  if (!arpegesCharges) { main().innerHTML = '<p class="discret">Chargement…</p>'; chargerArpeges().then(() => { if (etat.vue === 'arpeges') { vueArpeges(); synchroArpegesVue(); } }); return; }
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], ivs = ivsCle(s.cle), x = infosSelection(), gen = !s.ton;
+  const pcR = s.ton ? G.classe(s.ton) : null, sel = new Set(s.sel);
+  const opt = (v, l, on) => `<option value="${esc(v)}"${on ? ' selected' : ''}>${esc(l)}</option>`;
+  let h = `<section class="bloc arp-choix">
+    <form id="form-arp" class="rangee" autocomplete="off"><input id="saisie-arp" placeholder="m6, Am6, C#m7b5…" aria-label="Nom ou symbole de l’accord" enterkeyhint="go">
+      <button type="submit" class="btn">Choisir</button></form>
+    <div class="chips">${INTERVALLES.map((lab, iv) => {
+      const on = ivs.includes(iv);
+      return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-arpiv="${iv}" aria-pressed="${on}" ${iv === 0 ? 'disabled' : ''}>${esc(lab)}</button>`;
+    }).join('')}</div>
+    <label>Fondamentale <select id="ton-arp">${['', ...NOMS_NOTES].map((nn) => opt(nn, nn || 'générique', nn === (s.ton ? NOMS_NOTES[G.classe(s.ton)] : ''))).join('')}</select></label>
+  </section>
+  <h1 class="accord-nom">${esc(nomAvecTon(s.cle, pcR))}${telCle(s.cle) ? `<span class="tel">{${esc(telCle(s.cle))}}</span>` : ''}</h1>
+  <p class="discret">${gen ? 'Carte générique : ordonnée 0 au repère ▸ (tonique, corde 1), positive vers le sillet ; les ordonnées sont à droite.'
+    : `Carte en ${esc(s.ton)} : avec une corde à vide, la forme est propre à cette tonalité ; sans corde à vide, elle est générique (12 tonalités).`} Touche les cases de ta forme : elle est valide dès que tous les intervalles y sont.</p>
+  <div class="pastilles arp-couverts">${ivs.map((i) => `<span class="pastille${x.couverts.has(i) ? ' couverte' : ''}" style="--c:${COUL[INTERVALLES[i]]};color:${COUL[INTERVALLES[i]]}">${esc(INTERVALLES[i])}</span>`).join('')}</div>
+  <p class="arp-etat ${x.valide ? 'ok' : ''}">${!x.cells.length ? 'Aucune case choisie.' : x.valide ? '✓ Forme valide : tous les intervalles y sont.' : `Il manque : ${x.manquants.map((i) => INTERVALLES[i]).join(', ')}.`}
+    ${x.cells.length ? `<br><span class="discret">${gen ? 'Coordonnées' : 'Corde/case'} : ${esc(coordsTxt(gen ? trierCases(x.cells.map(([c, k]) => [c, ARP_REPERE - k])) : x.cells.slice().sort((a, b) => a[1] - b[1] || a[0] - b[0]), gen))}</span>` : ''}</p>
+  ${x.cells.length ? `<p class="discret">${esc(texteBasse(x, s))}</p>` : ''}
+  ${x.graves ? `<label class="case-harmo"><input type="checkbox" id="arp-sansbasse" ${s.sansBasse ? 'checked' : ''}> Considérer la forme sans basse (valable pour l’accord et ses renversements)</label>` : ''}
+  <div class="boutons-harmo"><button type="button" class="btn plein" data-arpa="enregistrer" ${x.valide ? '' : 'disabled'}>Enregistrer la forme</button>
+    <button type="button" class="btn" data-arpa="effacer" ${x.cells.length ? '' : 'disabled'}>Effacer la sélection</button></div>
+  <p class="discret" id="arp-message">${esc(etat.arpMsg || '')}</p>
+  <div class="carte-arp">${svgArpege(etat.acc, s.cle, s.ton, sel)}</div>`;
+  // les formes enregistrees
+  const liste = formesAffichees();
+  h += `<section class="bloc"><h2 class="titre-bloc">Formes enregistrées pour ${esc(nomAvecTon(s.cle, pcR))} (${liste.length})</h2>
+    <p class="discret" id="arp-sync">${esc(arpSync)}</p>
+    ${liste.length ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpa="planche">Télécharger la planche (PNG)</button>
+      <label>Formes par ligne <select id="arp-parligne">${['tous', '2', '3', '4', '5', '6', '8', '10'].map((v) => opt(v, v, String(s.parLigne) === v)).join('')}</select></label></div>` : ''}
+    <div class="grille-arp">${liste.map((e, i) => `<figure class="mini-arp"><figcaption><b>Forme ${i + 1}</b> <small>${esc(e.tags)}</small><br><small>${esc(e.coords)}</small></figcaption>
+      ${e.svg}<div class="boutons-mini"><button type="button" class="btn petit" data-arpa="reprendre" data-i="${i}">Reprendre</button>
+      <button type="button" class="btn petit" data-arpa="supprimer" data-id="${esc(e.e.f.id)}">Supprimer</button></div></figure>`).join('')}</div>
+    ${liste.length ? '' : '<p class="discret">Aucune forme pour cet accord.</p>'}</section>`;
+  main().innerHTML = h;
+  etat.arpListe = liste;
+}
+function formesAffichees() {                      // [{ e, svg, cases (repere de la carte en cours), coords, tags, gen }]
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], gen = !s.ton, nbK = G.FRETTES_TYPE;
+  const rK = gen ? null : mod12(G.classe(s.ton) - A.midi[0]), out = [];
+  const mini = (cases, ton) => {
+    const ks = cases.map((x) => x[1]), lo = Math.max(ton ? 0 : 1, Math.min(...ks) - 1), hi = Math.min(G.FRETTES_TYPE + (ton ? 0 : 1), Math.max(...ks) + 1);
+    return svgArpege(etat.acc, s.cle, ton, new Set(cases.map(([c, k]) => `${c},${k}`)), { inactif: true, lignes: [lo, hi] });
+  };
+  for (const e of formesPour(s.cle, famArp(etat.acc))) {
+    const origine = e.f.cle !== s.cle ? ` · de ${nomCle(e.f.cle)}` : '';
+    const basse = A.renversements ? '' : (e.f.basse ? ' · avec basse' : ' · sans basse');
+    if (e.generique) {
+      if (gen) {
+        const cases = e.cases.map(([c, y]) => [c, ARP_REPERE - y]);
+        out.push({ e, svg: mini(cases, ''), cases, gen: true, coords: coordsTxt(e.cases, true), tags: 'générique' + basse + origine });
+      } else {
+        const cases = placer(e.cases, rK, nbK);
+        if (!cases) continue;
+        out.push({ e, svg: mini(cases, s.ton), cases, gen: false, coords: coordsTxt(e.cases, true), tags: 'générique' + basse + origine });
+      }
+    } else {
+      const K = mod12(A.midi[0] + e.r), tonF = NOMS_NOTES[K];
+      if (!gen && e.r !== rK) continue;
+      out.push({ e, svg: svgArpege(etat.acc, s.cle, tonF, new Set(e.cases.map(([c, k]) => `${c},${k}`)), { inactif: true,
+        lignes: [0, Math.min(G.FRETTES_TYPE, Math.max(...e.cases.map((x) => x[1])) + 1)] }), cases: e.cases, gen: false, ton: tonF,
+        coords: coordsTxt(e.cases, false), tags: `${tonF} · cordes à vide` + basse + origine });
+    }
+  }
+  return out;
+}
+
+// ---------- enregistrer, supprimer, reprendre
+async function enregistrerForme() {
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], x = infosSelection(), msg = document.getElementById('arp-message');
+  if (!x.valide) return;
+  let cle = s.cle, generique = true, cases, r = null;
+  if (x.gen) cases = x.cells.map(([c, k]) => [c, ARP_REPERE - k]);
+  else {
+    const rK = mod12(G.classe(s.ton) - A.midi[0]);
+    if (x.vide) { generique = false; cases = x.cells.map((c) => c.slice()); r = rK; }
+    else cases = caler(x.cells.map(([c, k]) => [c, rK - k]));     // ordonnee = case de la tonique sur la corde 1 - case
+  }
+  let rangee = '';
+  if (x.basse !== null && x.basse !== 0) {          // rangee sous l'accord lu depuis sa basse
+    const d = x.basse;
+    cle = G.cleDe(ivsCle(s.cle).map((i) => i - d));
+    if (generique) cases = caler(cases.map(([c, y]) => [c, y + d])); else r = mod12(r + d);
+    rangee = ` sous « ${nomAvecTon(cle, s.ton ? G.classe(s.ton) + d : null)} »`;
+  }
+  const fam = famArp(etat.acc), deja = formesPour(cle, fam).find((e) => e.generique === generique &&
+    (generique ? canon(e.cases) === canon(cases) : e.r === r && JSON.stringify(e.cases) === JSON.stringify(cases.slice().sort((a, b) => a[1] - b[1] || a[0] - b[0]))));
+  if (deja) { etat.arpMsg = 'Cette forme est déjà enregistrée' + (deja.f.cle !== cle ? ` (sous ${nomCle(deja.f.cle)})` : '') + '.'; msg.textContent = etat.arpMsg; return; }
+  arpeges.formes.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), famille: fam, cle, generique, r,
+    cases: generique ? trierCases(cases) : cases.slice().sort((a, b) => a[1] - b[1] || a[0] - b[0]), basse: x.basse !== null, ajoute: new Date().toISOString() });
+  await sauverArpeges();
+  s.sel = []; etat.arpMsg = `Forme enregistrée${rangee} (${generique ? 'générique' : 'propre à ' + s.ton + ', cordes à vide'}).`;
+  vueArpeges(); synchroArpegesVue();
+}
+async function supprimerForme(id) {
+  if (!confirm('Supprimer cette forme ?')) return;
+  arpeges.formes = arpeges.formes.filter((f) => f.id !== id);
+  arpeges.retires.push({ id, retire: new Date().toISOString() });
+  etat.arpMsg = 'Forme supprimée.';
+  await sauverArpeges(); vueArpeges(); synchroArpegesVue();
+}
+
+// ---------- synchronisation : GuitareFred/ARPEGES/arpeges.json ; le plus recent l'emporte, retraits gardes 180 jours
+function fusionArp(a, b) {
+  const ret = new Map();
+  for (const x of [...(a.retires || []), ...(b.retires || [])]) if (!ret.has(x.id) || ret.get(x.id) < x.retire) ret.set(x.id, x.retire);
+  const formes = new Map();
+  for (const f of [...(b.formes || []), ...(a.formes || [])]) formes.set(f.id, f);
+  const limite = new Date(Date.now() - 180 * 864e5).toISOString();
+  return { version: 1, formes: [...formes.values()].filter((f) => !(ret.has(f.id) && ret.get(f.id) >= f.ajoute)),
+    retires: [...ret].filter(([, t]) => t >= limite).map(([id, retire]) => ({ id, retire })) };
+}
+const signature = (a) => JSON.stringify([(a.formes || []).map((f) => f.id).sort(), (a.retires || []).map((x) => x.id).sort()]);
+async function syncArpDrive() {          // (nom distinct de window.synchroArpeges, appele par le module Drive)
+  if (!(window.GFDrive && GFDrive.connecte && GFDrive.connecte())) return 'non';
+  const dist = (await GFDrive.arpegesLire()) || { formes: [], retires: [] };
+  const fus = fusionArp(arpeges, dist);
+  arpeges = fus; await sauverArpeges();
+  if (signature(fus) !== signature(dist)) await GFDrive.arpegesEcrire(JSON.stringify(fus));
+  return 'ok';
+}
+async function synchroArpegesVue() {
+  const zone = () => document.getElementById('arp-sync');
+  if (zone()) zone().textContent = 'Synchronisation avec le Drive…';
+  try {
+    const r = await syncArpDrive();
+    arpSync = r === 'ok' ? `Drive : synchronisé à ${new Date().toLocaleTimeString('fr-FR')}.`
+      : 'Drive non connecté : formes gardées sur cet appareil ; elles partiront dans le Drive à la connexion.';
+  } catch (e) { arpSync = `Drive injoignable (${e.message}) : formes de cet appareil.`; }
+  if (etat.vue === 'arpeges' && zone()) vueArpeges();
+}
+window.synchroArpeges = () => { if (!arpegesCharges) chargerArpeges().then(synchroArpegesVue); else synchroArpegesVue(); };
+
+// ---------- evenements
+function choisirAccordArp(saisie) {
+  saisie = (saisie || '').trim();
+  if (!saisie) return;
+  const a = M.analyser(saisie);
+  let cle = null, ton = '';
+  if (a) { cle = a.r.notes; ton = a.racine ? NOMS_NOTES[G.classe(a.racine)] : ''; }
+  else {
+    try { const t = M.traduire(saisie); cle = t.cle; ton = NOMS_NOTES[G.classe(t.nomBasse)]; }
+    catch (e) { try { cle = M.traduire('C' + saisie).cle; ton = ''; } catch (e2) { /* illisible */ } }   // symbole sans fondamentale
+  }
+  if (!cle) { etat.arpMsg = `« ${saisie} » : ni nom d’accord de la base, ni symbole lisible.`; document.getElementById('arp-message').textContent = etat.arpMsg; return; }
+  etat.arpMsg = '';
+  Object.assign(arpEtat(), { cle, ton, sel: [], sansBasse: false }); arpGarder(); vueArpeges();
+}
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-arp],[data-arpiv],[data-arpa],[data-versarp]');
+  if (!t) return;
+  const s = arpEtat();
+  if (t.dataset.arpa !== 'enregistrer') etat.arpMsg = '';
+  if (t.dataset.versarp !== undefined) {
+    const [cle, ton] = t.dataset.versarp.split('|');
+    Object.assign(s, { cle, ton: ton ? NOMS_NOTES[G.classe(ton)] : '', sel: [], sansBasse: false }); arpGarder(); basculerVue('arpeges');
+  } else if (t.dataset.arp) {
+    s.sel = s.sel.includes(t.dataset.arp) ? s.sel.filter((v) => v !== t.dataset.arp) : [...s.sel, t.dataset.arp]; vueArpeges();
+  } else if (t.dataset.arpiv) {
+    const iv = Number(t.dataset.arpiv), ivs = ivsCle(s.cle);
+    const nv = ivs.includes(iv) ? ivs.filter((v) => v !== iv) : [...ivs, iv];
+    if (nv.length < 2) return;
+    s.cle = G.cleDe(nv); s.sel = []; arpGarder(); vueArpeges();
+  } else if (t.dataset.arpa === 'enregistrer') enregistrerForme();
+  else if (t.dataset.arpa === 'effacer') { s.sel = []; vueArpeges(); }
+  else if (t.dataset.arpa === 'supprimer') supprimerForme(t.dataset.id);
+  else if (t.dataset.arpa === 'reprendre') {
+    const e = etat.arpListe[Number(t.dataset.i)];
+    if (e.ton && e.ton !== s.ton) s.ton = e.ton;            // forme a cordes a vide : sa tonalite
+    s.sel = e.cases.map(([c, k]) => `${c},${k}`); s.sansBasse = !e.e.f.basse && e.cases.some(([c]) => c <= 2);
+    arpGarder(); vueArpeges(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else if (t.dataset.arpa === 'planche') plancheArpeges().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
+});
+document.addEventListener('change', (ev) => {
+  const t = ev.target, s = etat.arp;
+  if (!s) return;
+  if (t.id === 'ton-arp') { s.ton = t.value; s.sel = []; arpGarder(); vueArpeges(); }
+  else if (t.id === 'arp-sansbasse') { s.sansBasse = t.checked; arpGarder(); vueArpeges(); }
+  else if (t.id === 'arp-parligne') { s.parLigne = t.value; arpGarder(); }
+});
+document.addEventListener('submit', (ev) => {
+  if (ev.target.id !== 'form-arp') return;
+  ev.preventDefault(); choisirAccordArp(document.getElementById('saisie-arp').value);
+});
+async function plancheArpeges() {
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], liste = formesAffichees(), nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null);
+  const items = liste.map((e, i) => ({ svg: e.svg, l1: `Forme ${i + 1}`, l2: e.coords, l3: e.tags.split(' · ').slice(0, 2).join(' · '), l4: e.tags.split(' · ').slice(2).join(' · ') }));
+  const blob = await dessinerPlanche(`Formes d’arpège : ${nom}`,
+    `${A.nom} · ${liste.length} forme(s) · (corde, ordonnée) : ordonnée 0 au repère ▸`,
+    items, s.parLigne || '6', A);
+  await donnerFichiers([new File([blob], nomPng('arpeges', nom, s.ton ? '' : 'generique', etat.acc), { type: 'image/png' })]);
+}
+
 function vueBase() {
   const b = etat.base || (etat.base = { texte: '', racine: '' });
   const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === b.racine ? ' selected' : ''}>${n || 'aucune'}</option>`).join('');
@@ -2248,6 +2597,7 @@ document.addEventListener('click', (ev) => {
     if (etat.vue === 'base') return;
     if (etat.vue === 'gammes') return vueGammes();
     if (etat.vue === 'harmo') return vueHarmo();
+    if (etat.vue === 'arpeges') { arpEtat().sel = []; return vueArpeges(); }
     const s = document.getElementById('saisie').value.trim();
     if (s) rechercher(s); else accueil();          // les frettes et la position dependent de l'instrument
   }
@@ -2394,7 +2744,8 @@ window.GFDrive = (function () {
     const fav = await dossier('favoris', racine, 'FAVORIS');
     const sauvegardes = await dossier('sauvegardes', fav, 'sauvegardes');
     const suites = await dossier('suites', racine, 'SUITES');          // suites d'accords de l'onglet Harmonisation
-    return (ids = { racine, reference, favoris: fav, sauvegardes, suites });
+    const arpeges = await dossier('arpeges', racine, 'ARPEGES');       // formes d'arpege de l'onglet Arpeges
+    return (ids = { racine, reference, favoris: fav, sauvegardes, suites, arpeges });
   }
   async function fichier(nom, parent) {
     const f = await lister(`name='${nom}' and '${parent}' in parents and trashed=false`);
@@ -2531,6 +2882,7 @@ window.GFDrive = (function () {
     try { await verifierReference(); } catch (e) { message = 'Drive : ' + e.message; }
     await synchroniser();
     if (window.synchroSuites) window.synchroSuites('connexion');        // les suites d'accords aussi
+    if (window.synchroArpeges) window.synchroArpeges();                 // et les formes d'arpege
   }
 
   // ---------- affichage
@@ -2560,6 +2912,7 @@ window.GFDrive = (function () {
       try { await verifierReference(); } catch (e) { message = 'Drive : ' + e.message; }
       await synchroniser();
       if (window.synchroSuites) window.synchroSuites('bouton');
+      if (window.synchroArpeges) window.synchroArpeges();
     })();
     else if (a === 'reference') document.getElementById('fichier-ref').click();
   });
@@ -2581,8 +2934,12 @@ window.GFDrive = (function () {
     return id ? remplacer(id, texte) : creer(nom + '.json', (await dossiers()).suites, texte);
   }
   const suiteSupprimer = async (id) => appel(API + '/' + id, { method: 'DELETE' });
+  // formes d'arpege : un seul fichier, GuitareFred/ARPEGES/arpeges.json
+  const arpegesFichier = async () => fichier('arpeges.json', (await dossiers()).arpeges);
+  async function arpegesLire() { const f = await arpegesFichier(); return f ? JSON.parse((await lireFichier(f.id)) || '{}') : null; }
+  async function arpegesEcrire(texte) { const f = await arpegesFichier(); return f ? remplacer(f.id, texte) : creer('arpeges.json', (await dossiers()).arpeges, texte); }
   return { demarrer: demarrerDrive, planifier, fusionner, synchroniser, connecte: () => connecte(),
-    suitesLister, suiteLire, suiteEcrire, suiteSupprimer, _etat: () => ({ jeton, ids }) };
+    suitesLister, suiteLire, suiteEcrire, suiteSupprimer, arpegesLire, arpegesEcrire, _etat: () => ({ jeton, ids }) };
 })();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
