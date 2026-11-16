@@ -272,11 +272,12 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 16/11/2026 10:50</p>
-  <div>Favoris : <span id="nb-fav">0</span>. Le fichier est au même format que <i>favoris.json</i> du programme sur PC ; exporter et importer servent de sauvegarde et de restauration.</div>
+  <p class="discret" id="version">Version de la page : 16/11/2026 11:31</p>
+  <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
+  <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
   <div class="liens">
-    <button class="btn" type="button" id="exporter">Exporter les favoris</button>
-    <button class="btn" type="button" id="importer">Importer favoris.json</button>
+    <button class="btn" type="button" id="exporter">Tout exporter</button>
+    <button class="btn" type="button" id="importer">Importer un fichier</button>
     <input type="file" id="fichier" accept=".json,.gz,application/json,application/gzip" hidden>
   </div>
 </footer>
@@ -924,7 +925,16 @@ function basculerGenerique(acc, r0, r, gf) {
   return present;
 }
 
-function majNbFav() { document.getElementById('nb-fav').textContent = favoris.favoris.length; }
+// compteurs du bas de page : accords de la reference, favoris, formes d'arpege, suites
+async function majCompteurs() {
+  const met = (id, v) => { const z = document.getElementById(id); if (z) z.textContent = v; };
+  met('nb-acc', M ? M.items.length : '…');
+  met('nb-fav', favoris.favoris.length);
+  try { met('nb-arp', arpeges.formes.length); } catch (e) { /* bloc des arpeges pas encore lu */ }
+  try { const loc = await suitesLocales(); met('nb-suites', Object.values(loc).filter((e) => !e.supprime).length); } catch (e) { /* hors IndexedDB */ }
+}
+function majNbFav() { majCompteurs(); }
+setInterval(majCompteurs, 4000);
 
 // ---------------------------------------------------------------- dessins SVG
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1837,6 +1847,67 @@ function selBase() {
   const b = etat.base || {};
   try { return [...new Set([0, ...G.parseIntervalles(b.texte || 'F')].map(mod12))].sort((x, y) => x - y); } catch (e) { return [0]; }
 }
+// ---------------------------------------------------------------- mes donnees : un seul fichier (favoris, arpeges, suites)
+// Meme format que le programme PC (boutons « Tout exporter » / « Importer » en haut de sa fenetre) :
+//   { format: 'GuitareFred-donnees', version: 1, exporte, favoris: {favoris, retires}, arpeges: {formes, retires}, suites: [suite…] }
+// L'import fusionne : favoris et formes par ajout / retrait le plus recent, suites par nom (la plus recemment enregistree).
+async function exporterTout() {
+  if (!arpegesCharges) await chargerArpeges();
+  const loc = await suitesLocales();
+  const d = { format: 'GuitareFred-donnees', version: 1, exporte: horodatage(), favoris, arpeges,
+    suites: Object.values(loc).filter((e) => !e.supprime && e.suite).map((e) => e.suite) };
+  await donnerFichiers([new File([JSON.stringify(d)], `GuitareFred_donnees_${aujourdhui()}.json`, { type: 'application/json' })]);
+}
+async function importerTout(fichier) {
+  const txt = fichier.name.endsWith('.gz')         // sauvegarde compressee du Drive (favoris_AAAA-MM-JJ.json.gz)
+    ? await new Response(fichier.stream().pipeThrough(new DecompressionStream('gzip'))).text() : await fichier.text();
+  let d;
+  try { d = JSON.parse(txt); } catch (e) { throw new Error('fichier illisible'); }
+  let fav = null, arp = null, suites = [];
+  if (d && d.format === 'GuitareFred-donnees') { fav = d.favoris; arp = d.arpeges; suites = d.suites || []; }
+  else if (d && d.format === 'GuitareFred-suite') suites = [d];
+  else if (d && Array.isArray(d.formes)) arp = d;
+  else if (d && Array.isArray(d.favoris)) fav = d;
+  else throw new Error('ce fichier n’est pas un fichier GuitareFred');
+  const parts = [], pl = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+  if (fav && Array.isArray(fav.favoris)) {
+    const k = (x) => [x.instrument, x.fondamentale, x.intervalles, x.forme].join('|');
+    const avant = new Set(favoris.favoris.map(k));
+    const fu = window.GFDrive ? GFDrive.fusionner(favoris, fav) : { favoris: favoris.favoris.concat(fav.favoris.filter((x) => !avant.has(k(x)))), retires: favoris.retires };
+    favoris.favoris = fu.favoris.filter((x) => x.intervalles && x.forme); favoris.retires = fu.retires;
+    enregistrerFavoris();
+    const apres = new Set(favoris.favoris.map(k));
+    parts.push(`favoris : ${pl([...apres].filter((x) => !avant.has(x)).length, 'ajouté')}, ${pl([...avant].filter((x) => !apres.has(x)).length, 'retiré')}`);
+    if (etat.res && etat.vue === 'accords') afficher();
+  }
+  if (arp && Array.isArray(arp.formes)) {
+    if (!arpegesCharges) await chargerArpeges();
+    const avant = new Set(arpeges.formes.map((f) => f.id));
+    arpeges = fusionArp(arpeges, arp); await sauverArpeges();
+    const apres = new Set(arpeges.formes.map((f) => f.id));
+    parts.push(`formes d’arpège : ${pl([...apres].filter((x) => !avant.has(x)).length, 'ajoutée')}, ${pl([...avant].filter((x) => !apres.has(x)).length, 'retirée')}`);
+    if (window.synchroArpeges) window.synchroArpeges();
+  }
+  if (suites.length) {
+    const loc = await suitesLocales(); let nouv = 0, maj = 0;
+    for (const s of suites) {
+      if (!s || s.format !== 'GuitareFred-suite' || !s.harmo) continue;
+      const nom = String(s.nom || '').replace(/[\\/:*?"<>|]+/g, '-').trim();
+      if (!nom) continue;
+      const e = loc[nom], la = e && !e.supprime;
+      if (la && String((e.suite || {}).enregistre || '') >= String(s.enregistre || '')) continue;   // la notre est aussi recente
+      if (la) maj++; else nouv++;
+      loc[nom] = Object.assign({}, e, { suite: Object.assign({}, s, { nom }), aEnvoyer: true, supprime: false, modifLocal: new Date().toISOString() });
+    }
+    await idbEcrire('suites', loc);
+    parts.push(`suites : ${pl(nouv, 'nouvelle')}, ${pl(maj, 'plus récente')}`);
+    const fin = () => { if (document.getElementById('liste-suites')) afficherSuites('', false); };
+    if (drivePret()) synchroniserSuites().then(() => { derniereSyncSuites = Date.now(); fin(); }).catch(fin); else fin();
+  }
+  majCompteurs();
+  if (etat.vue === 'arpeges') vueArpeges();
+  alert(`Import de ${fichier.name} : ${parts.join(' ; ') || 'rien à importer'}.`);
+}
 // ---------------------------------------------------------------- onglet Arpèges : formes d'arpège
 // Sur la carte d'arpège d'un accord (ses seules notes, sur tout le manche), on choisit des cases ; une forme est valide
 // des que tous les intervalles de l'accord y figurent (l'ordre de jeu est l'affaire du musicien).
@@ -1864,7 +1935,7 @@ async function chargerArpeges() {
   try { const a = await idbLire('arpeges'); if (a && Array.isArray(a.formes)) arpeges = Object.assign({ retires: [] }, a); } catch (e) { /* premiere fois */ }
   arpegesCharges = true;
 }
-const sauverArpeges = () => idbEcrire('arpeges', arpeges);
+const sauverArpeges = () => idbEcrire('arpeges', arpeges).then(() => { majCompteurs(); });
 
 // ---------- geometrie des formes
 function caler(cases) {                           // ramene une forme generique sur la carte (decalage d'octaves)
@@ -2010,10 +2081,7 @@ function vueArpeges() {
       ${e.svg}<div class="boutons-mini"><button type="button" class="btn petit" data-arpa="reprendre" data-i="${i}">Reprendre</button>
       <button type="button" class="btn petit" data-arpa="supprimer" data-id="${esc(e.e.f.id)}">Supprimer</button></div></figure>`).join('')}</div>
     ${liste.length ? '' : '<p class="discret">Aucune forme pour cet accord.</p>'}
-    <p class="discret">Échange avec le programme PC : « Exporter » ici puis « Importer » dans l’onglet Arpèges du PC, ou l’inverse. Les deux côtés fusionnent sans rien perdre.</p>
-    <div class="boutons-harmo"><button type="button" class="btn" data-arpa="exporter">Exporter les formes (arpeges.json)</button>
-      <button type="button" class="btn" data-arpa="importer">Importer un arpeges.json (fusion)</button>
-      <input type="file" id="arp-fichier" accept=".json,application/json" hidden></div></section>`;
+    <p class="discret">Échange avec le programme PC : « Tout exporter » et « Importer un fichier », en bas de page (favoris, formes et suites dans un seul fichier).</p></section>`;
   main().innerHTML = h;
   etat.arpListe = liste;
 }
@@ -2179,10 +2247,7 @@ document.addEventListener('click', (ev) => {
     if (e.ton && e.ton !== s.ton) s.ton = e.ton;            // forme a cordes a vide : sa tonalite
     s.sel = e.cases.map(([c, k]) => `${c},${k}`); s.sansBasse = !e.e.f.basse && e.cases.some(([c]) => c <= 2);
     arpGarder(); vueArpeges(); window.scrollTo({ top: 0, behavior: 'smooth' });
-  } else if (t.dataset.arpa === 'exporter') {
-    donnerFichiers([new File([JSON.stringify(arpeges)], 'arpeges.json', { type: 'application/json' })]).catch(() => {});
-  } else if (t.dataset.arpa === 'importer') document.getElementById('arp-fichier').click();
-  else if (t.dataset.arpa === 'planche') plancheArpeges().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
+  } else if (t.dataset.arpa === 'planche') plancheArpeges().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target, s = etat.arp;
@@ -2190,24 +2255,11 @@ document.addEventListener('change', (ev) => {
   if (t.id === 'ton-arp') { s.ton = t.value; s.sel = []; arpGarder(); vueArpeges(); }
   else if (t.id === 'arp-sansbasse') { s.sansBasse = t.checked; arpGarder(); vueArpeges(); }
   else if (t.id === 'arp-parligne') { s.parLigne = t.value; arpGarder(); }
-  else if (t.id === 'arp-fichier' && t.files[0]) { importerArpeges(t.files[0]); t.value = ''; }
 });
 document.addEventListener('submit', (ev) => {
   if (ev.target.id !== 'form-arp') return;
   ev.preventDefault(); choisirAccordArp(document.getElementById('saisie-arp').value);
 });
-async function importerArpeges(fichier) {        // un arpeges.json du programme PC (ou d'ailleurs) : fusion, puis Drive
-  try {
-    const autre = JSON.parse(await fichier.text());
-    if (!autre || !Array.isArray(autre.formes)) throw new Error('ce fichier n’est pas un fichier de formes d’arpège');
-    const avant = new Set(arpeges.formes.map((f) => f.id));
-    arpeges = fusionArp(arpeges, autre); await sauverArpeges();
-    const apres = new Set(arpeges.formes.map((f) => f.id));
-    const plus = [...apres].filter((i) => !avant.has(i)).length, moins = [...avant].filter((i) => !apres.has(i)).length;
-    etat.arpMsg = `Import de ${fichier.name} : ${plus} forme${plus > 1 ? 's' : ''} ajoutée${plus > 1 ? 's' : ''}, ${moins} retirée${moins > 1 ? 's' : ''}.`;
-  } catch (e) { etat.arpMsg = `Fichier non importé (${e.message}).`; }
-  vueArpeges(); synchroArpegesVue();
-}
 async function plancheArpeges() {
   const s = arpEtat(), A = ACCORDAGES[etat.acc], liste = formesAffichees(), nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null);
   const items = liste.map((e, i) => ({ svg: e.svg, l1: `Forme ${i + 1}`, l2: e.tags.split(' · ').slice(0, 2).join(' · '), l3: e.tags.split(' · ').slice(2).join(' · ') }));
@@ -2660,11 +2712,7 @@ document.addEventListener('click', (ev) => {
   else if (t.dataset.type) ouvrirCarte(Number(t.dataset.type), true);
   else if (t.id === 'plus') { etat.lot++; afficherPositions(); }
   else if (t.id === 'png-tous') telechargerTous();
-  else if (t.id === 'exporter') {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(favoris, null, 1)], { type: 'application/json' }));
-    const lien = document.createElement('a'); lien.href = url; lien.download = 'favoris.json'; lien.click();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-  }
+  else if (t.id === 'exporter') exporterTout().catch((e) => alert('Export impossible : ' + e.message));
   else if (t.id === 'importer') document.getElementById('fichier').click();
 });
 document.addEventListener('change', (ev) => {
@@ -2674,20 +2722,7 @@ document.addEventListener('change', (ev) => {
   if (t.id === 'ton-gamme') { etat.tonGamme = t.value; return; }
   if (t.id === 'racine-base') { etat.base = { texte: (etat.base || {}).texte || '', racine: t.value }; vueBase(); return; }
   if (t.id === 'fichier' && t.files[0]) {
-    const lireTexte = (f) => f.name.endsWith('.gz')         // sauvegarde compressee du Drive (favoris_AAAA-MM-JJ.json.gz)
-      ? new Response(f.stream().pipeThrough(new DecompressionStream('gzip'))).text() : f.text();
-    lireTexte(t.files[0]).then((txt) => {
-      const d = JSON.parse(txt);
-      const cles = new Set(favoris.favoris.map((x) => [x.instrument, x.fondamentale, x.intervalles, x.forme].join('|')));
-      let ajout = 0;
-      for (const x of d.favoris || []) {
-        const c = [x.instrument, x.fondamentale, x.intervalles, x.forme].join('|');
-        if (!cles.has(c) && x.intervalles && x.forme) { favoris.favoris.push(x); cles.add(c); ajout++; }
-      }
-      ajout += completerJumeaux();
-      enregistrerFavoris(); if (etat.res) afficher();
-      alert(ajout + ' favori(s) importé(s).');
-    }).catch(() => alert('Ce fichier n’est pas un favoris.json lisible.'));
+    importerTout(t.files[0]).catch((e) => alert('Import impossible : ' + e.message));
     t.value = '';
     return;
   }
@@ -3019,6 +3054,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.se
 
 (async () => {
   await chargerFavoris();
+  chargerArpeges().then(majCompteurs).catch(() => {});
   const brut = document.getElementById('donnees').textContent.trim();
   if (brut && brut[0] === '{') return demarrer(JSON.parse(brut));       // prototype : donnees integrees a la page
   if (window.GFDrive) return window.GFDrive.demarrer();                 // version en ligne : donnees du Drive
