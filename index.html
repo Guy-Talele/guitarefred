@@ -283,7 +283,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 16/11/2026 16:07</p>
+  <p class="discret" id="version">Version de la page : 18/11/2026 09:15</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
   <div class="liens">
@@ -2074,7 +2074,8 @@ function vueArpeges() {
   ${x.cells.length ? `<p class="discret">${esc(texteBasse(x, s))}</p>` : ''}
   ${x.graves ? `<label class="case-harmo"><input type="checkbox" id="arp-sansbasse" ${s.sansBasse ? 'checked' : ''}> Considérer la forme sans basse (valable pour l’accord et ses renversements)</label>` : ''}
   <div class="boutons-harmo"><button type="button" class="btn plein" data-arpa="enregistrer" ${x.valide ? '' : 'disabled'}>Enregistrer la forme</button>
-    <button type="button" class="btn" data-arpa="effacer" ${x.cells.length ? '' : 'disabled'}>Effacer la sélection</button></div>
+    <button type="button" class="btn" data-arpa="effacer" ${x.cells.length ? '' : 'disabled'}>Effacer la sélection</button>
+    <button type="button" class="btn" data-arpa="carte">Télécharger cette carte (PNG)</button></div>
   <p class="discret" id="arp-message">${esc(etat.arpMsg || '')}</p>
   <div class="carte-arp">${svgArpege(etat.acc, s.cle, s.ton, sel)}</div>`;
   // les formes enregistrees
@@ -2231,6 +2232,14 @@ function choisirAccordArp(saisie) {
   etat.arpMsg = '';
   Object.assign(arpEtat(), { cle, ton, sel: [], sansBasse: false }); arpGarder(); vueArpeges();
 }
+function telechargerCarteArp() {                  // la carte de selection telle qu'a l'ecran (cases choisies en couleur), en PNG
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], x = infosSelection(), nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null);
+  const n = x.cells.length, titre = nom + (telCle(s.cle) ? `  {${telCle(s.cle)}}` : '');
+  const sous = `${A.nom} · intervalles : ${ivsCle(s.cle).map((i) => INTERVALLES[i]).join(' ')} · ` +
+    (s.ton ? `carte en ${s.ton}` : 'carte générique : tonique de la corde 1 au repère ▸') +
+    (n ? ` · ${n} case${n > 1 ? 's' : ''} choisie${n > 1 ? 's' : ''}${x.valide ? ', forme valide' : ''}` : '');
+  telechargerPng(titre, sous, svgArpege(etat.acc, s.cle, s.ton, new Set(s.sel)), nomPng('carte arpege', nom, s.ton ? '' : 'generique', etat.acc));
+}
 function reprendreForme(i) {                      // la forme revient sur la carte pour etre modifiee
   const s = arpEtat(), e = etat.arpListe && etat.arpListe[i];
   if (!e) return;
@@ -2272,6 +2281,7 @@ document.addEventListener('click', (ev) => {
   else if (t.dataset.arpa === 'supprimer') supprimerForme(t.dataset.id);
   else if (t.dataset.arpa === 'reprendre') reprendreForme(Number(t.dataset.i));
   else if (t.dataset.arpa === 'agrandir') ouvrirFormeArp(Number(t.dataset.i));
+  else if (t.dataset.arpa === 'carte') telechargerCarteArp();
   else if (t.dataset.arpa === 'planche') plancheArpeges().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
 });
 document.addEventListener('change', (ev) => {
