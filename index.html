@@ -186,6 +186,8 @@ details.pli[open] > summary::after { content: "−"; }
 .harmo-choix .case-harmo { display: flex; align-items: center; gap: .5rem; font-weight: 400; color: var(--encre); font-size: 1rem; grid-column: 1 / -1; min-height: 2.4rem; }
 .resto label.grise { opacity: .5; }
 .resto label { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.resto label { max-width: 100%; min-width: 0; }
+.resto select { max-width: 100%; min-width: 0; }   /* longues listes de gammes : pas plus large que l'ecran */
 .resto select { font: inherit; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); padding: .3rem .4rem; min-height: 2.4rem; }
 .cadre-h { overflow-x: auto; background: var(--surface); border: 1px solid var(--ligne); border-radius: .6rem; }
 .table-harmo { border-collapse: collapse; width: 100%; font-size: .92rem; }
@@ -235,6 +237,44 @@ details.pli[open] > summary::after { content: "−"; }
 .vide { color: var(--erreur); font-weight: 700; margin: .6rem 0; }
 .message { color: var(--erreur); }
 
+/* grille collee, gammes compatibles, positions de la suite */
+.grille-saisie { display: grid; gap: .6rem; }
+.grille-saisie textarea { font: inherit; width: 100%; box-sizing: border-box; border: 1.5px solid var(--ligne); border-radius: .5rem; background: var(--surface); color: var(--encre); padding: .5rem; }
+.grille-saisie input, .grille-saisie select { font: inherit; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); color: var(--encre); padding: .3rem .4rem; }
+.gamme-compat { display: flex; justify-content: space-between; align-items: center; gap: .6rem; padding: .45rem 0; border-top: 1px solid var(--ligne); }
+.gamme-compat .btn.petit { margin: 0; flex: none; }
+.boutons-pos { display: flex; justify-content: center; gap: .3rem; }
+.boutons-pos .btn.petit { margin: 0; flex: 1; }
+.mini-pos .degre-rom { margin-left: .2rem; }
+/* degres, substitutions, pupitre */
+.degre-rom { font-weight: 700; color: var(--accent); margin-left: .35rem; }
+.subst { display: grid; gap: .6rem; }
+.subst-ligne { border: 1px solid var(--ligne); border-radius: .6rem; padding: .5rem .7rem; }
+.subst-ligne.orig { background: var(--accent-doux); }
+.subst-ligne p { margin: .25rem 0; }
+.subst-ligne .boutons-harmo { margin-top: .3rem; }
+.case-ecran { display: inline-flex; align-items: center; gap: .4rem; margin: .4rem 0; }
+.case-ecran.grise { opacity: .45; }
+body.avec-pupitre { overflow: hidden; }
+.pupitre { position: fixed; inset: 0; z-index: 50; background: var(--fond); color: var(--encre); display: flex; flex-direction: column; gap: .35rem;
+  padding: calc(env(safe-area-inset-top, 0px) + .5rem) .7rem calc(env(safe-area-inset-bottom, 0px) + .6rem); }
+.pupitre[hidden] { display: none; }
+.pup-haut { display: flex; align-items: center; gap: .6rem; color: var(--discret); font-size: .95rem; }
+.pup-haut #pup-titre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pup-haut .btn { margin: 0; }
+.pup-nom { text-align: center; font-size: clamp(2rem, 9vw, 3.4rem); font-weight: 700; line-height: 1.1; }
+.pup-nom .degre-rom { font-size: .55em; }
+.pup-diag { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
+.pup-diag .papier { background: #fff; border-radius: .8rem; padding: .5rem; height: 100%; max-width: 100%; display: flex; justify-content: center; }
+.pup-diag svg { height: 100%; width: auto; max-width: 100%; display: block; }
+.pup-vide { font-size: 1.2rem; color: var(--discret); text-align: center; }
+.pup-pos { display: flex; justify-content: center; align-items: center; gap: .5rem; min-height: 2.2rem; color: var(--discret); }
+.pup-pos .btn.petit { margin: 0; }
+.pup-suivant { text-align: center; font-size: 1.15rem; color: var(--discret); }
+.pup-bas { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.pup-bas .btn { margin: 0; min-height: 3rem; }
+.pup-bas .btn[data-pup="prec"], .pup-bas .btn[data-pup="suiv"] { min-width: 4.2rem; font-size: 1.3rem; }
+
 dialog {
   border: 0; border-radius: .9rem; padding: 0; width: min(28rem, 94vw); max-height: 92vh;
   background: var(--surface); color: var(--encre); box-shadow: 0 10px 40px rgba(10, 14, 40, .35);
@@ -283,8 +323,9 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 18/11/2026 09:15</p>
+  <p class="discret" id="version">Version de la page : 18/11/2026 10:24</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
+  <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
   <div class="liens">
     <button class="btn" type="button" id="exporter">Tout exporter</button>
@@ -1050,7 +1091,7 @@ function rechercher(saisie) {
   }
   if (toks.length === 1 && trads[0].accord) return montrer({ r: trads[0].accord, racine: trads[0].nomBasse, entete, cible: null });
   etat.res = null;
-  main().innerHTML = blocPosition() + entete;
+  main().innerHTML = blocPosition() + entete + (trads.length > 1 ? `<p><button type="button" class="btn plein" data-grille-accords="${esc(saisie)}">Faire une suite de ces ${trads.length} accords (Harmonisation)</button></p>` : '');
 }
 // nouvel accord : « Favoris seulement » coche par defaut, sauf recherche d'une position (a montrer encadree)
 function montrer(res) { etat.res = res; etat.lot = 1; etat.favSeul = !res.cible; afficher(); window.scrollTo({ top: 0 }); }
@@ -1417,7 +1458,7 @@ async function plancheHarmo(ton, depart) {
   if (h.type === 'libre') {
     const c = libreCalcul(ton), items = c.accords.map((a) => {
       const x = restitutionLibre(c, a);
-      return { svg: x.svg, l1: `Accord ${a.i + 1}${c.h.ton ? ' · ' + NOMS_HARMO[a.racine] : ''}`, l2: x.n ? x.n.nom + (x.n.dansBase ? '' : ' (hors base)') : 'accord à choisir',
+      return { svg: x.svg, l1: `Accord ${a.i + 1}${c.h.ton ? ' · ' + NOMS_HARMO[a.racine] : ''}${degreLibre(c, a) ? ' · ' + degreLibre(c, a) : ''}`, l2: x.n ? x.n.nom + (x.n.dansBase ? '' : ' (hors base)') : 'accord à choisir',
         l3: `mode : ${x.modeTxt}`, l4: c.accords[a.resto] !== a ? `restitution : ${x.restoTxt}` : (a.fam ? `gamme : ${a.fam[1]}` : '') };
     });
     const blob = await dessinerPlanche(`Harmonisation libre${c.L.titre ? ' : ' + c.L.titre : ''}${c.h.ton ? ' en ' + NOMS_HARMO[c.T] : ''}`,
@@ -1563,7 +1604,8 @@ function restitutionLibre(c, a) {
   const n = nomLibre(c, a), modeTxt = modeLibreTxt(c, a);
   const restoTxt = b === a ? modeTxt : `${modeLibreTxt(c, b)} (accord ${b.i + 1})`;
   const empTxt = [...emprunts].map((p) => (c.h.ton ? NOMS_HARMO[mod12(p - dec)] : INTERVALLES[mod12(p - a.racine - dec)])).join(' ');
-  return { svg, n, modeTxt, restoTxt, emprunts: empTxt, titre: `Accord ${a.i + 1} · ${n ? n.nom : 'accord à choisir'}`,
+  const deg = degreLibre(c, a);
+  return { svg, n, modeTxt, restoTxt, emprunts: empTxt, titre: `Accord ${a.i + 1} · ${n ? n.nom : 'accord à choisir'}${deg ? ' (' + deg + ')' : ''}`,
     son: { gamme: { ton: mod12(b.racine + dec), ivs }, accord: { racine: mod12(a.racine + dec), sel: a.sel } },
     sous: `${c.A.nom} · ${c.L.titre || 'harmonisation libre'} · mode : ${modeTxt}${a.fam ? ' (gamme ' + a.fam[1] + ')' : ''}` +
       (b === a ? '' : ` · restitution dans le mode ${restoTxt}`) + (empTxt ? ` · notes empruntées, en pointillés : ${empTxt}` : '') +
@@ -1574,20 +1616,22 @@ function vueLibre() {
   const nomRacine = (r) => (h.ton ? NOMS_HARMO[mod12(c.T + r)] : (r ? INTERVALLES[r] + ' de la référence' : 'référence'));
   let html = `<section class="harmo-choix">${choixCommuns(h)}
     <label>Fondamentale <select data-h="ton">${['', ...NOMS_HARMO].map((n) => optH(n, n || 'aucune', n === (h.ton ? NOMS_HARMO[G.classe(h.ton)] : ''))).join('')}</select></label>
-    <label>Nombre d’accords <select data-l="nb">${Array.from({ length: 24 }, (_, i) => optH(i + 1, i + 1, i + 1 === L.nb)).join('')}</select></label>
+    <label>Degrés par rapport à <select data-l="refDeg">${optH(-1, 'aucun (pas de degrés)', refDegres(L) < 0)}${Array.from({ length: 12 }, (_, r) => optH(r, nomRacine(r), r === refDegres(L))).join('')}</select></label>
+    <label>Nombre d’accords <select data-l="nb">${Array.from({ length: NB_MAX_SUITE }, (_, i) => optH(i + 1, i + 1, i + 1 === L.nb)).join('')}</select></label>
     <label>Titre (planche, fichier) <input type="text" data-l="titre" value="${esc(L.titre || '')}" placeholder="ex. cycle des quartes"></label>
     <label>Intervalles affichés <select data-h="etiquettes">${optH('mode', 'du mode', h.etiquettes !== 'accord')}${optH('accord', 'de l’accord', h.etiquettes === 'accord')}</select></label>
     <label class="case-harmo"><input type="checkbox" data-l="resto1" ${L.resto1 ? 'checked' : ''}> Restituer tous les accords dans le mode de l’accord 1</label>
   </section>
-  <div class="boutons-harmo"><button type="button" class="btn" data-l="quartes">Cycle des quartes</button>
+  <div class="boutons-harmo"><button type="button" class="btn plein" data-l="grille">Coller une grille</button>
+    <button type="button" class="btn" data-l="quartes">Cycle des quartes</button>
     <button type="button" class="btn" data-l="dominantes">Cycle des dominantes</button>
     <button type="button" class="btn" data-l="effacer">Tout effacer</button></div>
   <p class="discret">Pour chaque accord : sa fondamentale${h.ton ? '' : ' (par rapport à la référence ; choisis une fondamentale pour voir les notes)'}, ses intervalles et, si tu veux, une gamme et un mode. Les intervalles limitent les gammes et les modes proposés, et un mode limite les intervalles. « Cycle des quartes » prend les quartes réelles du mode de l’accord 1 s’il est choisi (C ionien : C F B E A D G, chaque accord dans son mode), sinon des quartes justes ; choisir ensuite le mode de l’accord 1 met le cycle à jour. « Cycle des dominantes » met des accords 7 en Mixo, de quarte juste en quarte juste.</p>` + barreSuite() + blocSuites();
   for (const a of c.accords) {
     const fams = DONNEES.familles.filter((f) => f[2].some((m) => contient(m[1], a.sel)));
     const modes = a.fam ? a.fam[2].map((m, idx) => [m, idx]).filter(([m]) => contient(m[1], a.sel)) : [];
-    const n = nomLibre(c, a);
-    html += `<section class="degre"><h3>Accord ${a.i + 1} · ${esc(nomRacine(a.r))}</h3>
+    const n = nomLibre(c, a), deg = degreLibre(c, a);
+    html += `<section class="degre"><h3>Accord ${a.i + 1} · ${esc(nomRacine(a.r))}${deg ? `<span class="degre-rom">${esc(deg)}</span>` : ''}</h3>
       <div class="resto">
         <label>Fondamentale <select data-l="r" data-i="${a.i}">${Array.from({ length: 12 }, (_, r) => optH(r, nomRacine(r), r === a.r)).join('')}</select></label>
         <label>Gamme <select data-l="rang" data-i="${a.i}">${optH('', '—', !a.fam)}${fams.map(([rg, titre]) => optH(rg, String(rg).padStart(3, '0') + ' · ' + titre, a.fam && rg === a.fam[0])).join('')}</select></label>
@@ -1600,8 +1644,10 @@ function vueLibre() {
       <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(h.ton ? NOMS_HARMO[a.racine] + ' ' + n.item : n.item)}">Voir l’accord</button>`
         : '<small>nom selon Base.txt, absent de ta base</small>'}` : '<span class="discret">Choisis au moins un deuxième intervalle.</span>'}
       </p><div class="resto">${choixTemps('data-l', a.i, a.tpa)}<label class="${L.resto1 ? 'grise' : ''}">Restitution dans le mode de <select data-l="resto" data-i="${a.i}" ${L.resto1 ? 'disabled' : ''}>${c.accords.map((b) => optH(b.i, b === a ? 'son propre mode' : `l’accord ${b.i + 1} · ${modeLibreTxt(c, b)}`, b.i === a.resto)).join('')}</select></label>
-        <button type="button" class="btn" data-l="carte" data-i="${a.i}">Voir la restitution</button></div></section>`;
+        <button type="button" class="btn" data-l="carte" data-i="${a.i}">Voir la restitution</button>
+        <button type="button" class="btn" data-l="subst" data-i="${a.i}">Substitutions</button></div></section>`;
   }
+  html += blocGammesCompatibles(c) + blocPositionsSuite();
   html += `<section class="bloc"><div class="boutons-harmo"><button type="button" class="btn plein" data-h="planche">Télécharger la restitution globale (PNG)</button>
     <button type="button" class="btn" data-h="planche12">… dans les 12 tonalités</button></div>
     <p class="discret">Les accords de la suite côte à côte, ${String(h.parLigne || 'tous') === 'tous' ? 'tous sur une ligne' : h.parLigne + ' par ligne'}. « … dans les 12 tonalités » transpose toute la suite, de A à Ab.</p></section>`;
@@ -1645,7 +1691,12 @@ document.addEventListener('click', (ev) => {
   } else if (l === 'carte') {
     const c = libreCalcul(), x = restitutionLibre(c, c.accords[i]);
     ouvrirDialogue(x.titre, x.sous, x.svg, [boutonPng(x.titre, x.sous, x.svg, nomPng(c.L.titre || 'harmonisation libre', 'accord', i + 1, x.n ? x.n.nom : '', etat.acc)), ['Fermer', () => dlg().close(), true]], x.son);
-  } else if (l === 'quartes' || l === 'dominantes') {
+  } else if (l === 'subst') ouvrirSubstitutions(i);
+  else if (l === 'grille') ouvrirGrille();
+  else if (l === 'pos') changerPosition(i, Number(t.dataset.d));
+  else if (l === 'gamme-appli') appliquerGamme(Number(t.dataset.rang), Number(t.dataset.t));
+  else if (l === 'planchepos') planchePositions().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
+  else if (l === 'quartes' || l === 'dominantes') {
     const maj = DONNEES.familles.find((f) => f[0] === 1), mixo = maj ? maj[2].findIndex((m) => [...m[1]].sort((x, y) => x - y).join(',') === '0,2,4,5,7,9,10') : -1;
     L.cycle = l;
     if (l === 'dominantes' || !quartesDuMode(L))        // sans mode pour l'accord 1 : quartes justes, de 5 en 5 demi-tons
@@ -1669,8 +1720,447 @@ document.addEventListener('change', (ev) => {
   else if (l === 'mode') libreModifier(i, { mode: t.value === '' ? null : Number(t.value) });
   else if (l === 'resto') libreModifier(i, { resto: Number(t.value) === i ? null : Number(t.value) });
   else if (l === 'resto1') { L.resto1 = t.checked; harmoSauver(); vueLibre(); }
+  else if (l === 'refDeg') { L.refDeg = Number(t.value); harmoSauver(); vueLibre(); }
   else if (l === 'tpa') libreModifier(i, { tpa: t.value === '' ? null : Number(t.value) });
 });
+// ---------------------------------------------------------------- ecran allume (Wake Lock) : le telephone ne se met pas en veille
+// pendant qu'on joue. Case en bas de page (memorisee) ; le pupitre le demande aussi tant qu'il est ouvert.
+const ecran = { verrou: null, voulu: !!lire('gf.ecran', false), pupitre: false };
+async function majEcran() {
+  const ok = 'wakeLock' in navigator, veut = ecran.voulu || ecran.pupitre;
+  const c = document.getElementById('ecran-allume'), e = document.getElementById('ecran-etat');
+  if (c) { c.checked = ecran.voulu; c.disabled = !ok; c.closest('label').classList.toggle('grise', !ok); }
+  if (!ok) { if (e) e.textContent = 'non disponible sur ce navigateur'; return; }
+  try {
+    if (veut && !ecran.verrou && document.visibilityState === 'visible') {
+      const v = await navigator.wakeLock.request('screen');
+      ecran.verrou = v; v.addEventListener('release', () => { if (ecran.verrou === v) ecran.verrou = null; });
+    } else if (!veut && ecran.verrou) { const v = ecran.verrou; ecran.verrou = null; await v.release(); }
+    if (e) e.textContent = ecran.verrou ? 'écran maintenu allumé' : '';
+  } catch (err) { if (e) e.textContent = 'refusé par l’appareil (batterie faible ?)'; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') majEcran(); });
+document.addEventListener('change', (ev) => {
+  if (ev.target.id === 'ecran-allume') { ecran.voulu = ev.target.checked; ecrire('gf.ecran', ecran.voulu); majEcran(); }
+  else if (ev.target.id === 'pup-son') { ecrire('gf.pupitre.son', ev.target.checked); if (suite) suite.muet = !ev.target.checked; }
+});
+majEcran();
+
+// ---------------------------------------------------------------- suite libre : degres et substitutions
+// Degres en chiffres romains (IIm7, V7, Imaj7) par rapport a une note de la suite (« Degrés par rapport à », la
+// fondamentale par defaut). Les substitutions d'un accord s'ecoutent entre l'accord d'avant et celui d'apres, et
+// peuvent le remplacer (sa gamme et son mode sont alors a rechoisir).
+const DEG_ROMAINS = ['I', 'bII', 'II', 'bIII', 'III', 'IV', '#IV', 'V', 'bVI', 'VI', 'bVII', 'VII'];
+const itemDe = (sel) => { const t = M.parNotes.get(G.cleDe(sel)); return t ? t.item : G.nommerSelonBase(sel).nom; };
+const suffixeDegre = (item) => (item === 'maj' ? '' : item);
+function degreDe(r, sel, ref) {                    // « IIm7 » ; r et ref en demi-tons au-dessus de la reference de la suite
+  if (ref == null || ref < 0 || sel.length < 2) return '';
+  return DEG_ROMAINS[mod12(r - ref)] + suffixeDegre(itemDe(sel));
+}
+const refDegres = (L) => (L.refDeg == null ? 0 : Number(L.refDeg));    // -1 : pas de degres
+const degreLibre = (c, a) => degreDe(a.r, a.sel, refDegres(c.L));
+function nomAccordLibre(c, r, sel) {               // nom d'un accord de la suite libre d'apres sa fondamentale r
+  if (sel.length < 2) return { nom: 'accord à choisir', dansBase: true };
+  return { nom: (c.h.ton ? NOMS_HARMO[mod12(c.T + r)] + ' ' : '') + itemDe(sel), dansBase: !!M.parNotes.get(G.cleDe(sel)) };
+}
+function substitutions(c, a) {                    // [{ famille, r, sel, pourquoi }] pour l'accord a de la suite libre
+  const s = new Set(a.sel), has = (x) => s.has(x), out = [], vus = new Set([a.r + '|' + a.sel.join(',')]);
+  const maj = has(4) && !has(3) && !has(8), min = has(3) && !has(4) && has(7), dom = has(4) && has(10) && !has(11);
+  const ajoute = (famille, dr, sel, pourquoi) => {
+    const r = mod12(a.r + dr), sl = [...new Set(sel.map(mod12))].sort((x, y) => x - y), cle = r + '|' + sl.join(',');
+    if (!vus.has(cle)) { vus.add(cle); out.push({ famille, r, sel: sl, pourquoi }); }
+  };
+  if (maj && !dom) {
+    const sept = has(11) || has(9);
+    ajoute('Relatif', 9, sept ? [0, 3, 7, 10] : [0, 3, 7], 'relatif mineur : presque les mêmes notes, couleur plus sombre');
+    ajoute('Relatif', 4, has(11) ? [0, 3, 7, 10] : [0, 3, 7], 'accord de la tierce : il garde deux notes de l’accord');
+  }
+  if (min) ajoute('Relatif', 3, has(10) ? [0, 4, 7, 11] : [0, 4, 7], 'relatif majeur : presque les mêmes notes, couleur plus claire');
+  if (dom) {
+    ajoute('Tritonique', 6, a.sel, 'même tierce et même septième, échangées ; la basse descend d’un demi-ton vers l’accord de résolution');
+    ajoute('Diminué', 4, [0, 3, 6, 9], 'la dominante sans sa fondamentale, avec la b9 : même tension, plus sombre');
+  }
+  if (maj && !dom) ajoute('Emprunt', 0, a.sel.map((x) => (x === 4 ? 3 : x === 11 ? 10 : x)), 'même fondamentale en mineur : emprunt au mode parallèle');
+  if (min) ajoute('Emprunt', 0, a.sel.map((x) => (x === 3 ? 4 : x)), has(10) ? 'même fondamentale en majeur : avec la 7, une dominante secondaire' : 'même fondamentale en majeur : emprunt au mode parallèle');
+  const ref = refDegres(c.L);
+  if (dom && ref >= 0 && mod12(a.r - ref) === 7) ajoute('Emprunt', 3, a.sel, 'dominante « par la porte de derrière » (bVII7) : elle mène aussi au I');
+  return out;
+}
+let substCourant = null;
+function ouvrirSubstitutions(i) {
+  const c = libreCalcul(), a = c.accords[i];
+  if (!a || a.sel.length < 2) { alert('Choisis d’abord au moins deux intervalles pour cet accord.'); return; }
+  const cands = substitutions(c, a), ref = refDegres(c.L);
+  substCourant = { i, cands };
+  const ligne = (r, sel) => { const n = nomAccordLibre(c, r, sel), d = degreDe(r, sel, ref);
+    return `<b>${esc(n.nom)}</b>${d ? ` <span class="degre-rom">${esc(d)}</span>` : ''}${n.dansBase ? '' : ' <small>(hors base)</small>'}`; };
+  let h = `<div class="subst"><div class="subst-ligne orig"><div>${ligne(a.r, a.sel)} <small>· l’accord actuel</small></div>
+    <div class="boutons-harmo"><button type="button" class="btn" data-sub="ecouter" data-j="-1">▶ Écouter</button></div></div>`;
+  h += cands.length ? cands.map((x, j) => `<div class="subst-ligne"><div>${ligne(x.r, x.sel)} <small>· ${esc(x.famille)}</small></div>
+    <p class="discret">${esc(x.pourquoi)}</p><div class="boutons-harmo"><button type="button" class="btn" data-sub="ecouter" data-j="${j}">▶ Écouter</button>
+    <button type="button" class="btn plein" data-sub="remplacer" data-j="${j}">Remplacer dans la suite</button></div></div>`).join('')
+    : '<p class="discret">Pas de substitution proposée pour ce type d’accord : les règles visent les accords majeurs, mineurs et de dominante.</p>';
+  const avant = c.accords[i - 1], apres = c.accords[i + 1];
+  const ecoute = [avant ? 'l’accord d’avant' : '', 'celui-ci', apres ? 'l’accord d’après' : ''].filter(Boolean).join(', ');
+  ouvrirDialogue(`Accord ${i + 1} · substitutions`, `▶ Écouter joue ${ecoute}, au tempo de la suite. « Remplacer » remet la gamme et le mode de l’accord à choisir.`,
+    '', [['Fermer', () => dlg().close(), true]]);
+  document.getElementById('dlg-corps').innerHTML = h + '</div>';
+}
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-sub]');
+  if (!t || !substCourant) return;
+  const c = libreCalcul(), i = substCourant.i, j = Number(t.dataset.j), a = c.accords[i], x = j < 0 ? a : substCourant.cands[j];
+  if (!a || !x) return;
+  if (t.dataset.sub === 'ecouter') {
+    const tpa = (b) => b.tpa || Number(lecture.tpa) || 4, avant = c.accords[i - 1], apres = c.accords[i + 1];
+    jouerAccords([avant, { racine: mod12(c.T + x.r), sel: x.sel, tpa: a.tpa }, apres].filter(Boolean).map((b) => ({ racine: b.racine, sel: b.sel, tpa: tpa(b) })));
+  } else if (t.dataset.sub === 'remplacer') {
+    substCourant = null; dlg().close();
+    libreModifier(i, { r: x.r, sel: x.sel, rang: null, mode: null });
+  }
+});
+
+// ---------------------------------------------------------------- pupitre : la suite en grand, un accord a la fois
+// Pour chaque accord, un favori (celui qui est le plus pres, sur le manche, de la position de l'accord d'avant),
+// sinon une position de l'index. On avance au toucher (moitie droite : suivant, gauche : precedent), aux boutons, aux
+// fleches du clavier, ou au tempo de la suite (avec ou sans le son).
+const pupitre = { ouvert: false, k: 0, accords: [], gen: false, titre: '' };
+function accordsPupitre() {                        // { gen, titre, accords: [{ racine, sel, tpa, nom, degre }] }
+  const h = harmoEtat();
+  if (h.type === 'libre') {
+    const c = libreCalcul();
+    return { gen: !c.h.ton, titre: c.L.titre || 'suite libre', accords: c.accords.map((a) => {
+      const n = nomLibre(c, a); return { racine: a.racine, sel: a.sel, tpa: a.tpa, nom: n ? n.nom : 'accord à choisir', degre: degreLibre(c, a) }; }) };
+  }
+  const c = harmoCalcul();
+  return { gen: !c.h.ton, titre: `${c.fam[1]}, degré I = ${nomMode(c, c.degres[0])}`, accords: c.degres.map((d) => {
+    const n = nomDegre(c, d); return { racine: d.racine, sel: d.sel, tpa: d.tpa, nom: n ? n.nom : 'accord à choisir', degre: ROMAINS[d.k] + (n ? suffixeDegre(n.item) : '') }; }) };
+}
+function formesPupitre(x, gen) {                   // { formes: [{ forme, racine }], fav, absent }
+  if (x.sel.length < 2) return { formes: [], fav: false, absent: false };
+  const t = M.parNotes.get(G.cleDe(x.sel));
+  if (!t) return { formes: [], fav: false, absent: true };
+  if (gen) {
+    const f = [...generiquesFav(etat.acc, t.notes).values()];
+    return f.length ? { formes: f, fav: true } : { formes: M.generiques(t, etat.acc, {}).slice(0, 12), fav: false };
+  }
+  const f = favDe(etat.acc, x.racine, t.notes).map((s) => ({ forme: s.split(' '), racine: x.racine }));
+  if (f.length) return { formes: f, fav: true };
+  return { formes: M.positions(t, NOMS_NOTES[x.racine], etat.acc, {}).formes.slice(0, 12).map((fo) => ({ forme: fo, racine: x.racine })), fav: false };
+}
+const centreForme = (f) => { const v = f.filter((x) => x !== 'x').map(Number); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : 0; };
+function preparerPupitre() {                       // chaque accord sur le choix garde, sinon la position la plus proche de la precedente
+  const p = accordsPupitre(), choix = harmoEtat().type === 'libre' ? (libreEtat().formes || {}) : {};
+  let avant = null;
+  for (const [i, x] of p.accords.entries()) {
+    Object.assign(x, formesPupitre(x, p.gen), { j: 0 });
+    if (!x.formes.length) continue;
+    const voulu = choix[i] ? x.formes.findIndex((f) => f.forme.join(' ') === choix[i]) : -1;
+    if (voulu >= 0) x.j = voulu;
+    else if (avant != null && !p.gen) {
+      let m = 0;
+      x.formes.forEach((f, j) => { if (Math.abs(centreForme(f.forme) - avant) < Math.abs(centreForme(x.formes[m].forme) - avant)) m = j; });
+      x.j = m;
+    }
+    avant = centreForme(x.formes[x.j].forme);
+  }
+  return p;
+}
+function pupitreDom() {
+  let el = document.getElementById('pupitre');
+  if (el) return el;
+  el = document.createElement('div'); el.id = 'pupitre'; el.className = 'pupitre'; el.hidden = true;
+  el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Pupitre');
+  el.innerHTML = `<div class="pup-haut"><span id="pup-titre"></span><span id="pup-num"></span><button type="button" class="btn" data-pup="fermer">✕ Fermer</button></div>
+    <div class="pup-nom"><span id="pup-nom"></span><span id="pup-degre" class="degre-rom"></span></div>
+    <div class="pup-diag" id="pup-diag" data-pup="zone"></div>
+    <div class="pup-pos" id="pup-pos"></div>
+    <div class="pup-suivant" id="pup-suivant"></div>
+    <div class="pup-bas"><button type="button" class="btn" data-pup="prec" aria-label="Accord précédent">◀</button>
+      <button type="button" class="btn plein" data-pup="defiler">▶ Défiler au tempo</button>
+      <label><input type="checkbox" id="pup-son"> Son</label>
+      <button type="button" class="btn" data-pup="suiv" aria-label="Accord suivant">▶</button></div>`;
+  document.body.appendChild(el);
+  return el;
+}
+function ouvrirPupitre(k = 0) {
+  const p = preparerPupitre();
+  if (!p.accords.length) return;
+  arreterSon();
+  Object.assign(pupitre, p, { ouvert: true, k });
+  const el = pupitreDom(); el.hidden = false; document.body.classList.add('avec-pupitre');
+  document.getElementById('pup-titre').textContent = p.titre;
+  document.getElementById('pup-son').checked = !!lire('gf.pupitre.son', true);
+  try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) { /* plein ecran refuse */ }
+  ecran.pupitre = true; majEcran();
+  afficherPupitre();
+}
+function fermerPupitre() {
+  pupitre.ouvert = false; arreterSon();
+  const el = document.getElementById('pupitre'); if (el) el.hidden = true;
+  document.body.classList.remove('avec-pupitre');
+  try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) { /* rien */ }
+  ecran.pupitre = false; majEcran();
+  if (etat.vue === 'harmo') vueHarmo();            // les choix de position faits dans le pupitre
+}
+function afficherPupitre() {
+  if (!pupitre.ouvert) return;
+  const n = pupitre.accords.length, k = Math.min(Math.max(pupitre.k, 0), n - 1), x = pupitre.accords[k];
+  pupitre.k = k;
+  document.getElementById('pup-num').textContent = `${k + 1} / ${n}`;
+  document.getElementById('pup-nom').textContent = x.nom;
+  document.getElementById('pup-degre').textContent = x.degre || '';
+  const diag = document.getElementById('pup-diag'), pos = document.getElementById('pup-pos');
+  if (x.formes.length) {
+    const f = x.formes[x.j], plus = x.formes.length > 1;
+    diag.innerHTML = `<div class="papier">${svgDiagramme(f.forme, etat.acc, f.racine, pupitre.gen, 300)}</div>`;
+    diag.dataset.forme = f.forme.join(' ');
+    pos.innerHTML = (plus ? '<button type="button" class="btn petit" data-pup="pos-" aria-label="Position précédente">◀</button>' : '') +
+      `<span>${x.fav ? 'favori' : 'pas de favori : position proposée'}${plus ? ' ' + (x.j + 1) + ' / ' + x.formes.length : ''}</span>` +
+      (plus ? '<button type="button" class="btn petit" data-pup="pos+" aria-label="Position suivante">▶</button>' : '');
+  } else {
+    diag.innerHTML = `<p class="pup-vide">${x.absent ? 'Accord absent de ta base : pas de diagramme.' : 'Accord à choisir.'}</p>`;
+    diag.dataset.forme = ''; pos.innerHTML = '';
+  }
+  const s = pupitre.accords[k + 1] || (lecture.boucle && n > 1 ? pupitre.accords[0] : null);
+  document.getElementById('pup-suivant').textContent = s ? `ensuite : ${s.nom}${s.degre ? ' (' + s.degre + ')' : ''}` : 'fin de la suite';
+  const b = document.querySelector('[data-pup="defiler"]'); if (b) b.textContent = suite ? '■ Arrêter' : '▶ Défiler au tempo';
+}
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-pup]');
+  if (!t || (!pupitre.ouvert && t.dataset.pup !== 'ouvrir')) return;
+  const p = t.dataset.pup, x = pupitre.accords[pupitre.k];
+  if (p === 'ouvrir') ouvrirPupitre(Number(t.dataset.k) || 0);
+  else if (p === 'fermer') fermerPupitre();
+  else if (p === 'prec' || p === 'suiv') { pupitre.k += p === 'suiv' ? 1 : -1; afficherPupitre(); }
+  else if (p === 'zone') { const r = t.getBoundingClientRect(); pupitre.k += ev.clientX < r.left + r.width * 0.4 ? -1 : 1; afficherPupitre(); }
+  else if ((p === 'pos-' || p === 'pos+') && x && x.formes.length) { x.j = (x.j + (p === 'pos+' ? 1 : x.formes.length - 1)) % x.formes.length; garderPosition(pupitre.k, x); afficherPupitre(); }
+  else if (p === 'defiler') { if (suite) arreterSon(); else jouerSuite(!document.getElementById('pup-son').checked, pupitre.k); afficherPupitre(); }
+});
+document.addEventListener('keydown', (ev) => {
+  if (!pupitre.ouvert) return;
+  if (ev.key === 'Escape') fermerPupitre();
+  else if (ev.key === 'ArrowRight' || ev.key === ' ') { ev.preventDefault(); pupitre.k++; afficherPupitre(); }
+  else if (ev.key === 'ArrowLeft') { pupitre.k--; afficherPupitre(); }
+});
+
+// ---------------------------------------------------------------- grille collee : une suite libre d'apres un texte d'accords
+// « | Dm7 . | G7 | Cmaj7 / A7 / | % | » : une entree par accord et par mesure. Les mesures sont separees par « | », ou
+// par les lignes s'il n'y a pas de « | » ; sans l'un ni l'autre, chaque accord dure le temps par defaut. Dans une
+// mesure, les temps sont partages entre les cases : « / », « . », « - » et « N.C. » prolongent l'accord d'avant ;
+// « % » repete la mesure precedente. Les mots illisibles (sections, x2…) sont ignores et signales.
+const NB_MAX_SUITE = 48;
+function accordDeSymbole(tok) {                    // { pc, sel, sym } ou null
+  try {
+    const t = M.traduire(tok);
+    const cle = !t.accord && t.simplifie && t.simplifie.accord ? t.simplifie.cle : t.cle;   // plus de 4 notes : la version de la base
+    return { pc: G.classe(t.nomBasse), sel: cle.split(' ').map((i) => INTERVALLES.indexOf(i)), sym: tok };
+  } catch (e) { return null; }
+}
+function lireGrille(texte, tpm) {                  // { accords: [{ pc, sel, sym, tpa }], ignores: [] }
+  const ignores = [], accords = [], propre = texte.replace(/[[\]{}():]/g, ' ').replace(/\|\|+/g, '|');
+  const mesures = /\|/.test(propre) ? propre.split('|') : /\n/.test(propre.trim()) ? propre.split(/\n/) : null;
+  if (!mesures) {                                  // une simple liste : chaque accord au temps par defaut
+    for (const tok of propre.split(/\s+/).filter(Boolean)) { const a = accordDeSymbole(tok); if (a) accords.push(Object.assign(a, { tpa: null })); else ignores.push(tok); }
+    return { accords, ignores };
+  }
+  let precedente = null, dernier = null;
+  for (const m of mesures) {
+    const toks = m.trim().split(/\s+/).filter(Boolean);
+    if (!toks.length) continue;
+    if (toks.length === 1 && toks[0] === '%') {   // mesure repetee
+      if (precedente) for (const x of precedente) accords.push(Object.assign({}, x));
+      continue;
+    }
+    const cases = [];                              // [{ a, n }] : accord et nombre de cases
+    for (const tok of toks) {
+      if (/^([/.\-%]|n\.?c\.?)$/i.test(tok)) {      // prolongation (ou silence) : une case de plus pour l'accord d'avant
+        if (cases.length) cases[cases.length - 1].n++;
+        else if (dernier) cases.push({ a: dernier, n: 1 });
+        continue;
+      }
+      const a = accordDeSymbole(tok);
+      if (a) { cases.push({ a, n: 1 }); dernier = a; } else ignores.push(tok);
+    }
+    if (!cases.length) continue;
+    const total = cases.reduce((s, x) => s + x.n, 0);
+    precedente = cases.map((x) => Object.assign({}, x.a, { tpa: Math.max(1, Math.round(x.n * tpm / total)) }));
+    for (const x of precedente) accords.push(Object.assign({}, x));
+  }
+  return { accords, ignores };
+}
+function creerSuiteGrille(texte, tpm, titre) {     // remplace la suite libre ; renvoie la lecture de la grille
+  const g = lireGrille(texte, tpm);
+  if (!g.accords.length) return g;
+  const h = harmoEtat(), liste = g.accords.slice(0, NB_MAX_SUITE), pc0 = liste[0].pc;
+  h.type = 'libre'; h.ton = NOMS_HARMO[pc0];
+  const L = libreEtat();
+  L.accords = liste.map((a) => ({ r: mod12(a.pc - pc0), sel: a.sel, rang: null, mode: null, resto: null, tpa: a.tpa || null }));
+  Object.assign(L, { nb: liste.length, cycle: null, resto1: false, refDeg: 0, formes: {}, titre: titre || L.titre || 'grille collée' });
+  harmoSauver();
+  g.coupe = g.accords.length > NB_MAX_SUITE;
+  return g;
+}
+function messageGrille(g) {
+  return `Suite créée : ${Math.min(g.accords.length, NB_MAX_SUITE)} accords.` + (g.coupe ? ` La suite est limitée à ${NB_MAX_SUITE} accords : la fin de la grille est ignorée.` : '') +
+    (g.ignores.length ? ` Mots ignorés : ${g.ignores.join(' ')}.` : '');
+}
+function ouvrirGrille() {
+  ouvrirDialogue('Coller une grille', 'Les accords séparés par des espaces ; les mesures par « | » ou par des lignes. « / » ou « . » prolonge l’accord d’une case, « % » répète la mesure.', '', [
+    ['Créer la suite', () => {
+      const texte = document.getElementById('grille-texte').value, tpm = Number(document.getElementById('grille-tpm').value) || 4;
+      const L = libreEtat();
+      if (L.accords.slice(0, L.nb).some((a) => (a.sel || []).length > 1) && !confirm('Remplacer la suite actuelle par cette grille ?')) return;
+      const g = creerSuiteGrille(texte, tpm, document.getElementById('grille-titre').value.trim());
+      if (!g.accords.length) { document.getElementById('grille-msg').textContent = 'Aucun accord lisible dans ce texte.'; return; }
+      dlg().close(); vueHarmo(); alert(messageGrille(g));
+    }, true], ['Fermer', () => dlg().close(), false]]);
+  document.getElementById('dlg-corps').innerHTML = `<div class="grille-saisie">
+    <label>Titre <input type="text" id="grille-titre" placeholder="ex. Autumn Leaves"></label>
+    <textarea id="grille-texte" rows="7" placeholder="| Dm7 | G7 | Cmaj7 . | A7 / Dm7 / |&#10;| % | G7 | C |"></textarea>
+    <label>Temps par mesure <select id="grille-tpm">${[2, 3, 4, 6, 8].map((n) => `<option value="${n}"${n === 4 ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+    <p class="message" id="grille-msg"></p></div>`;
+}
+document.addEventListener('click', (ev) => {        // Accords : plusieurs symboles tapes -> une suite libre
+  const t = ev.target.closest('[data-grille-accords]');
+  if (!t) return;
+  const L = libreEtat();
+  if (L.accords.slice(0, L.nb).some((a) => (a.sel || []).length > 1) && !confirm('Remplacer la suite libre actuelle de l’onglet Harmonisation par ces accords ?')) return;
+  const g = creerSuiteGrille(t.dataset.grilleAccords, 4, 'grille collée');
+  if (!g.accords.length) return;
+  basculerVue('harmo');
+  if (g.ignores.length || g.coupe) alert(messageGrille(g));
+});
+
+// ---------------------------------------------------------------- positions jouables de la suite libre
+// Les choix de position (fleches) sont gardes avec la suite (L.formes : forme par numero d'accord) et repris par le pupitre.
+function blocPositionsSuite() {
+  const p = preparerPupitre();
+  if (!p.accords.some((x) => x.sel.length > 1)) return '';
+  const cartes = p.accords.map((x, i) => {
+    const f = x.formes[x.j], plus = x.formes.length > 1;
+    return `<figure class="mini-arp mini-pos"><figcaption><b>${i + 1}. ${esc(x.nom)}</b>${x.degre ? ` <span class="degre-rom">${esc(x.degre)}</span>` : ''}<br>
+      <small>${!f ? (x.absent ? 'absent de ta base' : 'accord à choisir') : (x.fav ? 'favori' : 'position proposée') + (plus ? ` ${x.j + 1}/${x.formes.length}` : '')}</small></figcaption>
+      ${f ? `<button type="button" class="ouvrir-arp" data-pup="ouvrir" data-k="${i}" aria-label="Ouvrir l’accord ${i + 1} dans le pupitre">${svgDiagramme(f.forme, etat.acc, f.racine, p.gen, 160)}</button>` : ''}
+      ${plus ? `<div class="boutons-pos"><button type="button" class="btn petit" data-l="pos" data-i="${i}" data-d="-1" aria-label="Position précédente">◀</button>
+        <button type="button" class="btn petit" data-l="pos" data-i="${i}" data-d="1" aria-label="Position suivante">▶</button></div>` : ''}</figure>`;
+  }).join('');
+  return `<section class="bloc"><h2>Positions jouables</h2>
+    <p class="discret">Pour chaque accord, ton favori le plus proche de l’accord d’avant sur le manche, sinon une position proposée. ◀ ▶ en change ; ton choix est gardé avec la suite et repris par le pupitre. Touche un diagramme pour l’ouvrir dans le pupitre.</p>
+    <div class="grille-arp">${cartes}</div>
+    <div class="boutons-harmo"><button type="button" class="btn" data-l="planchepos">Télécharger les positions (PNG)</button>
+      <button type="button" class="btn" data-pup="ouvrir">Pupitre (plein écran)</button></div></section>`;
+}
+function garderPosition(i, x) {                     // le choix de position d'un accord de la suite libre
+  if (harmoEtat().type !== 'libre' || !x.formes.length) return;
+  const L = libreEtat(); L.formes = Object.assign({}, L.formes, { [i]: x.formes[x.j].forme.join(' ') }); harmoSauver();
+}
+function changerPosition(i, d) {
+  const x = preparerPupitre().accords[i];
+  if (!x || x.formes.length < 2) return;
+  x.j = (x.j + d + x.formes.length) % x.formes.length; garderPosition(i, x); vueLibre();
+}
+async function planchePositions() {
+  const p = preparerPupitre(), c = libreCalcul(), A = ACCORDAGES[etat.acc];
+  const items = p.accords.filter((x) => x.formes.length).map((x) => {
+    const i = p.accords.indexOf(x), f = x.formes[x.j];
+    return { svg: svgDiagramme(f.forme, etat.acc, f.racine, p.gen, 160), l1: `${i + 1}. ${x.nom}`, l2: x.degre || '', l3: x.fav ? 'favori' : 'position proposée' };
+  });
+  if (!items.length) return;
+  const titre = `Positions : ${c.L.titre || 'suite libre'}${c.h.ton ? ' en ' + NOMS_HARMO[c.T] : ''}`;
+  const blob = await dessinerPlanche(titre, `${A.nom} · ${items.length} accords · favori le plus proche de l’accord d’avant, sinon position proposée`, items, harmoEtat().parLigne || '4', A);
+  await donnerFichiers([new File([blob], nomPng(c.L.titre || 'suite libre', 'positions', c.h.ton ? NOMS_HARMO[c.T] : '', etat.acc), { type: 'image/png' })]);
+}
+
+// ---------------------------------------------------------------- gammes compatibles avec toute la suite libre
+// Les gammes (et leur tonique) qui contiennent toutes les notes de tous les accords ; a defaut, celles a une note pres.
+// « Appliquer » donne a chaque accord le mode de cette gamme sur sa fondamentale, et prend sa tonique pour les degres.
+function gammesCompatibles(c) {
+  const U = new Set();
+  for (const a of c.accords) if (a.sel.length > 1) for (const x of a.sel) U.add(mod12(a.r + x));
+  const res = [], vus = new Set();
+  if (U.size) for (const f of DONNEES.familles) {
+    const ivs = [...new Set([...f[2][0][1]].map(mod12))];
+    for (let t = 0; t < 12; t++) {
+      const notes = ivs.map((x) => mod12(t + x)), cle = f[0] + '|' + [...notes].sort((x, y) => x - y).join(',');
+      if (vus.has(cle)) continue;                    // gammes symetriques : une seule transposition
+      vus.add(cle);
+      const hors = [...U].filter((p) => !notes.includes(p));
+      if (hors.length <= 1) res.push({ f, t, hors, notes });
+    }
+  }
+  res.sort((a, b) => a.hors.length - b.hors.length || a.notes.length - b.notes.length || a.f[0] - b.f[0]);   // les plus serrees d'abord
+  return { U, liste: res };
+}
+function modeSur(f, notes, r) {                     // le mode de la famille f sur la note r (index, ou -1)
+  const rot = notes.map((p) => mod12(p - r)).sort((x, y) => x - y).join(',');
+  return f[2].findIndex((m) => [...new Set([...m[1]].map(mod12))].sort((x, y) => x - y).join(',') === rot);
+}
+function blocGammesCompatibles(c) {
+  const { U, liste } = gammesCompatibles(c);
+  if (!U.size) return '';
+  const nomNote = (p) => (c.h.ton ? NOMS_HARMO[mod12(c.T + p)] : (p ? INTERVALLES[p] + ' de la référence' : 'la référence'));
+  const pleines = liste.filter((x) => !x.hors.length).slice(0, 10), presque = liste.filter((x) => x.hors.length).slice(0, 6);
+  const ligne = (x) => {
+    const a0 = c.accords.find((a) => a.sel.length > 1), mi = a0 ? modeSur(x.f, x.notes, a0.r) : -1;
+    const ou = x.hors.length ? c.accords.filter((a) => a.sel.some((s) => mod12(a.r + s) === x.hors[0])).map((a) => a.i + 1) : [];
+    return `<div class="gamme-compat"><div><b>${esc(x.f[1])} de ${esc(nomNote(x.t))}</b>${mi >= 0 ? ` <small>· accord ${a0.i + 1} : ${esc(x.f[2][mi][0])}</small>` : ''}` +
+      (x.hors.length ? `<br><small>hors gamme : ${esc(nomNote(x.hors[0]))} (accord${ou.length > 1 ? 's' : ''} ${ou.join(', ')})</small>` : '') +
+      `</div><button type="button" class="btn petit" data-l="gamme-appli" data-rang="${x.f[0]}" data-t="${x.t}">Appliquer</button></div>`;
+  };
+  return `<section class="bloc"><h2>Gammes compatibles avec toute la suite</h2>
+    <p class="discret">Notes de la suite : ${[...U].sort((x, y) => x - y).map((p) => esc(c.h.ton ? NOMS_HARMO[mod12(c.T + p)] : INTERVALLES[p])).join(' ')}. « Appliquer » donne à chaque accord le mode de cette gamme sur sa fondamentale, et règle les degrés sur sa tonique.</p>
+    ${pleines.length ? pleines.map(ligne).join('') : '<p class="discret">Aucune gamme ne contient toutes ces notes.</p>'}
+    ${presque.length ? `<p class="discret">À une note près :</p>${presque.map(ligne).join('')}` : ''}</section>`;
+}
+function appliquerGamme(rang, t) {
+  const L = libreEtat(), c = libreCalcul(), f = DONNEES.familles.find((x) => x[0] === rang);
+  if (!f) return;
+  const notes = [...new Set([...f[2][0][1]].map((x) => mod12(t + x)))];
+  for (const a of c.accords) {
+    if (a.sel.length < 2 || !a.sel.every((x) => notes.includes(mod12(a.r + x)))) continue;
+    const mi = modeSur(f, notes, a.r);
+    if (mi >= 0) L.accords[a.i] = Object.assign({}, L.accords[a.i], { rang, mode: mi });
+  }
+  L.refDeg = t; L.cycle = null; harmoSauver(); vueLibre();
+}
+
+// ---------------------------------------------------------------- rythmes, basse et metronome (lecture des suites)
+// Coups par croche (0 = premier temps) sur un cycle de « temps » temps : b coup vers l'aigu, h retour (plus doux),
+// c coup bref, B fondamentale a la basse, Q quinte a la basse. Les suites gardent « gratte » pour le programme PC
+// (qui ne connait pas les rythmes) et le rythme a part.
+const RYTHMES = {
+  'r-pop': { nom: 'pop (croches)', temps: 4, coups: [[0, 'b'], [1, 'h'], [2, 'b'], [3, 'h'], [4, 'b'], [5, 'h'], [6, 'b'], [7, 'h']] },
+  'r-ballade': { nom: 'ballade', temps: 4, coups: [[0, 'b'], [2, 'b'], [3, 'h'], [5, 'h'], [6, 'b'], [7, 'h']] },
+  'r-reggae': { nom: 'reggae (contretemps)', temps: 4, coups: [[1, 'c'], [3, 'c'], [5, 'c'], [7, 'c']] },
+  'r-valse': { nom: 'valse (3 temps)', temps: 3, basse: true, coups: [[0, 'B'], [2, 'c'], [4, 'c']] },
+  'r-country': { nom: 'basse-accord (country)', temps: 4, basse: true, coups: [[0, 'B'], [2, 'c'], [4, 'Q'], [6, 'c']] },
+};
+const midiBasse = (racine) => midiAuDessus(racine, 36);          // de C2 a B2, sous les accords
+const quinteDe = (sel) => (sel.includes(7) ? 7 : sel.includes(6) ? 6 : sel.includes(8) ? 8 : 12);
+function notesRythme(notes, ry, midis, a, debut, tpa, b) {
+  for (let g = 0; g < tpa; g += ry.temps) for (const [e, type] of ry.coups) {
+    const pos = g + e / 2;
+    if (pos >= tpa) continue;
+    const t = debut + pos * b, accent = e === 0;
+    if (type === 'B' || type === 'Q') { notes.push({ midi: midiBasse(a.racine) + (type === 'Q' ? quinteDe(a.sel) : 0), t, d: b * 0.9, v: 0.34 }); continue; }
+    const ordre = type === 'h' ? midis.slice().reverse() : midis, dt = Math.min(0.03, b / 16);
+    ordre.forEach((m, i) => notes.push({ midi: m, t: t + i * dt, d: type === 'c' ? b * 0.28 : b * 0.45, v: (type === 'h' ? 0.16 : 0.24) + (accent ? 0.06 : 0) }));
+  }
+}
+function ligneBasse(notes, a, debut, tpa, b) {      // fondamentale au 1er temps, quinte au 3e, par cycles de 4 temps
+  const r = midiBasse(a.racine);
+  for (let g = 0; g < tpa; g += 4) {
+    notes.push({ midi: r, t: debut + g * b, d: b * 1.8, v: 0.36 });
+    if (g + 2 < tpa) notes.push({ midi: r + quinteDe(a.sel), t: debut + (g + 2) * b, d: b * 1.8, v: 0.3 });
+  }
+}
+function optionsJeu() {
+  const o = (v, l) => `<option value="${v}"${lecture.jeu === v ? ' selected' : ''}>${l}</option>`;
+  return o('plaque', 'plaqué') + o('gratte', 'gratté') + o('arp-montant', 'arpège montant') + o('arp-descendant', 'arpège descendant') + o('arp-ar', 'arpège aller-retour') +
+    `<optgroup label="Rythmes">${Object.entries(RYTHMES).map(([k, r]) => o(k, r.nom)).join('')}</optgroup>`;
+}
+
 // ---------------------------------------------------------------- mes suites d'accords : enregistrer, charger
 // Une suite = tout l'etat de l'onglet Harmonisation (gamme ou suite libre), les reglages de lecture et l'instrument.
 // Fichiers JSON dans le Drive (GuitareFred/SUITES), avec une copie sur l'appareil pour travailler hors connexion ;
@@ -1680,14 +2170,19 @@ function suiteActuelle(nom) {
   const harmo = Object.assign({}, h, { resto_degre1: !!h.restoDegre1, par_ligne: h.parLigne || 'tous' });
   delete harmo.restoDegre1; delete harmo.parLigne;
   return { format: 'GuitareFred-suite', version: 1, nom, enregistre: new Date().toISOString().slice(0, 19), instrument: etat.acc,
-    harmo, lecture: { tempo: lecture.tempo, jeu: lecture.jeu, tpa: Number(lecture.tpa) || 4, boucle: !!lecture.boucle } };
+    harmo, lecture: Object.assign({ tempo: lecture.tempo, jeu: RYTHMES[lecture.jeu] ? 'gratte' : lecture.jeu, tpa: Number(lecture.tpa) || 4, boucle: !!lecture.boucle,
+      basse: !!lecture.basse, metronome: !!lecture.metronome }, RYTHMES[lecture.jeu] ? { rythme: lecture.jeu } : {}) };     // rythme : page seulement
 }
 function appliquerSuite(s) {
   if (!s || s.format !== 'GuitareFred-suite' || !s.harmo) throw new Error('ce fichier n’est pas une suite GuitareFred');
   const h = Object.assign({}, s.harmo, { restoDegre1: !!s.harmo.resto_degre1, parLigne: s.harmo.par_ligne || 'tous' });
   delete h.resto_degre1; delete h.par_ligne;
   etat.harmo = h; harmoSauver();
-  if (s.lecture) { Object.assign(lecture, s.lecture); ecrire('gf.lecture', lecture); }
+  if (s.lecture) {
+    Object.assign(lecture, s.lecture, { basse: !!s.lecture.basse, metronome: !!s.lecture.metronome });
+    if (RYTHMES[s.lecture.rythme]) lecture.jeu = s.lecture.rythme;
+    delete lecture.rythme; ecrire('gf.lecture', lecture);
+  }
   if (s.instrument && ACCORDAGES[s.instrument]) { etat.acc = s.instrument; ecrire('gf.acc', etat.acc); majInstruments(); }
 }
 const nomSuiteDefaut = () => {
@@ -2509,6 +3004,14 @@ function planifier(notes, t0, volume = 0.32) {   // notes : [{ midi, t (s), d (s
   const ctx = contexteAudio();
   sources = sources.filter((s) => !s.fini);
   for (const nt of notes) {
+    if (nt.clic) {                                  // metronome : un clic bref, plus aigu au premier temps de l'accord
+      const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + nt.t;
+      o.type = 'square'; o.frequency.value = nt.accent ? 1760 : 1320;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(nt.accent ? 0.22 : 0.13, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      o.onended = () => { o.fini = true; };
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.06); sources.push(o);
+      continue;
+    }
     const c = corde(nt.midi), src = ctx.createBufferSource(), g = ctx.createGain();
     src.buffer = c.buf; src.playbackRate.value = c.vitesse;
     g.gain.setValueAtTime(nt.v || volume, t0 + nt.t);
@@ -2525,6 +3028,8 @@ const temps = () => 60 / lecture.tempo;
 function jouerAccord(midis) {                     // midis : du grave a l'aigu (ordre des cordes, ou voicing serre)
   const b = temps();
   let ordre = midis.map((m, i) => [m, i]);
+  const ry = RYTHMES[lecture.jeu];
+  if (ry) { const n = []; notesRythme(n, ry, midis, { racine: mod12(midis[0]), sel: [0, 7] }, 0, ry.temps, b); return jouer(n); }
   if (lecture.jeu === 'plaque') return jouer(midis.map((m) => ({ midi: m, t: 0 })), 0.26);
   if (lecture.jeu === 'gratte') return jouer(midis.map((m, i) => ({ midi: m, t: i * Math.min(0.045, b / 12) })), 0.26);
   if (lecture.jeu === 'arp-descendant') ordre = ordre.reverse();
@@ -2558,13 +3063,20 @@ function accordsSuite() {                        // [{ k, racine, sel, tpa }] : 
   const c = harmoCalcul();
   return c.degres.map((d) => ({ k: d.k, racine: d.racine, sel: d.sel, tpa: d.tpa }));
 }
-function notesSuite(A) {
-  const b = temps(), defaut = Number(lecture.tpa) || 4, acc = accordsSuite(), notes = [], marques = [];
+function notesSuite(A, depuis = 0) { return notesDe(accordsSuite().slice(depuis), A); }
+function jouerAccords(liste) {                    // quelques accords a la suite (substitutions), sans boucle ni surlignage
+  arreterSon();
+  planifier(notesDe(liste.map((a, k) => Object.assign({ k }, a)), ACCORDAGES[etat.acc]).notes, contexteAudio().currentTime + 0.1);
+}
+function notesDe(acc, A) {                        // acc : [{ k, racine, sel, tpa }]
+  const b = temps(), defaut = Number(lecture.tpa) || 4, notes = [], marques = [];
   let debut = 0;
   acc.forEach((a) => {
     const tpa = a.tpa || defaut, midis = midisAccord(a.racine, a.sel.length ? a.sel : [0], A);
     marques.push([a.k, debut]);
-    if (lecture.jeu === 'plaque' || lecture.jeu === 'gratte') {
+    const ry = RYTHMES[lecture.jeu];
+    if (ry) notesRythme(notes, ry, midis, a, debut, tpa, b);
+    else if (lecture.jeu === 'plaque' || lecture.jeu === 'gratte') {
       for (let t = 0; t < tpa; t++) midis.forEach((m, i) => notes.push({ midi: m, t: debut + t * b + (lecture.jeu === 'gratte' ? i * Math.min(0.04, b / 12) : 0),
         d: b * 0.92, v: t === 0 ? 0.3 : 0.2 }));
     } else {
@@ -2573,6 +3085,8 @@ function notesSuite(A) {
       else if (lecture.jeu === 'arp-ar' && ordre.length > 2) ordre = ordre.concat(ordre.slice(1, -1).reverse());
       for (let k = 0; k < tpa * 2; k++) notes.push({ midi: ordre[k % ordre.length], t: debut + k * b / 2, d: b * 1.5, v: 0.3 });
     }
+    if (lecture.basse && !(ry && ry.basse)) ligneBasse(notes, a, debut, tpa, b);
+    if (lecture.metronome) for (let t = 0; t < tpa; t++) notes.push({ clic: true, accent: t === 0, t: debut + t * b });
     debut += tpa * b;
   });
   return { notes, marques, duree: debut };
@@ -2581,16 +3095,18 @@ function surligner(k) {
   document.querySelectorAll('.degre.en-cours').forEach((e) => e.classList.remove('en-cours'));
   const e = k == null ? null : document.querySelectorAll('.degre')[k];
   if (e) e.classList.add('en-cours');
+  if (pupitre.ouvert) { if (k != null) pupitre.k = k; afficherPupitre(); }
 }
 function arreterSuite() {
   if (!suite) return;
   suite.minuteries.forEach(clearTimeout); suite = null; surligner(null);
   const b = document.querySelector('[data-suite="jouer"]'); if (b) b.textContent = '▶ Écouter la suite';
 }
-function passage(t0) {                           // programme un passage de la suite, et le suivant si « en boucle »
-  const ctx = contexteAudio(), A = ACCORDAGES[etat.acc], p = notesSuite(A);
+function passage(t0, depuis = 0) {               // programme un passage de la suite, et le suivant si « en boucle »
+  const ctx = contexteAudio(), A = ACCORDAGES[etat.acc], p = notesSuite(A, depuis);
   if (!p.marques.length) return arreterSuite();
-  planifier(p.notes, t0);
+  if (!suite.muet) planifier(p.notes, t0);         // pupitre sans le son : seulement le defilement (et le metronome)
+  else if (lecture.metronome) planifier(p.notes.filter((n) => n.clic), t0);
   for (const [k, debut] of p.marques) suite.minuteries.push(setTimeout(() => surligner(k), Math.max(0, (t0 + debut - ctx.currentTime) * 1000)));
   const fin = t0 + p.duree;
   suite.minuteries.push(setTimeout(() => {
@@ -2599,11 +3115,11 @@ function passage(t0) {                           // programme un passage de la s
     else suite.minuteries.push(setTimeout(() => { arreterSon(); }, 1500));
   }, Math.max(0, (fin - ctx.currentTime - 0.25) * 1000)));
 }
-function jouerSuite() {
+function jouerSuite(muet = false, depuis = 0) {   // depuis : l'accord du pupitre ou commence le premier passage
   arreterSon();
-  suite = { minuteries: [] };
+  suite = { minuteries: [], muet };
   const b = document.querySelector('[data-suite="jouer"]'); if (b) b.textContent = '▶ Reprendre du début';
-  passage(contexteAudio().currentTime + 0.1);
+  passage(contexteAudio().currentTime + 0.1, depuis);
 }
 const TEMPS_POSSIBLES = [1, 2, 3, 4, 6, 8, 12, 16];
 function choixTemps(attr, idx, tpa) {             // le temps d'un accord : par defaut (celui de la barre de lecture) ou le sien
@@ -2615,10 +3131,13 @@ function barreSuite() {
   return `<section class="bloc"><div class="barre-son">
     <button type="button" class="btn plein" data-suite="jouer">▶ Écouter la suite</button>
     <button type="button" class="btn" data-suite="stop" aria-label="Arrêter">■</button>
+    <button type="button" class="btn" data-pup="ouvrir">Pupitre (plein écran)</button>
     <label>Tempo <input type="range" min="40" max="200" step="5" value="${lecture.tempo}" data-son-r="tempo"> <span class="tempo-val">${lecture.tempo}</span></label>
     <label>Temps par défaut <select data-son-r="tpa">${TEMPS_POSSIBLES.map((n) => o(n, n, (Number(lecture.tpa) || 4) === n)).join('')}</select></label>
-    <select data-son-r="jeu">${o('plaque', 'plaqué', lecture.jeu === 'plaque')}${o('gratte', 'gratté', lecture.jeu === 'gratte')}${o('arp-montant', 'arpège montant', lecture.jeu === 'arp-montant')}${o('arp-descendant', 'arpège descendant', lecture.jeu === 'arp-descendant')}${o('arp-ar', 'arpège aller-retour', lecture.jeu === 'arp-ar')}</select>
+    <select data-son-r="jeu">${optionsJeu()}</select>
     <label><input type="checkbox" data-son-r="boucle" ${lecture.boucle ? 'checked' : ''}> En boucle</label>
+    <label><input type="checkbox" data-son-r="basse" ${lecture.basse ? 'checked' : ''}> Basse</label>
+    <label><input type="checkbox" data-son-r="metronome" ${lecture.metronome ? 'checked' : ''}> Métronome</label>
   </div></section>`;
 }
 document.addEventListener('click', (ev) => {
@@ -2636,7 +3155,7 @@ function barreSon(spec) {
     ${spec.gamme ? '<button type="button" class="btn' + (aAccord ? '' : ' plein') + '" data-son="gamme">▶ Gamme</button>' : ''}
     <button type="button" class="btn" data-son="stop" aria-label="Arrêter">■</button>
     <label>Tempo <input type="range" min="40" max="200" step="5" value="${lecture.tempo}" data-son-r="tempo"> <span class="tempo-val">${lecture.tempo}</span></label>
-    ${aAccord ? `<select data-son-r="jeu">${o('plaque', 'plaqué', lecture.jeu === 'plaque')}${o('gratte', 'gratté', lecture.jeu === 'gratte')}${o('arp-montant', 'arpège montant', lecture.jeu === 'arp-montant')}${o('arp-descendant', 'arpège descendant', lecture.jeu === 'arp-descendant')}${o('arp-ar', 'arpège aller-retour', lecture.jeu === 'arp-ar')}</select>` : ''}
+    ${aAccord ? `<select data-son-r="jeu">${optionsJeu()}</select>` : ''}
     ${spec.gamme ? `<select data-son-r="sens">${o('montant', 'gamme montante', lecture.sens === 'montant')}${o('descendant', 'descendante', lecture.sens === 'descendant')}${o('ar', 'aller-retour', lecture.sens === 'ar')}</select>
       <select data-son-r="octaves">${o(1, '1 octave', lecture.octaves == 1)}${o(2, '2 octaves', lecture.octaves == 2)}</select>` : ''}
   </div>`;
