@@ -71,6 +71,21 @@ button { cursor: pointer; }
 .onglets button[aria-selected="true"] { color: var(--encre); font-weight: 700; border-bottom-color: var(--accent); }
 .onglets .onglet-fenetre { margin-left: auto; color: var(--accent); font-weight: 700; padding-left: .4rem; padding-right: .2rem; }
 @media (max-width: 47.99rem) { .onglets .onglet-fenetre { display: none; } }   /* plusieurs fenetres : sur le PC */
+/* deuxieme volet : sur le telephone */
+.onglets .onglet-volet { position: sticky; right: 0; margin-left: auto; padding-left: .8rem; padding-right: .1rem; color: var(--accent); font-weight: 700;
+  background: linear-gradient(to right, transparent, var(--surface) .7rem); }
+.onglets .onglet-volet[aria-pressed="true"] { color: var(--encre); }
+@media (min-width: 48rem) { .onglets .onglet-volet { display: none; } }
+html.en-volet footer, html.en-volet [data-fenetre], html.en-volet [data-volet] { display: none !important; }
+body.avec-volet { padding-bottom: var(--volet-h, 50vh); }
+.volet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; height: var(--volet-h, 50vh); display: flex; flex-direction: column;
+  background: var(--fond); border-top: 3px solid var(--accent); box-shadow: 0 -6px 18px rgba(10, 14, 40, .22); }
+.volet-barre { display: flex; align-items: center; gap: .5rem; padding: .25rem .7rem; min-height: 2.6rem; background: var(--surface); touch-action: none; cursor: ns-resize; user-select: none; }
+.volet-poignee { font-size: 1.2rem; color: var(--accent); }
+.volet-titre { flex: 1; font-size: .85rem; color: var(--discret); }
+.volet-barre .btn.petit { margin: 0; }
+.volet iframe { flex: 1; width: 100%; border: 0; background: var(--fond); }
+.volet.glisse iframe { pointer-events: none; }
 form.recherche { display: flex; gap: .5rem; }
 form.recherche[hidden] { display: none; }
 form.recherche input {
@@ -191,6 +206,8 @@ details.pli[open] > summary::after { content: "−"; }
 .resto label { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
 .resto label { max-width: 100%; min-width: 0; }
 .resto select { max-width: 100%; min-width: 0; }   /* longues listes de gammes : pas plus large que l'ecran */
+.harmo-choix label { max-width: 100%; min-width: 0; }
+.harmo-choix select { max-width: 100%; min-width: 0; }
 .resto select { font: inherit; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); padding: .3rem .4rem; min-height: 2.4rem; }
 .cadre-h { overflow-x: auto; background: var(--surface); border: 1px solid var(--ligne); border-radius: .6rem; }
 .table-harmo { border-collapse: collapse; width: 100%; font-size: .92rem; }
@@ -312,6 +329,7 @@ footer .liens { margin-top: .5rem; }
       <button type="button" role="tab" data-vue="suites" aria-selected="false">Suites</button>
       <button type="button" role="tab" data-vue="base" aria-selected="false">Base</button>
       <button type="button" class="onglet-fenetre" data-fenetre title="Ouvrir cet onglet dans une nouvelle fenêtre" aria-label="Ouvrir cet onglet dans une nouvelle fenêtre">↗ Nouvelle fenêtre</button>
+      <button type="button" class="onglet-volet" data-volet aria-pressed="false" title="Partager l’écran avec un deuxième onglet" aria-label="Deuxième volet">◫ Volet</button>
     </div>
     <div class="instruments" role="group" aria-label="Instrument">
       <button type="button" data-acc="guitalele">Guitalélé</button>
@@ -327,7 +345,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 18/11/2026 12:01</p>
+  <p class="discret" id="version">Version de la page : 18/11/2026 12:28</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -1274,7 +1292,7 @@ function accueil() {
 // ---------------------------------------------------------------- onglet Base (renversements)
 function basculerVue(vue, dessiner = true) {
   etat.vue = vue;
-  try { history.replaceState(null, '', '#' + vue); } catch (e) { /* adresse inchangee */ }   // une fenetre rouverte garde son onglet
+  try { history.replaceState(null, '', '#' + vue + (DANS_VOLET ? '&volet' : '')); } catch (e) { /* adresse inchangee */ }   // une fenetre rouverte garde son onglet
   document.querySelectorAll('.onglets button[data-vue]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.vue === vue)));
   document.getElementById('form').hidden = vue !== 'accords';
   if (!dessiner) return;
@@ -3393,7 +3411,7 @@ function diffuser(type, donnees) {
   try { canal.postMessage(Object.assign({ type }, donnees || {})); } catch (e) { /* fenetre en cours de fermeture */ }
 }
 window.gfDiffuser = diffuser;                       // pour le module Drive
-const vueDeAdresse = () => { const v = (location.hash || '').slice(1); return VUES.includes(v) ? v : null; };
+const vueDeAdresse = () => { const v = (location.hash || '').slice(1).split('&')[0]; return VUES.includes(v) ? v : null; };   // « #harmo », « #accords&volet »
 const saisieEnCours = () => { const a = document.activeElement; return !!(a && main().contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName) && !/^(checkbox|radio|range|button)$/.test(a.type)); };
 function rafraichirVue(quoi) {                      // la vue affichee, si elle montre ce qui a change (pas pendant une saisie)
   if (saisieEnCours()) return;
@@ -3436,6 +3454,59 @@ document.addEventListener('click', (ev) => {         // ↗ : l'onglet en cours 
   const w = window.open(location.pathname + location.search + '#' + etat.vue, '_blank', `popup,width=${l},height=${h}`);
   if (!w) alert('Le navigateur a bloqué la nouvelle fenêtre : autorise les fenêtres pour cette page.');
 });
+// ---------------------------------------------------------------- deuxieme volet (telephone)
+// Le bas de l'ecran accueille une deuxieme GuitareFred complete (cadre « …#accords&volet ») : elle partage favoris,
+// formes, suites et connexion au Drive comme une fenetre du PC (meme canal). Hauteur reglable a la poignee ; ouverture,
+// hauteur et onglet du volet sont memorises. Dans le volet : ni bas de page, ni bouton de volet ou de fenetre.
+const DANS_VOLET = window.self !== window.top;
+if (DANS_VOLET) document.documentElement.classList.add('en-volet');
+const volet = Object.assign({ ouvert: false, h: 0.5, vue: 'accords' }, lire('gf.volet', {}));
+const garderVolet = () => ecrire('gf.volet', { ouvert: volet.ouvert, h: volet.h, vue: volet.vue });
+const petitEcran = () => window.matchMedia('(max-width: 47.99rem)').matches;
+function hauteurVolet() { document.documentElement.style.setProperty('--volet-h', Math.round(volet.h * window.innerHeight) + 'px'); }
+function voletDom() {
+  let el = document.getElementById('volet');
+  if (el) return el;
+  el = document.createElement('section'); el.id = 'volet'; el.className = 'volet'; el.setAttribute('aria-label', 'Deuxième volet');
+  el.innerHTML = `<div class="volet-barre" data-poignee title="Glisser pour agrandir ou réduire le volet">
+      <span class="volet-poignee" aria-hidden="true">⇕</span><span class="volet-titre">Deuxième volet · glisser pour régler</span>
+      <button type="button" class="btn petit" data-volet-fermer>✕ Fermer</button></div>
+    <iframe title="Deuxième volet de GuitareFred"></iframe>`;
+  document.body.appendChild(el);
+  const barre = el.querySelector('[data-poignee]');
+  barre.addEventListener('pointerdown', (ev) => {        // la poignee : la hauteur suit le doigt
+    if (ev.target.closest('button')) return;
+    barre.setPointerCapture(ev.pointerId); el.classList.add('glisse');
+    const bouger = (e) => { volet.h = Math.min(0.8, Math.max(0.25, (window.innerHeight - e.clientY) / window.innerHeight)); hauteurVolet(); };
+    const finir = () => { barre.removeEventListener('pointermove', bouger); el.classList.remove('glisse'); garderVolet(); };
+    barre.addEventListener('pointermove', bouger);
+    barre.addEventListener('pointerup', finir, { once: true }); barre.addEventListener('pointercancel', finir, { once: true });
+  });
+  return el;
+}
+function ouvrirVolet() {
+  if (DANS_VOLET || document.getElementById('volet')) return;
+  const el = voletDom();
+  el.querySelector('iframe').src = location.pathname + location.search + '#' + (VUES.includes(volet.vue) ? volet.vue : 'accords') + '&volet';
+  volet.ouvert = true; garderVolet(); hauteurVolet();
+  document.body.classList.add('avec-volet');
+  document.querySelectorAll('[data-volet]').forEach((b) => b.setAttribute('aria-pressed', 'true'));
+}
+function fermerVolet() {
+  const el = document.getElementById('volet');
+  if (el) {
+    try { const v = el.querySelector('iframe').contentWindow.location.hash.slice(1).split('&')[0]; if (VUES.includes(v)) volet.vue = v; } catch (e) { /* volet pas encore charge */ }
+    el.remove();                                     // le deuxieme exemplaire est decharge : memoire rendue au telephone
+  }
+  volet.ouvert = false; garderVolet();
+  document.body.classList.remove('avec-volet');
+  document.querySelectorAll('[data-volet]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+}
+document.addEventListener('click', (ev) => {
+  if (ev.target.closest('[data-volet]')) { if (document.getElementById('volet')) fermerVolet(); else ouvrirVolet(); }
+  else if (ev.target.closest('[data-volet-fermer]')) fermerVolet();
+});
+window.addEventListener('resize', () => { if (document.getElementById('volet')) hauteurVolet(); });
 
 async function demarrer(donnees) {
   try {
@@ -3448,6 +3519,7 @@ async function demarrer(donnees) {
     const derniere = lire('gf.derniere', '');
     if (derniere) rechercher(derniere); else accueil();
     const v = vueDeAdresse(); if (v && v !== 'accords') basculerVue(v);          // fenetre ouverte sur un onglet (…#harmo)
+    if (!DANS_VOLET && volet.ouvert && petitEcran()) ouvrirVolet();              // le volet etait ouvert : on le rouvre
   } catch (e) {
     main().innerHTML = `<p class="message">Les données n’ont pas pu être chargées (${esc(e.message)}). Recharge la page ; si le problème persiste, utilise un navigateur à jour.</p>`;
   }
