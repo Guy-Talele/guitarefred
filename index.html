@@ -177,6 +177,7 @@ details.pli[open] > summary::after { content: "−"; }
 .barre-son input[type="range"] { width: 8rem; accent-color: var(--accent); }
 .barre-son select { font: inherit; font-size: .92rem; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); color: var(--encre); padding: .25rem .35rem; min-height: 2.3rem; }
 .tempo-val { min-width: 2.2rem; font-variant-numeric: tabular-nums; }
+.tempo-saisie { width: 4.4rem; font: inherit; font-variant-numeric: tabular-nums; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); color: var(--encre); padding: .25rem .35rem; min-height: 2.3rem; }
 .titre-bloc { margin: 0 0 .5rem; font-size: 1.05rem; }
 .nom-suite { font: inherit; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); color: var(--encre); padding: .35rem .5rem; min-width: 12rem; flex: 1; }
 .liste-suites { list-style: none; padding: 0; margin: .3rem 0 0; }
@@ -323,7 +324,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 18/11/2026 10:24</p>
+  <p class="discret" id="version">Version de la page : 18/11/2026 11:13</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -1989,9 +1990,10 @@ function lireGrille(texte, tpm) {                  // { accords: [{ pc, sel, sym
   }
   return { accords, ignores };
 }
-function creerSuiteGrille(texte, tpm, titre) {     // remplace la suite libre ; renvoie la lecture de la grille
-  const g = lireGrille(texte, tpm);
+function creerSuiteGrille(texte, mesure, titre) {  // remplace la suite libre (dans cette mesure) ; renvoie la lecture de la grille
+  const g = lireGrille(texte, (MESURES[mesure] || mesureCourante()).n);
   if (!g.accords.length) return g;
+  if (MESURES[mesure]) { changerMesure(mesure); lecture.tpa = MESURES[mesure].n; ecrire('gf.lecture', lecture); }   // avant les durees de la grille
   const h = harmoEtat(), liste = g.accords.slice(0, NB_MAX_SUITE), pc0 = liste[0].pc;
   h.type = 'libre'; h.ton = NOMS_HARMO[pc0];
   const L = libreEtat();
@@ -2008,17 +2010,17 @@ function messageGrille(g) {
 function ouvrirGrille() {
   ouvrirDialogue('Coller une grille', 'Les accords séparés par des espaces ; les mesures par « | » ou par des lignes. « / » ou « . » prolonge l’accord d’une case, « % » répète la mesure.', '', [
     ['Créer la suite', () => {
-      const texte = document.getElementById('grille-texte').value, tpm = Number(document.getElementById('grille-tpm').value) || 4;
+      const texte = document.getElementById('grille-texte').value, mesure = document.getElementById('grille-mesure').value;
       const L = libreEtat();
       if (L.accords.slice(0, L.nb).some((a) => (a.sel || []).length > 1) && !confirm('Remplacer la suite actuelle par cette grille ?')) return;
-      const g = creerSuiteGrille(texte, tpm, document.getElementById('grille-titre').value.trim());
+      const g = creerSuiteGrille(texte, mesure, document.getElementById('grille-titre').value.trim());
       if (!g.accords.length) { document.getElementById('grille-msg').textContent = 'Aucun accord lisible dans ce texte.'; return; }
       dlg().close(); vueHarmo(); alert(messageGrille(g));
     }, true], ['Fermer', () => dlg().close(), false]]);
   document.getElementById('dlg-corps').innerHTML = `<div class="grille-saisie">
     <label>Titre <input type="text" id="grille-titre" placeholder="ex. Autumn Leaves"></label>
     <textarea id="grille-texte" rows="7" placeholder="| Dm7 | G7 | Cmaj7 . | A7 / Dm7 / |&#10;| % | G7 | C |"></textarea>
-    <label>Temps par mesure <select id="grille-tpm">${[2, 3, 4, 6, 8].map((n) => `<option value="${n}"${n === 4 ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+    <label>Mesure <select id="grille-mesure">${Object.keys(MESURES).map((m) => `<option value="${m}"${(MESURES[lecture.mesure] ? lecture.mesure : '4/4') === m ? ' selected' : ''}>${m}</option>`).join('')}</select></label>
     <p class="message" id="grille-msg"></p></div>`;
 }
 document.addEventListener('click', (ev) => {        // Accords : plusieurs symboles tapes -> une suite libre
@@ -2026,7 +2028,7 @@ document.addEventListener('click', (ev) => {        // Accords : plusieurs symbo
   if (!t) return;
   const L = libreEtat();
   if (L.accords.slice(0, L.nb).some((a) => (a.sel || []).length > 1) && !confirm('Remplacer la suite libre actuelle de l’onglet Harmonisation par ces accords ?')) return;
-  const g = creerSuiteGrille(t.dataset.grilleAccords, 4, 'grille collée');
+  const g = creerSuiteGrille(t.dataset.grilleAccords, MESURES[lecture.mesure] ? lecture.mesure : '4/4', 'grille collée');
   if (!g.accords.length) return;
   basculerVue('harmo');
   if (g.ignores.length || g.coupe) alert(messageGrille(g));
@@ -2125,40 +2127,102 @@ function appliquerGamme(rang, t) {
   L.refDeg = t; L.cycle = null; harmoSauver(); vueLibre();
 }
 
-// ---------------------------------------------------------------- rythmes, basse et metronome (lecture des suites)
-// Coups par croche (0 = premier temps) sur un cycle de « temps » temps : b coup vers l'aigu, h retour (plus doux),
-// c coup bref, B fondamentale a la basse, Q quinte a la basse. Les suites gardent « gratte » pour le programme PC
-// (qui ne connait pas les rythmes) et le rythme a part.
+// ---------------------------------------------------------------- mesures, rythmes, basse et metronome (lecture des suites)
+// Mesures : « temps » = l'unite de la mesure (noire en x/4, croche en x/8), et le tempo compte ces temps par minute.
+// temps : les durees proposees pour un accord ; groupe : temps forts du metronome ; basse : la ligne de basse par mesure.
+const MESURES = {
+  '2/4': { n: 2, unite: '♩', groupe: 2, temps: [1, 2, 4, 6, 8], basse: [[0, 'B'], [1, 'Q']] },
+  '3/4': { n: 3, unite: '♩', groupe: 3, temps: [1, 2, 3, 6, 9, 12], basse: [[0, 'B']] },
+  '4/4': { n: 4, unite: '♩', groupe: 4, temps: [1, 2, 3, 4, 6, 8, 12, 16], basse: [[0, 'B'], [2, 'Q']] },
+  '6/8': { n: 6, unite: '♪', groupe: 3, temps: [3, 6, 12, 18, 24], basse: [[0, 'B'], [3, 'Q']] },
+  '12/8': { n: 12, unite: '♪', groupe: 3, temps: [3, 6, 12, 24], basse: [[0, 'B'], [3, 'Q'], [6, 'B'], [9, 'Q']] },
+};
+const mesureCourante = () => MESURES[lecture.mesure] || MESURES['4/4'];
+const tpaDefaut = () => Number(lecture.tpa) || mesureCourante().n;
+// Rythmes : coups places en temps de leur mesure (0,5 = croche en x/4 ; 2/3 = croche ternaire). b coup vers l'aigu,
+// h retour (plus doux), l coup leger, c coup bref, B fondamentale a la basse, Q quinte a la basse, p0…p3 une note de
+// l'accord (de la plus grave a la plus aigue, p3 sur un accord de 3 sons : la fondamentale a l'octave). Les suites
+// gardent « gratte » pour le programme PC (qui ne connait pas les rythmes) et le rythme a part.
 const RYTHMES = {
-  'r-pop': { nom: 'pop (croches)', temps: 4, coups: [[0, 'b'], [1, 'h'], [2, 'b'], [3, 'h'], [4, 'b'], [5, 'h'], [6, 'b'], [7, 'h']] },
-  'r-ballade': { nom: 'ballade', temps: 4, coups: [[0, 'b'], [2, 'b'], [3, 'h'], [5, 'h'], [6, 'b'], [7, 'h']] },
-  'r-reggae': { nom: 'reggae (contretemps)', temps: 4, coups: [[1, 'c'], [3, 'c'], [5, 'c'], [7, 'c']] },
-  'r-valse': { nom: 'valse (3 temps)', temps: 3, basse: true, coups: [[0, 'B'], [2, 'c'], [4, 'c']] },
-  'r-country': { nom: 'basse-accord (country)', temps: 4, basse: true, coups: [[0, 'B'], [2, 'c'], [4, 'Q'], [6, 'c']] },
+  'r-pop': { nom: 'pop, croches', mesure: '4/4', coups: [[0, 'b'], [0.5, 'h'], [1, 'b'], [1.5, 'h'], [2, 'b'], [2.5, 'h'], [3, 'b'], [3.5, 'h']] },
+  'r-ballade': { nom: 'ballade (B, BH, HBH)', mesure: '4/4', coups: [[0, 'b'], [1, 'b'], [1.5, 'h'], [2.5, 'h'], [3, 'b'], [3.5, 'h']] },
+  'r-rock': { nom: 'rock, croches appuyées', mesure: '4/4', coups: [[0, 'b'], [0.5, 'l'], [1, 'b'], [1.5, 'l'], [2, 'b'], [2.5, 'l'], [3, 'b'], [3.5, 'l']] },
+  'r-shuffle': { nom: 'shuffle / blues, ternaire', mesure: '4/4', coups: [[0, 'b'], [2 / 3, 'h'], [1, 'b'], [5 / 3, 'h'], [2, 'b'], [8 / 3, 'h'], [3, 'b'], [11 / 3, 'h']] },
+  'r-funk': { nom: 'funk, doubles croches', mesure: '4/4', coups: [[0, 'c'], [0.75, 'c'], [1.5, 'c'], [2, 'c'], [2.75, 'c'], [3.25, 'c'], [3.5, 'c']] },
+  'r-reggae': { nom: 'reggae, contretemps', mesure: '4/4', coups: [[0.5, 'c'], [1.5, 'c'], [2.5, 'c'], [3.5, 'c']] },
+  'r-bossa': { nom: 'bossa-nova', mesure: '4/4', basse: true, coups: [[0, 'B'], [0, 'c'], [1, 'c'], [1.5, 'Q'], [2, 'B'], [2.5, 'c'], [3.5, 'Q'], [3.5, 'c']] },
+  'r-country': { nom: 'basse-accord (country)', mesure: '4/4', basse: true, coups: [[0, 'B'], [1, 'c'], [2, 'Q'], [3, 'c']] },
+  'r-travis': { nom: 'picking Travis', mesure: '4/4', basse: true, coups: [[0, 'B'], [0.5, 'p3'], [1, 'Q'], [1.5, 'p2'], [2, 'B'], [2.5, 'p3'], [3, 'Q'], [3.5, 'p2']] },
+  'r-arp44': { nom: 'arpège en croches', mesure: '4/4', basse: true, coups: [[0, 'B'], [0.5, 'p1'], [1, 'p2'], [1.5, 'p3'], [2, 'Q'], [2.5, 'p1'], [3, 'p2'], [3.5, 'p3']] },
+  'r-valse': { nom: 'valse (basse, accord, accord)', mesure: '3/4', basse: true, coups: [[0, 'B'], [1, 'c'], [2, 'c']] },
+  'r-valse-gratte': { nom: 'valse grattée (B, BH, BH)', mesure: '3/4', coups: [[0, 'b'], [1, 'b'], [1.5, 'h'], [2, 'b'], [2.5, 'h']] },
+  'r-valse-arp': { nom: 'valse arpégée', mesure: '3/4', basse: true, coups: [[0, 'B'], [0.5, 'p1'], [1, 'p2'], [1.5, 'p3'], [2, 'p2'], [2.5, 'p1']] },
+  'r-polka': { nom: 'polka / marche', mesure: '2/4', basse: true, coups: [[0, 'B'], [0.5, 'c'], [1, 'Q'], [1.5, 'c']] },
+  'r-68-gratte': { nom: 'ballade grattée', mesure: '6/8', coups: [[0, 'b'], [1, 'l'], [2, 'l'], [3, 'b'], [4, 'l'], [5, 'h']] },
+  'r-68-arp': { nom: 'arpège', mesure: '6/8', basse: true, coups: [[0, 'B'], [1, 'p1'], [2, 'p2'], [3, 'p3'], [4, 'p2'], [5, 'p1']] },
+  'r-68-gigue': { nom: 'gigue (basse, accord, accord)', mesure: '6/8', basse: true, coups: [[0, 'B'], [1, 'c'], [2, 'c'], [3, 'Q'], [4, 'c'], [5, 'c']] },
+  'r-128-blues': { nom: 'slow blues', mesure: '12/8', coups: [[0, 'b'], [1, 'l'], [2, 'l'], [3, 'b'], [4, 'l'], [5, 'l'], [6, 'b'], [7, 'l'], [8, 'l'], [9, 'b'], [10, 'l'], [11, 'l']] },
+  'r-128-arp': { nom: 'slow rock arpégé', mesure: '12/8', basse: true, coups: [[0, 'B'], [1, 'p1'], [2, 'p2'], [3, 'p3'], [4, 'p2'], [5, 'p1'], [6, 'Q'], [7, 'p1'], [8, 'p2'], [9, 'p3'], [10, 'p2'], [11, 'p1']] },
 };
 const midiBasse = (racine) => midiAuDessus(racine, 36);          // de C2 a B2, sous les accords
 const quinteDe = (sel) => (sel.includes(7) ? 7 : sel.includes(6) ? 6 : sel.includes(8) ? 8 : 12);
-function notesRythme(notes, ry, midis, a, debut, tpa, b) {
-  for (let g = 0; g < tpa; g += ry.temps) for (const [e, type] of ry.coups) {
-    const pos = g + e / 2;
-    if (pos >= tpa) continue;
-    const t = debut + pos * b, accent = e === 0;
-    if (type === 'B' || type === 'Q') { notes.push({ midi: midiBasse(a.racine) + (type === 'Q' ? quinteDe(a.sel) : 0), t, d: b * 0.9, v: 0.34 }); continue; }
-    const ordre = type === 'h' ? midis.slice().reverse() : midis, dt = Math.min(0.03, b / 16);
-    ordre.forEach((m, i) => notes.push({ midi: m, t: t + i * dt, d: type === 'c' ? b * 0.28 : b * 0.45, v: (type === 'h' ? 0.16 : 0.24) + (accent ? 0.06 : 0) }));
+// les coups d'un cycle d'une mesure qui tombent dans un accord : cumul = temps ecoules depuis le debut de la suite,
+// pour que le motif suive les mesures meme quand un accord change au milieu d'une mesure
+function coupsDansAccord(cycle, n, cumul, tpa, f) {
+  for (let g = Math.floor(cumul / n + 1e-9) * n; g < cumul + tpa - 1e-9; g += n) for (const c of cycle) {
+    const pos = g + c[0] - cumul;
+    if (pos < -1e-9 || pos >= tpa - 1e-9) continue;
+    f(pos, c[1], Math.abs(c[0]) < 1e-9);
   }
 }
-function ligneBasse(notes, a, debut, tpa, b) {      // fondamentale au 1er temps, quinte au 3e, par cycles de 4 temps
-  const r = midiBasse(a.racine);
-  for (let g = 0; g < tpa; g += 4) {
-    notes.push({ midi: r, t: debut + g * b, d: b * 1.8, v: 0.36 });
-    if (g + 2 < tpa) notes.push({ midi: r + quinteDe(a.sel), t: debut + (g + 2) * b, d: b * 1.8, v: 0.3 });
-  }
+function notesRythme(notes, ry, midis, a, debut, cumul, tpa, b) {
+  const dt = Math.min(0.03, b / 16);
+  coupsDansAccord(ry.coups, MESURES[ry.mesure].n, cumul, tpa, (pos, type, premier) => {
+    const t = debut + pos * b;
+    if (type === 'B' || type === 'Q') { notes.push({ midi: midiBasse(a.racine) + (type === 'Q' ? quinteDe(a.sel) : 0), t, d: b * 0.95, v: 0.34 }); return; }
+    if (type[0] === 'p') {                            // une seule note de l'accord, qu'on laisse sonner
+      const k = Number(type.slice(1)), m = midis[k % midis.length] + 12 * Math.floor(k / midis.length);
+      notes.push({ midi: m, t, d: b * 1.6, v: 0.27 }); return;
+    }
+    const ordre = type === 'h' ? midis.slice().reverse() : midis;
+    const v = { b: 0.24, h: 0.16, l: 0.15, c: 0.22 }[type] + (premier && type === 'b' ? 0.06 : 0);
+    ordre.forEach((m, i) => notes.push({ midi: m, t: t + i * dt, d: type === 'c' ? b * 0.28 : b * 0.45, v }));
+  });
+}
+function ligneBasse(notes, a, debut, cumul, tpa, b) {   // fondamentale et quinte aux temps forts de la mesure
+  const ms = mesureCourante(), r = midiBasse(a.racine);
+  coupsDansAccord(ms.basse, ms.n, cumul, tpa, (pos, type) =>
+    notes.push({ midi: r + (type === 'Q' ? quinteDe(a.sel) : 0), t: debut + pos * b, d: b * Math.max(1, ms.n / ms.basse.length) * 0.9, v: type === 'Q' ? 0.3 : 0.36 }));
 }
 function optionsJeu() {
   const o = (v, l) => `<option value="${v}"${lecture.jeu === v ? ' selected' : ''}>${l}</option>`;
   return o('plaque', 'plaqué') + o('gratte', 'gratté') + o('arp-montant', 'arpège montant') + o('arp-descendant', 'arpège descendant') + o('arp-ar', 'arpège aller-retour') +
-    `<optgroup label="Rythmes">${Object.entries(RYTHMES).map(([k, r]) => o(k, r.nom)).join('')}</optgroup>`;
+    Object.keys(MESURES).map((m) => { const rs = Object.entries(RYTHMES).filter(([, r]) => r.mesure === m);
+      return rs.length ? `<optgroup label="Rythmes en ${m}">${rs.map(([k, r]) => o(k, `${r.nom} · ${m}`)).join('')}</optgroup>` : ''; }).join('');
+}
+// changer de mesure : le temps par defaut et le temps de chaque accord suivent (meme nombre de mesures, arrondi a une
+// duree proposee) ; le tempo passe de la noire a la croche (x 2) ou l'inverse ; un rythme d'une autre mesure laisse
+// la place a « gratte »
+function changerMesure(m) {
+  const av = mesureCourante(), ap = MESURES[m];
+  if (!ap) return;
+  if (ap === av) { lecture.mesure = m; ecrire('gf.lecture', lecture); return; }   // deja dans cette mesure : on la note
+  const conv = (t) => { const v = t * ap.n / av.n; return ap.temps.reduce((x, y) => (Math.abs(y - v) < Math.abs(x - v) || (Math.abs(y - v) === Math.abs(x - v) && y > x) ? y : x), ap.temps[0]); };
+  lecture.tpa = conv(tpaDefaut());
+  if (av.unite !== ap.unite) lecture.tempo = Math.max(20, Math.min(320, Math.round(lecture.tempo * (ap.unite === '♪' ? 2 : 0.5))));
+  const h = harmoEtat();
+  if (h.libre) h.libre.accords = h.libre.accords.map((a) => (a && a.tpa ? Object.assign({}, a, { tpa: conv(a.tpa) }) : a));
+  for (const k of Object.keys(h.degres || {})) if (h.degres[k] && h.degres[k].tpa) h.degres[k] = Object.assign({}, h.degres[k], { tpa: conv(h.degres[k].tpa) });
+  lecture.mesure = m;
+  if (RYTHMES[lecture.jeu] && RYTHMES[lecture.jeu].mesure !== m) lecture.jeu = 'gratte';
+  ecrire('gf.lecture', lecture); harmoSauver();
+}
+function champsTempo() {                          // la barre et la saisie, toujours d'accord entre elles
+  return `<label>Tempo (${mesureCourante().unite}/min) <input type="range" min="20" max="320" step="1" value="${lecture.tempo}" data-son-r="tempo" aria-label="Tempo">
+    <input type="number" class="tempo-saisie" min="20" max="320" step="1" inputmode="numeric" value="${lecture.tempo}" data-son-r="tempo" aria-label="Tempo, à saisir"></label>`;
+}
+function synchroTempo(source) {
+  document.querySelectorAll('[data-son-r="tempo"]').forEach((e) => { if (e !== source) e.value = lecture.tempo; });
 }
 
 // ---------------------------------------------------------------- mes suites d'accords : enregistrer, charger
@@ -2170,8 +2234,8 @@ function suiteActuelle(nom) {
   const harmo = Object.assign({}, h, { resto_degre1: !!h.restoDegre1, par_ligne: h.parLigne || 'tous' });
   delete harmo.restoDegre1; delete harmo.parLigne;
   return { format: 'GuitareFred-suite', version: 1, nom, enregistre: new Date().toISOString().slice(0, 19), instrument: etat.acc,
-    harmo, lecture: Object.assign({ tempo: lecture.tempo, jeu: RYTHMES[lecture.jeu] ? 'gratte' : lecture.jeu, tpa: Number(lecture.tpa) || 4, boucle: !!lecture.boucle,
-      basse: !!lecture.basse, metronome: !!lecture.metronome }, RYTHMES[lecture.jeu] ? { rythme: lecture.jeu } : {}) };     // rythme : page seulement
+    harmo, lecture: Object.assign({ tempo: lecture.tempo, jeu: RYTHMES[lecture.jeu] ? 'gratte' : lecture.jeu, tpa: tpaDefaut(), boucle: !!lecture.boucle,
+      basse: !!lecture.basse, metronome: !!lecture.metronome, mesure: MESURES[lecture.mesure] ? lecture.mesure : '4/4' }, RYTHMES[lecture.jeu] ? { rythme: lecture.jeu } : {}) };     // rythme : page seulement
 }
 function appliquerSuite(s) {
   if (!s || s.format !== 'GuitareFred-suite' || !s.harmo) throw new Error('ce fichier n’est pas une suite GuitareFred');
@@ -2179,7 +2243,8 @@ function appliquerSuite(s) {
   delete h.resto_degre1; delete h.par_ligne;
   etat.harmo = h; harmoSauver();
   if (s.lecture) {
-    Object.assign(lecture, s.lecture, { basse: !!s.lecture.basse, metronome: !!s.lecture.metronome });
+    const mesure = MESURES[s.lecture.mesure] ? s.lecture.mesure : (RYTHMES[s.lecture.rythme] ? RYTHMES[s.lecture.rythme].mesure : '4/4');   // suites d'avant les mesures : 4/4
+    Object.assign(lecture, s.lecture, { basse: !!s.lecture.basse, metronome: !!s.lecture.metronome, mesure });
     if (RYTHMES[s.lecture.rythme]) lecture.jeu = s.lecture.rythme;
     delete lecture.rythme; ecrire('gf.lecture', lecture);
   }
@@ -3006,8 +3071,9 @@ function planifier(notes, t0, volume = 0.32) {   // notes : [{ midi, t (s), d (s
   for (const nt of notes) {
     if (nt.clic) {                                  // metronome : un clic bref, plus aigu au premier temps de l'accord
       const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + nt.t;
-      o.type = 'square'; o.frequency.value = nt.accent ? 1760 : 1320;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(nt.accent ? 0.22 : 0.13, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      const fort = nt.accent === true ? 2 : (nt.accent || 0);
+      o.type = 'square'; o.frequency.value = [1320, 1500, 1760][fort];
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime([0.12, 0.17, 0.22][fort], t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
       o.onended = () => { o.fini = true; };
       o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.06); sources.push(o);
       continue;
@@ -3029,7 +3095,7 @@ function jouerAccord(midis) {                     // midis : du grave a l'aigu (
   const b = temps();
   let ordre = midis.map((m, i) => [m, i]);
   const ry = RYTHMES[lecture.jeu];
-  if (ry) { const n = []; notesRythme(n, ry, midis, { racine: mod12(midis[0]), sel: [0, 7] }, 0, ry.temps, b); return jouer(n); }
+  if (ry) { const n = []; notesRythme(n, ry, midis, { racine: mod12(midis[0]), sel: [0, 7] }, 0, 0, MESURES[ry.mesure].n, b); return jouer(n); }
   if (lecture.jeu === 'plaque') return jouer(midis.map((m) => ({ midi: m, t: 0 })), 0.26);
   if (lecture.jeu === 'gratte') return jouer(midis.map((m, i) => ({ midi: m, t: i * Math.min(0.045, b / 12) })), 0.26);
   if (lecture.jeu === 'arp-descendant') ordre = ordre.reverse();
@@ -3069,13 +3135,13 @@ function jouerAccords(liste) {                    // quelques accords a la suite
   planifier(notesDe(liste.map((a, k) => Object.assign({ k }, a)), ACCORDAGES[etat.acc]).notes, contexteAudio().currentTime + 0.1);
 }
 function notesDe(acc, A) {                        // acc : [{ k, racine, sel, tpa }]
-  const b = temps(), defaut = Number(lecture.tpa) || 4, notes = [], marques = [];
-  let debut = 0;
+  const b = temps(), defaut = tpaDefaut(), ms = mesureCourante(), notes = [], marques = [];
+  let debut = 0, cumul = 0;                        // cumul : temps ecoules, pour placer les coups dans les mesures
   acc.forEach((a) => {
     const tpa = a.tpa || defaut, midis = midisAccord(a.racine, a.sel.length ? a.sel : [0], A);
     marques.push([a.k, debut]);
     const ry = RYTHMES[lecture.jeu];
-    if (ry) notesRythme(notes, ry, midis, a, debut, tpa, b);
+    if (ry) notesRythme(notes, ry, midis, a, debut, cumul, tpa, b);
     else if (lecture.jeu === 'plaque' || lecture.jeu === 'gratte') {
       for (let t = 0; t < tpa; t++) midis.forEach((m, i) => notes.push({ midi: m, t: debut + t * b + (lecture.jeu === 'gratte' ? i * Math.min(0.04, b / 12) : 0),
         d: b * 0.92, v: t === 0 ? 0.3 : 0.2 }));
@@ -3085,9 +3151,11 @@ function notesDe(acc, A) {                        // acc : [{ k, racine, sel, tp
       else if (lecture.jeu === 'arp-ar' && ordre.length > 2) ordre = ordre.concat(ordre.slice(1, -1).reverse());
       for (let k = 0; k < tpa * 2; k++) notes.push({ midi: ordre[k % ordre.length], t: debut + k * b / 2, d: b * 1.5, v: 0.3 });
     }
-    if (lecture.basse && !(ry && ry.basse)) ligneBasse(notes, a, debut, tpa, b);
-    if (lecture.metronome) for (let t = 0; t < tpa; t++) notes.push({ clic: true, accent: t === 0, t: debut + t * b });
-    debut += tpa * b;
+    if (lecture.basse && !(ry && ry.basse)) ligneBasse(notes, a, debut, cumul, tpa, b);
+    if (lecture.metronome) for (let t = 0; t < tpa; t++) {                     // 2 : debut de mesure, 1 : temps fort (6/8, 12/8)
+      const p = cumul + t; notes.push({ clic: true, accent: p % ms.n === 0 ? 2 : (p % ms.groupe === 0 ? 1 : 0), t: debut + t * b });
+    }
+    debut += tpa * b; cumul += tpa;
   });
   return { notes, marques, duree: debut };
 }
@@ -3121,10 +3189,10 @@ function jouerSuite(muet = false, depuis = 0) {   // depuis : l'accord du pupitr
   const b = document.querySelector('[data-suite="jouer"]'); if (b) b.textContent = '▶ Reprendre du début';
   passage(contexteAudio().currentTime + 0.1, depuis);
 }
-const TEMPS_POSSIBLES = [1, 2, 3, 4, 6, 8, 12, 16];
-function choixTemps(attr, idx, tpa) {             // le temps d'un accord : par defaut (celui de la barre de lecture) ou le sien
-  const o = (v, l, s) => `<option value="${v}"${s ? ' selected' : ''}>${l}</option>`;
-  return `<label>Temps <select ${attr}="tpa" ${attr === 'data-h' ? 'data-k' : 'data-i'}="${idx}">${o('', `par défaut (${Number(lecture.tpa) || 4})`, !tpa)}${TEMPS_POSSIBLES.map((n) => o(n, n, tpa === n)).join('')}</select></label>`;
+function choixTemps(attr, idx, tpa) {             // le temps d'un accord : par defaut (celui de la barre de lecture) ou le sien, selon la mesure
+  const o = (v, l, s) => `<option value="${v}"${s ? ' selected' : ''}>${l}</option>`, ms = mesureCourante();
+  const liste = !tpa || ms.temps.includes(tpa) ? ms.temps : [...ms.temps, tpa].sort((x, y) => x - y);   // une valeur hors liste reste visible
+  return `<label>Temps <select ${attr}="tpa" ${attr === 'data-h' ? 'data-k' : 'data-i'}="${idx}">${o('', `par défaut (${tpaDefaut()})`, !tpa)}${liste.map((n) => o(n, n, tpa === n)).join('')}</select></label>`;
 }
 function barreSuite() {
   const o = (v, l, s) => `<option value="${v}"${s ? ' selected' : ''}>${l}</option>`;
@@ -3132,9 +3200,10 @@ function barreSuite() {
     <button type="button" class="btn plein" data-suite="jouer">▶ Écouter la suite</button>
     <button type="button" class="btn" data-suite="stop" aria-label="Arrêter">■</button>
     <button type="button" class="btn" data-pup="ouvrir">Pupitre (plein écran)</button>
-    <label>Tempo <input type="range" min="40" max="200" step="5" value="${lecture.tempo}" data-son-r="tempo"> <span class="tempo-val">${lecture.tempo}</span></label>
-    <label>Temps par défaut <select data-son-r="tpa">${TEMPS_POSSIBLES.map((n) => o(n, n, (Number(lecture.tpa) || 4) === n)).join('')}</select></label>
-    <select data-son-r="jeu">${optionsJeu()}</select>
+    ${champsTempo()}
+    <label>Mesure <select data-son-r="mesure">${Object.keys(MESURES).map((m) => o(m, m, (MESURES[lecture.mesure] ? lecture.mesure : '4/4') === m)).join('')}</select></label>
+    <label>Temps par défaut <select data-son-r="tpa">${(mesureCourante().temps.includes(tpaDefaut()) ? mesureCourante().temps : [...mesureCourante().temps, tpaDefaut()].sort((x, y) => x - y)).map((n) => o(n, n, tpaDefaut() === n)).join('')}</select></label>
+    <select data-son-r="jeu" aria-label="Jeu ou rythme">${optionsJeu()}</select>
     <label><input type="checkbox" data-son-r="boucle" ${lecture.boucle ? 'checked' : ''}> En boucle</label>
     <label><input type="checkbox" data-son-r="basse" ${lecture.basse ? 'checked' : ''}> Basse</label>
     <label><input type="checkbox" data-son-r="metronome" ${lecture.metronome ? 'checked' : ''}> Métronome</label>
@@ -3154,7 +3223,7 @@ function barreSon(spec) {
     ${aAccord ? '<button type="button" class="btn plein" data-son="accord">▶ Accord</button>' : ''}
     ${spec.gamme ? '<button type="button" class="btn' + (aAccord ? '' : ' plein') + '" data-son="gamme">▶ Gamme</button>' : ''}
     <button type="button" class="btn" data-son="stop" aria-label="Arrêter">■</button>
-    <label>Tempo <input type="range" min="40" max="200" step="5" value="${lecture.tempo}" data-son-r="tempo"> <span class="tempo-val">${lecture.tempo}</span></label>
+    ${champsTempo()}
     ${aAccord ? `<select data-son-r="jeu">${optionsJeu()}</select>` : ''}
     ${spec.gamme ? `<select data-son-r="sens">${o('montant', 'gamme montante', lecture.sens === 'montant')}${o('descendant', 'descendante', lecture.sens === 'descendant')}${o('ar', 'aller-retour', lecture.sens === 'ar')}</select>
       <select data-son-r="octaves">${o(1, '1 octave', lecture.octaves == 1)}${o(2, '2 octaves', lecture.octaves == 2)}</select>` : ''}
@@ -3168,19 +3237,23 @@ document.addEventListener('click', (ev) => {
   if (t.dataset.son === 'accord') jouerAccord(s.forme ? midisForme(s.forme, A) : midisAccord(s.accord.racine, s.accord.sel, A));
   else if (t.dataset.son === 'gamme') jouerGamme(s.gamme.ton, s.gamme.ivs, A);
 });
-document.addEventListener('input', (ev) => {
+document.addEventListener('input', (ev) => {        // le tempo suit la barre et la saisie pendant qu'on les touche
   const t = ev.target;
-  if (!t.dataset || !t.dataset.sonR) return;
-  lecture[t.dataset.sonR] = t.type === 'checkbox' ? t.checked : (t.dataset.sonR === 'jeu' || t.dataset.sonR === 'sens' ? t.value : Number(t.value));
-  if (t.dataset.sonR === 'tempo') t.parentElement.querySelector('.tempo-val').textContent = t.value;
-  ecrire('gf.lecture', lecture);
+  if (!t.dataset || t.dataset.sonR !== 'tempo') return;
+  const v = Number(t.value);
+  if (!(v >= 20 && v <= 320)) return;              // saisie en cours (« 1 » avant « 120 »)
+  lecture.tempo = Math.round(v); synchroTempo(t); ecrire('gf.lecture', lecture);
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target;
   if (t.dataset && t.dataset.sonR) {
-    lecture[t.dataset.sonR] = t.type === 'checkbox' ? t.checked : (['jeu', 'sens'].includes(t.dataset.sonR) ? t.value : Number(t.value));
+    const r = t.dataset.sonR;
+    if (r === 'mesure') changerMesure(t.value);
+    else if (r === 'jeu') { if (RYTHMES[t.value]) changerMesure(RYTHMES[t.value].mesure); lecture.jeu = t.value; }
+    else if (r === 'tempo') { const v = Math.round(Number(t.value)); if (v) lecture.tempo = Math.max(20, Math.min(320, v)); synchroTempo(); }
+    else lecture[r] = t.type === 'checkbox' ? t.checked : (r === 'sens' ? t.value : Number(t.value));
     ecrire('gf.lecture', lecture);
-    if (t.dataset.sonR === 'tpa' && etat.vue === 'harmo') vueHarmo();
+    if (['tpa', 'mesure', 'jeu'].includes(r) && etat.vue === 'harmo') vueHarmo();   // durees et unite du tempo a jour
   }
 });
 function ouvrirDialogue(titre, sous, corps, boutons, son) {
