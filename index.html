@@ -69,6 +69,8 @@ button { cursor: pointer; }
 .onglets button { white-space: nowrap; }
 .onglets button { border: 0; background: transparent; padding: .25rem 0 .45rem; color: var(--discret); border-bottom: 3px solid transparent; margin-bottom: -1px; min-height: 2.2rem; }
 .onglets button[aria-selected="true"] { color: var(--encre); font-weight: 700; border-bottom-color: var(--accent); }
+.onglets .onglet-fenetre { margin-left: auto; color: var(--accent); font-weight: 700; padding-left: .4rem; padding-right: .2rem; }
+@media (max-width: 47.99rem) { .onglets .onglet-fenetre { display: none; } }   /* plusieurs fenetres : sur le PC */
 form.recherche { display: flex; gap: .5rem; }
 form.recherche[hidden] { display: none; }
 form.recherche input {
@@ -309,6 +311,7 @@ footer .liens { margin-top: .5rem; }
       <button type="button" role="tab" data-vue="harmo" aria-selected="false">Harmonisation</button>
       <button type="button" role="tab" data-vue="suites" aria-selected="false">Suites</button>
       <button type="button" role="tab" data-vue="base" aria-selected="false">Base</button>
+      <button type="button" class="onglet-fenetre" data-fenetre title="Ouvrir cet onglet dans une nouvelle fenêtre" aria-label="Ouvrir cet onglet dans une nouvelle fenêtre">↗ Nouvelle fenêtre</button>
     </div>
     <div class="instruments" role="group" aria-label="Instrument">
       <button type="button" data-acc="guitalele">Guitalélé</button>
@@ -324,7 +327,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 18/11/2026 11:13</p>
+  <p class="discret" id="version">Version de la page : 18/11/2026 12:01</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -789,7 +792,8 @@ async function idbLire(k) {
 }
 async function idbEcrire(k, v) {
   const db = await base();
-  return new Promise((ok, ko) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => ok(); t.onerror = () => ko(t.error); });
+  await new Promise((ok, ko) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => ok(); t.onerror = () => ko(t.error); });
+  if (['favoris', 'arpeges', 'suites', 'ref'].includes(k)) diffuser(k);      // les autres fenetres relisent
 }
 let minuterieFav = null;
 function sauverFavoris() {
@@ -1270,7 +1274,8 @@ function accueil() {
 // ---------------------------------------------------------------- onglet Base (renversements)
 function basculerVue(vue, dessiner = true) {
   etat.vue = vue;
-  document.querySelectorAll('.onglets button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.vue === vue)));
+  try { history.replaceState(null, '', '#' + vue); } catch (e) { /* adresse inchangee */ }   // une fenetre rouverte garde son onglet
+  document.querySelectorAll('.onglets button[data-vue]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.vue === vue)));
   document.getElementById('form').hidden = vue !== 'accords';
   if (!dessiner) return;
   if (vue === 'base') vueBase();
@@ -2767,6 +2772,7 @@ async function synchroArpegesVue() {
   try {
     const r = await syncArpDrive();
     arpSync = r === 'ok' ? { etat: 'ok', heure: new Date().toLocaleTimeString('fr-FR') } : { etat: 'non' };
+    if (r === 'ok') diffuser('arp-synchro', { heure: arpSync.heure });
   } catch (e) { arpSync = e.message === 'connexion' ? { etat: 'non' } : { etat: 'erreur', err: e.message }; }
   if (etat.vue === 'arpeges' && zone()) vueArpeges();
 }
@@ -3374,6 +3380,63 @@ async function degonfler(b64) {
   await new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js'; s.onload = ok; s.onerror = ko; document.head.appendChild(s); });
   return window.pako.ungzip(bin);
 }
+// ---------------------------------------------------------------- plusieurs fenetres (PC)
+// Chaque fenetre garde son travail en cours (onglet, suite d'harmonisation, reglages de lecture). Ce qui est enregistre
+// sur l'appareil (favoris, formes d'arpege, suites, reference) est partage : apres chaque ecriture, les autres fenetres
+// relisent et se mettent a jour (canal BroadcastChannel, meme origine seulement). La connexion au Drive aussi est
+// partagee : une fenetre qui s'ouvre la demande, une reconnexion est transmise a toutes. Une synchronisation faite dans
+// une fenetre (bouton ou automatique) met donc toutes les autres a jour, sans que chacune interroge le Drive.
+const VUES = ['accords', 'arpeges', 'gammes', 'harmo', 'suites', 'base'];
+const canal = 'BroadcastChannel' in window ? new BroadcastChannel('guitarefred') : null;
+function diffuser(type, donnees) {
+  if (!canal) return;
+  try { canal.postMessage(Object.assign({ type }, donnees || {})); } catch (e) { /* fenetre en cours de fermeture */ }
+}
+window.gfDiffuser = diffuser;                       // pour le module Drive
+const vueDeAdresse = () => { const v = (location.hash || '').slice(1); return VUES.includes(v) ? v : null; };
+const saisieEnCours = () => { const a = document.activeElement; return !!(a && main().contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName) && !/^(checkbox|radio|range|button)$/.test(a.type)); };
+function rafraichirVue(quoi) {                      // la vue affichee, si elle montre ce qui a change (pas pendant une saisie)
+  if (saisieEnCours()) return;
+  const v = etat.vue;
+  if (quoi === 'favoris' && v === 'accords' && etat.res) afficherPositions();
+  else if (quoi === 'favoris' && v === 'harmo') vueHarmo();
+  else if (quoi === 'arpeges' && v === 'arpeges' && arpegesCharges) vueArpeges();
+  else if (quoi === 'suites' && v === 'suites') { derniereSyncSuites = Date.now(); afficherSuites(''); }
+}
+if (canal) canal.onmessage = async (ev) => {
+  const m = ev.data || {};
+  try {
+    if (m.type === 'favoris') {
+      const f = await idbLire('favoris');
+      if (f && Array.isArray(f.favoris)) {          // fusion : un changement de cette fenetre pas encore enregistre reste
+        const fus = GFDrive.fusionner(favoris, f);
+        favoris.favoris = fus.favoris; favoris.retires = fus.retires;
+      }
+      majNbFav(); rafraichirVue('favoris');
+    } else if (m.type === 'arpeges') {
+      if (arpegesCharges) { const a = await idbLire('arpeges'); if (a && Array.isArray(a.formes)) arpeges = fusionArp(arpeges, Object.assign({ retires: [] }, a)); }
+      majCompteurs(); rafraichirVue('arpeges');
+    } else if (m.type === 'suites') { majCompteurs(); rafraichirVue('suites'); }
+    else if (m.type === 'ref') {                    // reference mise a jour dans une autre fenetre : on repart d'elle, sur le meme onglet
+      const t = await idbLire('ref'), v = etat.vue;
+      if (t) { await demarrer(JSON.parse(t)); if (v !== 'accords') basculerVue(v); }
+    } else if (m.type === 'jeton') {
+      if (GFDrive.recevoirJeton(m.jeton, m.expire, m.quand)) {
+        if (etat.vue === 'arpeges' && arpegesCharges) synchroArpegesVue();
+        else if (etat.vue === 'suites') afficherSuites('', true);
+      }
+    } else if (m.type === 'jeton?') { const j = GFDrive.jetonActuel(); if (j) diffuser('jeton', j); }
+    else if (m.type === 'synchro') GFDrive.noterSynchro(m.quand);
+    else if (m.type === 'arp-synchro') { arpSync = { etat: 'ok', heure: m.heure }; rafraichirVue('arpeges'); }
+  } catch (e) { /* une fenetre en retard se remettra a jour a la prochaine ecriture */ }
+};
+document.addEventListener('click', (ev) => {         // ↗ : l'onglet en cours dans une nouvelle fenetre, cote a cote
+  if (!ev.target.closest('[data-fenetre]')) return;
+  const l = Math.max(480, Math.round((screen.availWidth || 1200) / 2)), h = screen.availHeight || 900;
+  const w = window.open(location.pathname + location.search + '#' + etat.vue, '_blank', `popup,width=${l},height=${h}`);
+  if (!w) alert('Le navigateur a bloqué la nouvelle fenêtre : autorise les fenêtres pour cette page.');
+});
+
 async function demarrer(donnees) {
   try {
     const octets = await degonfler(donnees.formes);
@@ -3384,6 +3447,7 @@ async function demarrer(donnees) {
     majInstruments(); majNbFav();
     const derniere = lire('gf.derniere', '');
     if (derniere) rechercher(derniere); else accueil();
+    const v = vueDeAdresse(); if (v && v !== 'accords') basculerVue(v);          // fenetre ouverte sur un onglet (…#harmo)
   } catch (e) {
     main().innerHTML = `<p class="message">Les données n’ont pas pu être chargées (${esc(e.message)}). Recharge la page ; si le problème persiste, utilise un navigateur à jour.</p>`;
   }
@@ -3423,6 +3487,7 @@ window.GFDrive = (function () {
             ecrire('gf.drive.connu', true); message = '';
             clearTimeout(finJeton);                  // l'autorisation Google dure une heure : on le dit quand elle tombe
             finJeton = setTimeout(expiree, expire - Date.now() + 500);
+            if (window.gfDiffuser) window.gfDiffuser('jeton', jetonActuel());   // les autres fenetres sont connectees aussi
             apresConnexion();
           } else { message = 'Connexion refusée.'; afficherEtat(); }
         },
@@ -3431,6 +3496,20 @@ window.GFDrive = (function () {
     client.requestAccessToken({ prompt: lire('gf.drive.connu', false) ? '' : 'consent' });
   }
   const connecte = () => jeton && Date.now() < expire;
+  // plusieurs fenetres : la connexion d'une fenetre sert a toutes (le jeton ne quitte pas l'appareil)
+  const jetonActuel = () => (connecte() ? { jeton, expire, quand: derniereSync ? derniereSync.toISOString() : null } : null);
+  function recevoirJeton(j, e, quand) {
+    if (!j || !(e > Date.now()) || (connecte() && expire >= e)) return false;
+    jeton = j; expire = e; message = '';
+    clearTimeout(finJeton); finJeton = setTimeout(expiree, expire - Date.now() + 500);
+    if (quand && (!derniereSync || new Date(quand) > derniereSync)) derniereSync = new Date(quand);
+    afficherEtat(); return true;
+  }
+  function noterSynchro(quand) {                   // une autre fenetre vient de synchroniser
+    if (quand) derniereSync = new Date(quand);
+    if (!occupe) message = '';
+    afficherEtat();
+  }
   function expiree() {
     if (connecte()) return;
     jeton = null; message = 'Connexion expirée (elle dure une heure) : reconnecte-toi pour synchroniser.'; afficherEtat();
@@ -3531,6 +3610,7 @@ window.GFDrive = (function () {
   let encore = false;                        // une demande arrivee pendant une synchronisation : on la refait ensuite
   async function synchroniser() {
     if (!connecte()) return;
+    if (lire('gf.drive.modifie', false)) modifie = true;   // un changement fait dans une autre fenetre hors connexion
     if (occupe) { encore = true; return; }
     occupe = true; message = 'Synchronisation…'; afficherEtat();
     try {
@@ -3565,6 +3645,7 @@ window.GFDrive = (function () {
       } else if (relu) ecrire('gf.drive.favmod', f.modifiedTime);
       modifie = false; ecrire('gf.drive.modifie', false);
       derniereSync = new Date(); message = '';
+      if (window.gfDiffuser) window.gfDiffuser('synchro', { quand: derniereSync.toISOString() });
       if (etat.res && etat.vue === 'accords') afficherPositions();
     } catch (e) { message = e.message === 'connexion' ? 'Reconnexion nécessaire.' : 'Synchronisation impossible (' + e.message + ').'; }
     occupe = false; afficherEtat();
@@ -3646,6 +3727,7 @@ window.GFDrive = (function () {
 
   async function demarrerDrive() {
     afficherEtat();
+    if (window.gfDiffuser) window.gfDiffuser('jeton?');   // une autre fenetre deja connectee nous passe sa connexion
     let texte = null;
     try { texte = await idbLire('ref'); } catch (e) { /* IndexedDB indisponible */ }
     if (texte) return demarrer(JSON.parse(texte));                  // donnees deja sur l'appareil : utilisables hors connexion
@@ -3675,7 +3757,7 @@ window.GFDrive = (function () {
     if (!arpFichiers.length) return creer('arpeges.json', (await dossiers()).arpeges, texte);
     for (const f of arpFichiers) await remplacer(f.id, texte);
   }
-  return { demarrer: demarrerDrive, planifier, fusionner, synchroniser, connecte: () => connecte(),
+  return { demarrer: demarrerDrive, planifier, fusionner, synchroniser, connecte: () => connecte(), recevoirJeton, jetonActuel, noterSynchro,
     suitesLister, suiteLire, suiteEcrire, suiteSupprimer, arpegesLire, arpegesEcrire, _etat: () => ({ jeton, ids }) };
 })();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
