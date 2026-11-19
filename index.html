@@ -373,7 +373,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 19/11/2026 11:15</p>
+  <p class="discret" id="version">Version de la page : 19/11/2026 11:28</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -2849,7 +2849,8 @@ async function plancheDeroule(i) {
 //   croches ; toute la partie pompe tient dans 4 cases (une seule position de la main).
 // Toutes les cases tiennent dans « Ecart maximal » cases ; un fragment tient dans 4 cases (cordes a vide non comptees).
 // Version minimale sobre : une note grave (hors basse) n'est jamais en double dans la forme ; la note aigue peut doubler.
-// Seules les formes pas encore enregistrees sont montrees (R.vis), quel que soit leur deroule (Fred, 19/11 a 10:27).
+// Seules les formes pas encore enregistrees sont montrees (R.vis), quel que soit leur deroule (Fred, 19/11 a 10:27) ;
+// une forme n'est proposee qu'une fois, avec son meilleur decoupage (voir ajouter).
 // Dans le calcul, les cordes sont celles de la carte (1 = la plus grave, comme partout en interne).
 // Avec basse, « Corde aigue au-dessus de la basse » (19/11 a 11:09) : non (defaut) = aucune note de la corde aigue sur une
 // case plus proche du sillet que la basse ; oui = au moins une (exemple de Fred : 7, F en basse, 7 deux cases plus haut).
@@ -2905,11 +2906,18 @@ function chercherPropositions(o) {                // -> [{ version, basse, frags
     }
     if (res.size >= RECH_MAX) { trop = true; return; }
     const ks = frags.flat().map((x) => x[1]), lo = Math.min(...ks), hi = Math.max(...ks), m = lo >= 1 ? Math.floor((lo - 1) / 12) : 0;   // sans corde a vide : une octave plus haut = la meme
-    const cle = frags.map((f) => f.map(([c, k]) => `${c},${k - 12 * m}`).join(' ')).join('|');
-    if (res.has(cle)) return;                      // meme proposition dans une autre fenetre (ou une octave plus haut)
+    // une seule proposition par forme (19/11 a 11:23) : son meilleur decoupage en fragments = 1er fragment le plus court,
+    // puis le moins de notes en tout, puis le plus resserre ; a egalite, le premier trouve
+    const cle = [...new Set(frags.flat().map(([c, k]) => `${c},${k - 12 * m}`))].sort().join(' ');
     const cases = new Set(frags.flat().map((x) => x.join(','))).size;
-    res.set(cle, { version, basse: avecBasse, frags, durees: frags.map((f, j) => (version === 'pompe' && j ? 0.5 : 1)), lo, hi,
-      score: (hi - lo) * 2 + frags.reduce((t, f) => t + etendue(f), 0) + cases * 0.5 });
+    const score = (hi - lo) * 2 + frags.reduce((t, f) => t + etendue(f), 0) + cases * 0.5;
+    const rang = [frags[0].length, frags.reduce((t, f) => t + f.length, 0), score], avant = res.get(cle);
+    if (avant) {
+      avant.nb++;
+      const mieux = rang.findIndex((v, i) => v !== avant.rang[i]);
+      if (mieux < 0 || rang[mieux] > avant.rang[mieux]) return;
+    }
+    res.set(cle, { version, basse: avecBasse, frags, durees: frags.map((f, j) => (version === 'pompe' && j ? 0.5 : 1)), lo, hi, score, rang, nb: avant ? avant.nb : 1 });
   };
   for (let lo = kmin; lo <= kmax - ecart; lo++) {
     const hi = lo + ecart, par = [];
@@ -3015,7 +3023,7 @@ function blocPropositions(s, A) {
       : `<p class="discret" id="rech-bilan">Aucune nouvelle forme ne suit ta règle avec ces réglages : essaie d’autres cordes, un écart plus grand ou plus de notes par fragment.${dej}</p>`;
   }
   return `<section class="bloc propositions" id="propositions"><h2 class="titre-bloc">Formes proposées (ta règle)</h2>
-    <p class="discret">Coche les cordes à utiliser (de la plus grave, à gauche, à la plus aiguë, à droite, comme sur la carte) : chaque proposition utilise exactement ces cordes, et le reste en découle. Les formes déjà enregistrées ne sont pas proposées. Couleur de la grille : celle de la corde la plus grave, comme pour les accords. La plus aiguë des cordes cochées a une note à chaque fragment. ${A.renversements ? 'Au ukulélé, pas de basse : le 1er fragment peut commencer par n’importe quelle note.' : `Si la plus grave des cordes cochées est la ${nomCordeArp(1, A)} ou la ${nomCordeArp(2, A)}, la forme a une basse et le 1er fragment commence par la fondamentale sur cette corde ; sinon, il peut commencer par une autre note. Avec une basse, « Corde aiguë au-dessus de la basse » : « non », aucune note de la corde aiguë n’est plus haut sur la carte (plus près du sillet) que la basse ; « oui », au moins une l’est.`} Minimale : le moins de fragments possible. Pompe (3 cordes ou plus) : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
+    <p class="discret">Coche les cordes à utiliser (de la plus grave, à gauche, à la plus aiguë, à droite, comme sur la carte) : chaque proposition utilise exactement ces cordes, et le reste en découle. Les formes déjà enregistrées ne sont pas proposées, et chaque forme ne l’est qu’une fois, avec son meilleur découpage (1er fragment le plus court) : « Modifier » pour en changer. Couleur de la grille : celle de la corde la plus grave, comme pour les accords. La plus aiguë des cordes cochées a une note à chaque fragment. ${A.renversements ? 'Au ukulélé, pas de basse : le 1er fragment peut commencer par n’importe quelle note.' : `Si la plus grave des cordes cochées est la ${nomCordeArp(1, A)} ou la ${nomCordeArp(2, A)}, la forme a une basse et le 1er fragment commence par la fondamentale sur cette corde ; sinon, il peut commencer par une autre note. Avec une basse, « Corde aiguë au-dessus de la basse » : « non », aucune note de la corde aiguë n’est plus haut sur la carte (plus près du sillet) que la basse ; « oui », au moins une l’est.`} Minimale : le moins de fragments possible. Pompe (3 cordes ou plus) : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
     <div class="reglages-rech">
       <span class="cordes-rech"><span>Cordes</span><span class="cases-cordes">${cases}</span></span>
       <p class="discret" id="rech-cordes">Avec ces cordes : ${esc(resume)}</p>
@@ -3044,7 +3052,7 @@ function ouvrirProposition(i) {
   if (!p) return;
   const coul = couleurForme(p.frags.flat(), A);
   const nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null), titre = `${nom} · proposition ${i + 1}`;
-  const sous = `${A.nom} · ${p.version === 'pompe' ? 'pompe' : 'minimale'} · ${p.basse ? 'avec basse' : 'sans basse'}${p.lieu} · ${p.der.length} fragments`;
+  const sous = `${A.nom} · ${p.version === 'pompe' ? 'pompe' : 'minimale'} · ${p.basse ? 'avec basse' : 'sans basse'}${p.lieu} · ${p.der.length} fragments${p.nb > 1 ? ` (le meilleur des ${p.nb} découpages trouvés pour cette forme)` : ''}`;
   const grand = svgArpege(etat.acc, s.cle, s.ton, new Set(p.sel), { inactif: true, lignes: p.lignes, etapes: numerosEtapes(p.der), grille: coul });
   ouvrirDialogue(titre, sous, grand + htmlBande(bandeEtapes(p.der, p.lignes, s.cle, s.ton, A, coul)) + `<p class="case-boucle">${caseBoucle()}</p>`, [
     ['▶ Écouter', () => basculerDeroule(p.der, '#dlg-corps .bande-deroule', 'dlg'), false],
