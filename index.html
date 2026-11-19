@@ -373,7 +373,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 19/11/2026 11:28</p>
+  <p class="discret" id="version">Version de la page : 19/11/2026 12:19</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -2854,7 +2854,10 @@ async function plancheDeroule(i) {
 // Dans le calcul, les cordes sont celles de la carte (1 = la plus grave, comme partout en interne).
 // Avec basse, « Corde aigue au-dessus de la basse » (19/11 a 11:09) : non (defaut) = aucune note de la corde aigue sur une
 // case plus proche du sillet que la basse ; oui = au moins une (exemple de Fred : 7, F en basse, 7 deux cases plus haut).
-const RECH_DEFAUT = { notes: 2, ecart: 5, cordes: [1, 2], dessus: 'non' }, RECH_PAGE = 12, RECH_MAX = 50000;
+// « Exclure F + F avec la note la plus grave » (19/11 a 12:15, coche par defaut) : aucun fragment fait seulement de
+// fondamentales dont l'une est la note la plus grave de la forme (la basse : plus grave des cordes, plus petite case).
+// Les autres F + F (exemple : la forme 4 de Fred en A maj) restent permis.
+const RECH_DEFAUT = { notes: 2, ecart: 5, cordes: [1, 2], dessus: 'non', sansFF: true }, RECH_PAGE = 12, RECH_MAX = 50000;
 const cordesRech = (o, n) => new Set((o.cordes || RECH_DEFAUT.cordes).map(Number).filter((x) => x >= 1 && x <= n));
 function regleCordes(o, A) {                      // ce que les cordes cochees decident : { coch (internes, grave -> aigue), haut, bas, basse }
   const n = A.cordes.length, coch = [...cordesRech(o, n)].map((u) => n - u + 1).sort((a, b) => a - b);
@@ -2900,6 +2903,10 @@ function chercherPropositions(o) {                // -> [{ version, basse, frags
   };
   const ajouter = (version, frags) => {
     if (cordesDe(frags.flat()) !== toutes) return;  // exactement les cordes cochees
+    if (o.sansFF !== false) {                      // pas de fragment « F + F » avec la note la plus grave
+      const kg = Math.min(...frags.flat().filter((x) => x[0] === bas).map((x) => x[1]));
+      if (frags.some((f) => f.every((x) => bit(x) === 1) && f.some((x) => x[0] === bas && x[1] === kg))) return;
+    }
     if (avecBasse) {                               // la corde aigue au-dessus de la basse (case plus petite) : oui ou non, au choix
       const kb = Math.min(...frags.flat().filter((x) => x[0] === bas).map((x) => x[1]));
       if (frags.flat().some((x) => x[0] === haut && x[1] < kb) !== (o.dessus === 'oui')) return;
@@ -3028,6 +3035,7 @@ function blocPropositions(s, A) {
       <span class="cordes-rech"><span>Cordes</span><span class="cases-cordes">${cases}</span></span>
       <p class="discret" id="rech-cordes">Avec ces cordes : ${esc(resume)}</p>
       <label class="${rc.basse ? '' : 'grise'}">Corde aiguë au-dessus de la basse <select id="rech-dessus" ${rc.basse ? '' : 'disabled'}>${[['non', 'non'], ['oui', 'oui']].map(([v, l]) => `<option value="${v}"${(o.dessus || 'non') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label><input type="checkbox" id="rech-sansFF" ${o.sansFF !== false ? 'checked' : ''}> Exclure F + F avec la note la plus grave</label>
       <label>Notes par fragment ${choix('rech-notes', o.notes, [[2, '2'], [3, 'jusqu’à 3'], [4, 'jusqu’à 4']])}</label>
       <label>Écart maximal ${choix('rech-ecart', o.ecart, [3, 4, 5, 6, 7].map((v) => [v, v + ' cases']))}</label>
       <button type="button" class="btn plein" data-arpr="chercher" ${rc.assez ? '' : 'disabled'}>${R.res ? 'Chercher à nouveau' : 'Chercher'}</button></div>
@@ -3377,7 +3385,7 @@ document.addEventListener('change', (ev) => {
   }
   else if (/^rech-/.test(t.id || '')) {
     const R = rechEtat(), k = t.id.slice(5);
-    R.opts[k] = ['notes', 'ecart'].includes(k) ? Number(t.value) : t.value;
+    R.opts[k] = t.type === 'checkbox' ? t.checked : ['notes', 'ecart'].includes(k) ? Number(t.value) : t.value;
     ecrire('gf.arp.rech', R.opts);
     if (R.res) lancerRecherche();
   }
