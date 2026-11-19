@@ -263,6 +263,12 @@ details.pli[open] > summary::after { content: "−"; }
 .etape .ordre { display: flex; gap: .2rem; }
 .etape .ordre .btn.petit { margin: 0; min-width: 2.2rem; }
 .mini-arp .a-deroule { color: var(--accent) !important; font-weight: 700; }
+.mini-arp .deja { color: #2e7d32 !important; font-weight: 700; }
+.btn.en-cours { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+.case-boucle { margin: .6rem 0 0; color: #1c2140; }
+.reglages-rech { display: flex; flex-wrap: wrap; gap: .5rem .9rem; align-items: center; margin: .5rem 0; }
+.reglages-rech label { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+.reglages-rech select { font: inherit; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); color: var(--encre); padding: .2rem .3rem; min-height: 2.2rem; max-width: 100%; }
 .bande-deroule { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); gap: .5rem; margin-top: .7rem; }
 .bande-deroule figure { margin: 0; border-radius: .4rem; padding: .15rem; }
 .bande-deroule figure.joue { background: var(--accent-doux); outline: 2px solid var(--accent); }
@@ -361,7 +367,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 18/11/2026 13:51</p>
+  <p class="discret" id="version">Version de la page : 19/11/2026 09:29</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -2530,12 +2536,16 @@ async function importerTout(fichier) {
 // - Basse : une forme qui utilise la corde 1 ou 2 a une basse (la note de la plus grave des deux) ; elle ne vaut que
 //   pour l'accord lu depuis cette basse, sous lequel elle est rangee. Sinon, elle vaut pour l'accord et tous ses
 //   renversements. Ukulele : jamais de basse. Guitalele et guitare (memes intervalles entre cordes) partagent leurs formes.
+// Numerotation : en interne (data-arp, cases, deroule), corde 1 = la plus grave. A l'ecran, le numero usuel (19/11/2026) :
+// 1re corde = la plus aigue, 6e = la plus grave d'un instrument a 6 cordes (nomCordeArp), comme dans l'onglet Accords.
 const ARP_REPERE = 8, ARP_YMAX = ARP_REPERE - 1, ARP_YMIN = ARP_REPERE - (G.FRETTES_TYPE + 1);   // cases 1..21 -> 7..-13
 let arpeges = { version: 1, formes: [], retires: [] }, arpegesCharges = false, arpSync = { etat: '' };
 const famArp = (acc) => (acc === 'ukulele' ? 'uke' : 'g6');
 const ivsCle = (cle) => cle.split(' ').map((i) => INTERVALLES.indexOf(i));
 const nomCle = (cle) => { const t = M.parNotes.get(cle); return t ? t.item : G.nommerSelonBase(ivsCle(cle)).nom; };
 const telCle = (cle) => { const t = M.parNotes.get(cle); return t ? t.tel : ''; };
+const nomCordeArp = (c, A) => NOM_CORDE[A.cordes.length - c + 1];   // corde interne (1 = la plus grave) -> « 6e corde »
+const repereArp = (A) => `tonique de la ${nomCordeArp(1, A)} au repère ▸`;
 function arpEtat() {
   if (!etat.arp) etat.arp = Object.assign({ cle: 'F 3M 5', ton: '', sansBasse: false, parLigne: '6' }, lire('gf.arp', {}), { sel: [], der: [], etape: null });
   return etat.arp;
@@ -2611,7 +2621,7 @@ function svgArpege(acc, cle, ton, sel, opts = {}) {
     if (!ivs.has(iv)) continue;
     const lab = INTERVALLES[iv], c = COUL[lab] || '#333', on = sel.has(`${i + 1},${k}`), x = mg + i * ex, y = k === 0 ? yv : ys + (k - 0.5) * ey;
     const nums = opts.etapes && opts.etapes.get(`${i + 1},${k}`), actif = opts.actifs && opts.actifs.has(`${i + 1},${k}`), fin = i === n - 1;
-    const att = opts.inactif ? '' : ` data-arp="${i + 1},${k}" role="button" aria-pressed="${on}" aria-label="corde ${i + 1}, ${gen ? '' : 'case ' + k + ', '}${lab}"`;
+    const att = opts.inactif ? '' : ` data-arp="${i + 1},${k}" role="button" aria-pressed="${on}" aria-label="${nomCordeArp(i + 1, A)}, ${gen ? '' : 'case ' + k + ', '}${lab}"`;
     s += `<g class="case-arp"${att}${opts.inactif && !on ? ' opacity="0.28"' : ''}><circle cx="${x}" cy="${y}" r="${r}" fill="${on ? c : '#fff'}" stroke="${c}" stroke-width="${on ? r * 0.2 : r * 0.1}"/>` +
       `<text x="${x}" y="${y}" fill="${on ? '#fff' : c}" font-size="${r * (lab.length > 1 ? 0.78 : 0.95)}" font-weight="700" text-anchor="middle" dominant-baseline="central">${esc(lab)}</text>` +
       (actif ? `<circle cx="${x}" cy="${y}" r="${r * 1.22}" fill="none" stroke="#2e3a8c" stroke-width="${r * 0.16}"/>` : '') +
@@ -2622,9 +2632,10 @@ function svgArpege(acc, cle, ton, sel, opts = {}) {
 }
 
 // ---------- la selection en cours
-function infosSelection() {
+function infosSelection(selX, sansBasseX) {      // la forme de l'editeur, ou une autre (proposition) sur la meme carte
   const s = arpEtat(), A = ACCORDAGES[etat.acc], gen = !s.ton, T = gen ? A.toniqueType : G.classe(s.ton);
-  const cells = s.sel.map((x) => x.split(',').map(Number)), ivs = ivsCle(s.cle);
+  const sansBasse = sansBasseX === undefined ? s.sansBasse : sansBasseX;
+  const cells = (selX || s.sel).map((x) => x.split(',').map(Number)), ivs = ivsCle(s.cle);
   const couverts = new Set(cells.map(([c, k]) => mod12(A.midi[c - 1] + k - T)));
   const manquants = ivs.filter((i) => !couverts.has(i));
   const graves = A.renversements ? [] : cells.filter(([c]) => c <= 2);
@@ -2635,28 +2646,30 @@ function infosSelection() {
     basse = mod12(A.midi[cordeBasse - 1] + k - T);
   }
   return { cells, couverts, manquants, valide: cells.length > 0 && !manquants.length, graves: graves.length > 0,
-    basse: s.sansBasse ? null : basse, basseVue: basse, cordeBasse, vide: !gen && cells.some(([, k]) => k === 0), T, gen };
+    basse: sansBasse ? null : basse, basseVue: basse, cordeBasse, vide: !gen && cells.some(([, k]) => k === 0), T, gen };
 }
 const nomAvecTon = (cle, pc) => (pc === null ? '' : NOMS_NOTES[mod12(pc)] + ' ') + nomCle(cle);
 function texteBasse(x, s) {
-  const pcRacine = s.ton ? G.classe(s.ton) : null, ivs = ivsCle(s.cle);
+  const A = ACCORDAGES[etat.acc], pcRacine = s.ton ? G.classe(s.ton) : null, ivs = ivsCle(s.cle);
   if (ACCORDAGES[etat.acc].renversements) return 'Ukulélé : pas de basse, la forme vaut pour l’accord et tous ses renversements.';
   if (x.basse === null) {
     const autres = ivs.slice(1).map((d) => nomAvecTon(G.cleDe(ivs.map((i) => i - d)), pcRacine === null ? null : pcRacine + d));
-    return (x.graves ? 'Considérée sans basse' : 'Sans basse (cordes 1 et 2 non utilisées)') + ` : valable pour ${nomAvecTon(s.cle, pcRacine)}` +
+    return (x.graves ? 'Considérée sans basse' : `Sans basse (${nomCordeArp(1, A).replace(' corde', '')} et ${nomCordeArp(2, A).replace(' corde', ' cordes')}, les plus graves, non utilisées)`) + ` : valable pour ${nomAvecTon(s.cle, pcRacine)}` +
       (autres.length ? ` et ses renversements (${autres.join(', ')}).` : '.');
   }
   const lab = INTERVALLES[x.basse];
-  if (x.basse === 0) return `Basse ${lab} sur la corde ${x.cordeBasse} : valable pour ${nomAvecTon(s.cle, pcRacine)} seulement.`;
+  if (x.basse === 0) return `Basse ${lab} sur la ${nomCordeArp(x.cordeBasse, A)} : valable pour ${nomAvecTon(s.cle, pcRacine)} seulement.`;
   const cleB = G.cleDe(ivs.map((i) => i - x.basse));
-  return `Basse ${lab} sur la corde ${x.cordeBasse} : c’est une forme de « ${nomAvecTon(cleB, pcRacine === null ? null : pcRacine + x.basse)} » (l’accord lu depuis sa basse) ; elle sera rangée sous cet accord.`;
+  return `Basse ${lab} sur la ${nomCordeArp(x.cordeBasse, A)} : c’est une forme de « ${nomAvecTon(cleB, pcRacine === null ? null : pcRacine + x.basse)} » (l’accord lu depuis sa basse) ; elle sera rangée sous cet accord.`;
 }
 
-// ---------- deroule : les intervalles joues l'un apres l'autre (technique de Fred, 18/11/2026)
-// Une forme peut porter un deroule : [{ cases: ['corde:rang'], duree }], duree en noires (1 noire, 0,5 croche…).
-// Une case y est designee par sa corde et son rang sur cette corde (0 = la plus grave) : le deroule suit la forme quels
-// que soient son placement (carte generique, tonalite, octave) et l'accord sous lequel elle est rangee.
-// Pendant l'edition : s.der = [{ sel: ['corde,case de la carte'], duree }], s.etape = l'intervalle en cours (ou null).
+// ---------- deroule : les fragments de l'accord joues l'un apres l'autre (technique de Fred, 18/11/2026)
+// Un fragment = quelques notes de l'accord jouees ensemble (2 le plus souvent, 3 ou plus permis ; mot choisi le 19/11
+// a la place d'« intervalle », qui supposait 2 notes). Une forme peut porter un deroule : [{ cases: ['corde:rang'], duree }],
+// duree en noires (1 noire, 0,5 croche…). Une case y est designee par sa corde et son rang sur cette corde (0 = la plus
+// grave) : le deroule suit la forme quels que soient son placement (carte generique, tonalite, octave) et l'accord sous
+// lequel elle est rangee. Pendant l'edition : s.der = [{ sel: ['corde,case de la carte'], duree }], s.etape = le
+// fragment en cours (ou null).
 const DUREES = [[4, 'ronde'], [2, 'blanche'], [1.5, 'noire pointée'], [1, 'noire'], [0.75, 'croche pointée'], [0.5, 'croche'], [1 / 3, 'triolet de croches'], [0.25, 'double croche']];
 const nomDuree = (d) => (DUREES.find(([v]) => Math.abs(v - d) < 1e-6) || [0, d + ' noire'])[1];
 const enCases = (sel) => sel.map((v) => v.split(',').map(Number));
@@ -2666,37 +2679,41 @@ function rangsCases(cells) {                       // 'c,k' -> 'c:rang' (rang pa
   for (const [c, ks] of parCorde) ks.slice().sort((a, b) => a - b).forEach((k, r) => m.set(`${c},${k}`, `${c}:${r}`));
   return m;
 }
-function derouleVersSel(der, cells) {             // deroule enregistre -> intervalles en cases de la carte affichee
+function derouleVersSel(der, cells) {             // deroule enregistre -> fragments en cases de la carte affichee
   const inv = new Map([...rangsCases(cells)].map(([ck, cr]) => [cr, ck]));
   return (der || []).map((e) => ({ sel: (e.cases || []).map((cr) => inv.get(cr)).filter(Boolean), duree: Number(e.duree) || 1 }));
 }
-function selVersDeroule(etapes, sel) {            // intervalles en cases de la carte -> deroule a enregistrer
+function selVersDeroule(etapes, sel) {            // fragments en cases de la carte -> deroule a enregistrer
   const rg = rangsCases(enCases(sel));
   return etapes.map((e) => ({ cases: e.sel.filter((ck) => rg.has(ck)).map((ck) => rg.get(ck)), duree: e.duree })).filter((e) => e.cases.length);
 }
+const copieEtapes = (etapes) => etapes.map((e) => ({ sel: e.sel.slice(), duree: e.duree }));
 function etiquetteEtape(cells, T, A) {            // « F + 5 », « 5 ⌒ 7 » : du grave a l'aigu, ⌒ = liaison sur une meme corde
   const tri = cells.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   return tri.map(([c, k], i) => (i === 0 ? '' : tri[i - 1][0] === c ? ' ⌒ ' : ' + ') + INTERVALLES[mod12(A.midi[c - 1] + k - T)]).join('');
 }
-function verifierDeroule(etapes, x, A, cle) {     // la regle de Fred, sans rien bloquer : { ok, msgs }
-  const n = A.cordes.length, lab = ([c, k]) => mod12(A.midi[c - 1] + k - x.T), msgs = [];
-  if (!enCases(etapes[0].sel).some((ck) => lab(ck) === 0)) msgs.push('le 1er intervalle n’a pas la fondamentale');
+function verifierDeroule(etapes, x, A, cle) {     // la regle de Fred, sans rien bloquer : { ok, msgs, basse }
+  const n = A.cordes.length, lab = ([c, k]) => mod12(A.midi[c - 1] + k - x.T), msgs = [], basse = x.basse !== null;
+  if (basse && !enCases(etapes[0].sel).some((ck) => lab(ck) === 0)) msgs.push('le 1er fragment n’a pas la fondamentale');
   etapes.forEach((e, j) => {
-    if (!e.sel.length) msgs.push(`intervalle ${j + 1} : aucune case`);
-    else if (!enCases(e.sel).some(([c]) => c === n)) msgs.push(`intervalle ${j + 1} : pas de note sur la corde aiguë`);
+    if (!e.sel.length) msgs.push(`fragment ${j + 1} : aucune case`);
+    else if (!enCases(e.sel).some(([c]) => c === n)) msgs.push(`fragment ${j + 1} : pas de note sur la corde aiguë`);
   });
   const joues = new Set(etapes.flatMap((e) => enCases(e.sel).map(lab))), manque = ivsCle(cle).filter((i) => !joues.has(i));
   if (manque.length) msgs.push('pas joué : ' + manque.map((i) => INTERVALLES[i]).join(', '));
   const vues = new Set(etapes.flatMap((e) => e.sel)), oubli = x.cells.filter(([c, k]) => !vues.has(`${c},${k}`)).length;
-  if (oubli) msgs.push(`${oubli} case${oubli > 1 ? 's' : ''} de la forme dans aucun intervalle`);
-  return { ok: !msgs.length, msgs };
+  if (oubli) msgs.push(`${oubli} case${oubli > 1 ? 's' : ''} de la forme dans aucun fragment`);
+  return { ok: !msgs.length, msgs, basse };
 }
-const numerosEtapes = (etapes) => {               // 'c,k' -> [numeros des intervalles ou la case sert]
+const texteRegle = (v) => (!v.ok ? '⚠ ' + v.msgs.join(' ; ') + '.' : v.basse
+  ? '✓ Ta règle est respectée : la fondamentale au 1er fragment, une note sur la corde aiguë à chaque fragment, tous les intervalles joués.'
+  : '✓ Ta règle est respectée : une note sur la corde aiguë à chaque fragment, tous les intervalles joués (forme sans basse : le 1er fragment peut commencer par une autre note que la fondamentale).');
+const numerosEtapes = (etapes) => {               // 'c,k' -> [numeros des fragments ou la case sert]
   const m = new Map();
   (etapes || []).forEach((e, j) => e.sel.forEach((ck) => { if (!m.has(ck)) m.set(ck, []); m.get(ck).push(j + 1); }));
   return m;
 };
-// ---------- son du deroule : chaque intervalle a sa duree ; sur une meme corde, les notes se suivent (liaison)
+// ---------- son du deroule : chaque fragment a sa duree ; sur une meme corde, les notes se suivent (liaison)
 const secNoire = () => 60 / lecture.tempo * (mesureCourante().unite === '♪' ? 2 : 1);
 function notesDeroule(etapes, A) {                // { notes, debuts, duree } en secondes
   const q = secNoire(), notes = [], debuts = [];
@@ -2721,19 +2738,31 @@ function clicsDeroule(duree) {                    // metronome : un clic par tem
   for (let p = 0; p * b < duree - 1e-6; p++) out.push({ clic: true, accent: p % ms.n === 0 ? 2 : (p % ms.groupe === 0 ? 1 : 0), t: p * b });
   return out;
 }
-let derJeu = null;                                // { minuteries, ou } pendant l'ecoute d'un deroule
-function marquerEtape(j) {                        // l'intervalle joue, en surbrillance dans la liste ou dans la fenetre
+let derJeu = null;                                // { minuteries, ou, cle } pendant l'ecoute d'un deroule
+function marquerEtape(j) {                        // le fragment joue, en surbrillance dans la liste ou dans la fenetre
   document.querySelectorAll('[data-jd].joue').forEach((e) => e.classList.remove('joue'));
   const ou = derJeu && derJeu.ou && document.querySelector(derJeu.ou);
   if (j != null && ou) { const e = ou.querySelector(`[data-jd="${j}"]`); if (e) e.classList.add('joue'); }
 }
-function arreterDeroule() { if (!derJeu) return; derJeu.minuteries.forEach(clearTimeout); derJeu = null; marquerEtape(null); }
-function jouerDeroule(etapes, ou) {               // ou : selecteur de la liste a surligner (ou rien)
+function majBoutonsJouer() {                      // le bouton du deroule en cours d'ecoute devient « ■ Arreter »
+  document.querySelectorAll('[data-jouer]').forEach((b) => {
+    const on = !!derJeu && derJeu.cle === b.dataset.jouer;
+    b.textContent = on ? '■ Arrêter' : b.dataset.lib; b.setAttribute('aria-pressed', String(on)); b.classList.toggle('en-cours', on);
+  });
+}
+const boutonJouer = (cle, lib, attrs, cls = 'btn petit') => {
+  const on = !!derJeu && derJeu.cle === cle;
+  return `<button type="button" class="${cls}${on ? ' en-cours' : ''}" ${attrs} data-jouer="${esc(cle)}" data-lib="${esc(lib)}" aria-pressed="${on}">${on ? '■ Arrêter' : esc(lib)}</button>`;
+};
+const caseBoucle = () => `<label><input type="checkbox" data-son-r="boucle" ${lecture.boucle ? 'checked' : ''}> En boucle</label>`;
+const barreBoucle = () => `<div class="barre-son">${caseBoucle()}<button type="button" class="btn" data-arpa="stop">■ Arrêter</button></div>`;
+function arreterDeroule() { if (!derJeu) return; derJeu.minuteries.forEach(clearTimeout); derJeu = null; marquerEtape(null); majBoutonsJouer(); }
+function jouerDeroule(etapes, ou, cle) {          // ou : selecteur de la liste a surligner (ou rien) ; cle : le bouton qui joue
   arreterSon();
   const idx = etapes.map((e, j) => (e.sel.length ? j : -1)).filter((j) => j >= 0);
   etapes = etapes.filter((e) => e.sel.length);
   if (!etapes.length) return;
-  const A = ACCORDAGES[etat.acc], ctx = contexteAudio(), jeu = derJeu = { minuteries: [], ou };
+  const A = ACCORDAGES[etat.acc], ctx = contexteAudio(), jeu = derJeu = { minuteries: [], ou, cle: cle || '' };
   const passe = (t0) => {
     if (derJeu !== jeu) return;
     const p = notesDeroule(etapes, A);
@@ -2747,41 +2776,258 @@ function jouerDeroule(etapes, ou) {               // ou : selecteur de la liste 
     }, Math.max(0, (fin - ctx.currentTime - 0.25) * 1000)));
   };
   passe(ctx.currentTime + 0.1);
+  majBoutonsJouer();
 }
-function blocDeroule(s, x, A) {                   // sous les boutons de la forme : la liste des intervalles
+const basculerDeroule = (etapes, ou, cle) => (derJeu && derJeu.cle === cle ? arreterSon() : jouerDeroule(etapes, ou, cle));
+function boutonDlgJoueur(lib, cle) {              // dans une fenetre : « ▶ Ecouter » devient « ■ Arreter » pendant l'ecoute
+  const b = [...document.querySelectorAll('#dlg-pied button')].find((x) => x.textContent === lib);
+  if (b) { b.dataset.jouer = cle; b.dataset.lib = lib; }
+}
+function blocDeroule(s, x, A) {                   // sous les boutons de la forme : la liste des fragments
   const et = s.der || [], ms = mesureCourante();
   const opts = (d) => DUREES.map(([v, nom]) => `<option value="${v}"${Math.abs(v - d) < 1e-6 ? ' selected' : ''}>${nom}</option>`).join('');
   const lignes = et.map((e, j) => `<li class="etape${s.etape === j ? ' actif' : ''}" data-jd="${j}">
-      <button type="button" class="num" data-arpd="choisir" data-j="${j}" aria-pressed="${s.etape === j}" aria-label="Intervalle ${j + 1} : toucher ses cases">${j + 1}</button>
+      <button type="button" class="num" data-arpd="choisir" data-j="${j}" aria-pressed="${s.etape === j}" aria-label="Fragment ${j + 1} : toucher ses cases">${j + 1}</button>
       <span class="notes-etape">${esc(e.sel.length ? etiquetteEtape(enCases(e.sel), x.T, A) : (s.etape === j ? 'touche ses cases sur la carte' : 'aucune case'))}</span>
-      <select data-arpd="duree" data-j="${j}" aria-label="Durée de l’intervalle ${j + 1}">${opts(e.duree)}</select>
-      <span class="ordre"><button type="button" class="btn petit" data-arpd="monter" data-j="${j}" aria-label="Monter" ${j ? '' : 'disabled'}>↑</button><button type="button" class="btn petit" data-arpd="descendre" data-j="${j}" aria-label="Descendre" ${j < et.length - 1 ? '' : 'disabled'}>↓</button><button type="button" class="btn petit" data-arpd="retirer" data-j="${j}" aria-label="Retirer l’intervalle ${j + 1}">✕</button></span></li>`).join('');
+      <select data-arpd="duree" data-j="${j}" aria-label="Durée du fragment ${j + 1}">${opts(e.duree)}</select>
+      <span class="ordre"><button type="button" class="btn petit" data-arpd="monter" data-j="${j}" aria-label="Monter" ${j ? '' : 'disabled'}>↑</button><button type="button" class="btn petit" data-arpd="descendre" data-j="${j}" aria-label="Descendre" ${j < et.length - 1 ? '' : 'disabled'}>↓</button><button type="button" class="btn petit" data-arpd="retirer" data-j="${j}" aria-label="Retirer le fragment ${j + 1}">✕</button></span></li>`).join('');
   let pied = '';
   if (et.length) {
     const v = verifierDeroule(et, x, A, s.cle), total = et.reduce((t, e) => t + e.duree, 0) * (ms.unite === '♪' ? 2 : 1);
     const nbMes = total / ms.n, txt = String(Math.round(total * 100) / 100).replace('.', ','), m = MESURES[lecture.mesure] ? lecture.mesure : '4/4';
-    pied = `<div class="barre-son">${champsTempo()}<label><input type="checkbox" data-son-r="boucle" ${lecture.boucle ? 'checked' : ''}> En boucle</label>
-        <label><input type="checkbox" data-son-r="metronome" ${lecture.metronome ? 'checked' : ''}> Métronome</label></div>
-      <p class="arp-etat ${v.ok ? 'ok' : ''}">${v.ok ? '✓ Ta règle est respectée : la fondamentale au 1er intervalle, une note sur la corde aiguë à chaque intervalle, tous les intervalles joués.' : '⚠ ' + esc(v.msgs.join(' ; ')) + '.'}</p>
+    pied = `<p class="arp-etat ${v.ok ? 'ok' : ''}">${esc(texteRegle(v))}</p>
       <p class="discret" id="duree-deroule">Durée : ${txt} temps${Math.abs(nbMes - Math.round(nbMes)) < 1e-6 ? `, soit ${Math.round(nbMes)} mesure${Math.round(nbMes) > 1 ? 's' : ''} de ${m}` : ` (en ${m}, une mesure en compte ${ms.n})`}. Le tempo et la mesure sont ceux de l’onglet Harmonisation.</p>`;
   }
   return `<section class="bloc deroule"><h2 class="titre-bloc">Déroulé</h2>
-    <p class="discret">Les intervalles joués l’un après l’autre. « + Intervalle », puis touche ses cases sur la carte : une case peut servir à plusieurs intervalles. Touche un numéro pour revenir à cet intervalle, « Terminer » pour revenir à la forme. Le déroulé est enregistré avec la forme.</p>
+    <p class="discret">Les fragments de l’accord joués l’un après l’autre (un fragment : 2 notes ou plus jouées ensemble). « + Fragment », puis touche ses cases sur la carte : une case peut servir à plusieurs fragments. Touche un numéro pour revenir à ce fragment, « Terminer » pour revenir à la forme. Le déroulé est enregistré avec la forme.</p>
     ${et.length ? `<ol class="etapes">${lignes}</ol>` : ''}
-    <div class="boutons-harmo"><button type="button" class="btn" data-arpd="ajouter">+ Intervalle</button>
+    <div class="boutons-harmo"><button type="button" class="btn" data-arpd="ajouter">+ Fragment</button>
       ${s.etape != null ? '<button type="button" class="btn" data-arpd="terminer">Terminer</button>' : ''}
-      ${et.length ? '<button type="button" class="btn plein" data-arpd="ecouter">▶ Écouter</button><button type="button" class="btn" data-arpd="stop" aria-label="Arrêter">■</button>' : ''}</div>
+      ${et.length ? boutonJouer('editeur', '▶ Écouter', 'data-arpd="ecouter"', 'btn plein') : ''}</div>
+    <div class="barre-son">${champsTempo()}${caseBoucle()}
+      <label><input type="checkbox" data-son-r="metronome" ${lecture.metronome ? 'checked' : ''}> Métronome</label>
+      <button type="button" class="btn" data-arpa="stop">■ Arrêter</button></div>
     ${pied}</section>`;
 }
-function bandeDeroule(x, cle, ton, A) {           // une petite carte par intervalle (forme agrandie, planche)
-  const T = ton ? G.classe(ton) : A.toniqueType, etapes = derouleVersSel(x.e.f.deroule, x.cases);
-  return etapes.map((e, j) => ({ e, j, svg: svgArpege(etat.acc, cle, ton, new Set(e.sel), { inactif: true, lignes: x.lignes }), txt: etiquetteEtape(enCases(e.sel), T, A) }));
+function bandeEtapes(etapes, lignes, cle, ton, A) {   // une petite carte par fragment (forme agrandie, planche)
+  const T = ton ? G.classe(ton) : A.toniqueType;
+  return etapes.map((e, j) => ({ e, j, svg: svgArpege(etat.acc, cle, ton, new Set(e.sel), { inactif: true, lignes }), txt: etiquetteEtape(enCases(e.sel), T, A) }));
 }
+const bandeDeroule = (x, cle, ton, A) => bandeEtapes(derouleVersSel(x.e.f.deroule, x.cases), x.lignes, cle, ton, A);
+const htmlBande = (bande) => `<div class="bande-deroule">${bande.map((b) => `<figure data-jd="${b.j}"><figcaption><b>${b.j + 1}</b> · ${esc(b.txt)}<br>${esc(nomDuree(b.e.duree))}</figcaption>${b.svg}</figure>`).join('')}</div>`;
 async function plancheDeroule(i) {
   const s = arpEtat(), A = ACCORDAGES[etat.acc], x = etat.arpListe[i], nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null);
-  const items = bandeDeroule(x, s.cle, s.ton, A).map((b) => ({ svg: b.svg, l1: `Intervalle ${b.j + 1}`, l2: b.txt, l3: nomDuree(b.e.duree) }));
-  const blob = await dessinerPlanche(`Déroulé : ${nom} · forme ${i + 1}`, `${A.nom} · ${items.length} intervalles · ${x.tags}`, items, String(Math.min(items.length, 6)), A);
+  const items = bandeDeroule(x, s.cle, s.ton, A).map((b) => ({ svg: b.svg, l1: `Fragment ${b.j + 1}`, l2: b.txt, l3: nomDuree(b.e.duree) }));
+  const blob = await dessinerPlanche(`Déroulé : ${nom} · forme ${i + 1}`, `${A.nom} · ${items.length} fragments · ${x.tags}`, items, String(Math.min(items.length, 6)), A);
   await donnerFichiers([new File([blob], nomPng('deroule', nom, s.ton ? '' : 'generique', etat.acc, 'forme' + (i + 1)), { type: 'image/png' })]);
+}
+
+// ---------- formes proposees : recherche automatique selon la regle de Fred (19/11/2026)
+// Chaque fragment a une note, et une seule, sur la corde aigue. Avec basse (6e ou 5e corde, les plus graves), le 1er
+// fragment a la basse, qui est la fondamentale ; sans basse (ces deux cordes libres ; toujours au ukulele), il peut
+// commencer par une autre note. Deux versions :
+// - minimale : le moins de fragments possible (2, ou plus si l'accord a trop de notes pour les « notes par fragment ») ;
+// - pompe (exemples de Fred : A maj et 7, forme 4) : 1er fragment = la note grave + une note aigue A ; puis, corde par
+//   corde de la voisine de l'aigue vers la plus grave, une note de l'accord avec une meme note aigue B ; noire puis croches.
+//   Toute la partie pompe tient dans 4 cases (une seule position de la main), comme dans les exemples.
+// Toutes les cases tiennent dans « Ecart maximal » cases ; un fragment tient dans 4 cases (cordes a vide non comptees).
+// Version minimale sobre : une note grave (hors basse) n'est jamais en double dans la forme ; la note aigue peut doubler.
+// Les cordes sont ici celles de la carte (1 = la plus grave, comme partout en interne).
+const RECH_DEFAUT = { versions: 'deux', basse: 'deux', notes: 2, ecart: 5 }, RECH_PAGE = 12, RECH_MAX = 50000;
+function rechEtat() {
+  const s = arpEtat(), cle = `${etat.acc}|${s.cle}|${s.ton}`;
+  if (!etat.arpRech) etat.arpRech = { opts: Object.assign({}, RECH_DEFAUT, lire('gf.arp.rech', {})), res: null, cle: '' };
+  const R = etat.arpRech;
+  if (R.cle !== cle) Object.assign(R, { cle, res: null, vus: RECH_PAGE, msg: '' });
+  return R;
+}
+function sousEnsembles(pool, max) {               // cases sur des cordes differentes, de 1 a max cases
+  const out = [], cur = [], cordes = new Set();
+  const rec = (i) => {
+    if (cur.length) out.push(cur.slice());
+    if (cur.length >= max) return;
+    for (let j = i; j < pool.length; j++) if (!cordes.has(pool[j][0])) { cur.push(pool[j]); cordes.add(pool[j][0]); rec(j + 1); cur.pop(); cordes.delete(pool[j][0]); }
+  };
+  rec(0);
+  return out;
+}
+function chercherPropositions(o) {                // -> [{ version, basse, frags: [[[c,k]…]…], durees, lo, hi, score }], les meilleures d'abord
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], n = A.cordes.length, gen = !s.ton, T = gen ? A.toniqueType : G.classe(s.ton);
+  const ivs = ivsCle(s.cle), plein = ivs.reduce((m, i) => m | (1 << i), 0), uke = !!A.renversements, MAIN = 4;
+  const kmin = gen ? 1 : 0, kmax = G.FRETTES_TYPE + (gen ? 1 : 0), ecart = Math.min(Number(o.ecart), kmax - kmin), notes = Number(o.notes);
+  const bit = ([c, k]) => 1 << mod12(A.midi[c - 1] + k - T), masque = (f) => f.reduce((m, x) => m | bit(x), 0);
+  const nbBits = (m) => { let b = 0; for (; m; m &= m - 1) b++; return b; };
+  const etendue = (f) => { const ks = f.map((x) => x[1]).filter((k) => k > 0); return ks.length ? Math.max(...ks) - Math.min(...ks) : 0; };
+  const nbMini = Math.max(2, Math.ceil(ivs.length / notes)), res = new Map();
+  const sobre = (frags, basse) => {               // version minimale : pas de note grave en double (la note aigue peut doubler)
+    const vues = new Map();
+    for (const x of frags.flat()) vues.set(x.join(','), x);
+    const nb = new Map();
+    for (const x of vues.values()) nb.set(bit(x), (nb.get(bit(x)) || 0) + 1);
+    return frags.every((f) => f.every((x) => x[0] === n || (basse && x[0] === basse[0] && x[1] === basse[1]) || nb.get(bit(x)) === 1));
+  };
+  let trop = false;
+  const ajouter = (version, basse, frags) => {
+    if (res.size >= RECH_MAX) { trop = true; return; }
+    const ks = frags.flat().map((x) => x[1]), lo = Math.min(...ks), hi = Math.max(...ks), m = lo >= 1 ? Math.floor((lo - 1) / 12) : 0;   // sans corde a vide : une octave plus haut = la meme
+    const cle = frags.map((f) => f.map(([c, k]) => `${c},${k - 12 * m}`).join(' ')).join('|');
+    if (res.has(cle)) return;                      // meme proposition dans une autre fenetre (ou une octave plus haut)
+    const cases = new Set(frags.flat().map((x) => x.join(','))).size;
+    res.set(cle, { version, basse, frags, durees: frags.map((f, j) => (version === 'pompe' && j ? 0.5 : 1)), lo, hi,
+      score: (hi - lo) * 2 + frags.reduce((t, f) => t + etendue(f), 0) + cases * 0.5 });
+  };
+  const modes = uke ? [false] : o.basse === 'avec' ? [true] : o.basse === 'sans' ? [false] : [true, false];
+  for (let lo = kmin; lo <= kmax - ecart; lo++) {
+    const hi = lo + ecart, par = [];
+    for (let c = 1; c <= n; c++) { par[c] = []; for (let k = lo; k <= hi; k++) if (plein & bit([c, k])) par[c].push(k); }
+    const tops = par[n];
+    if (!tops.length) continue;
+    for (const avecBasse of modes) {
+      const departs = [];                          // la note grave du 1er fragment
+      if (avecBasse) { for (const b of [1, 2]) for (const k of par[b]) if (bit([b, k]) === 1) departs.push([b, k]); }
+      else {
+        const b0 = uke ? 1 : 3, g = [...Array(n - b0).keys()].map((i) => b0 + i).find((c) => par[c].length);
+        if (g) departs.push([g, null]);
+      }
+      for (const d of departs) {
+        const pool = [];                           // les autres notes graves possibles
+        for (let c = d[0]; c < n; c++) for (const k of par[c]) if (!(avecBasse && c === d[0] && k <= d[1])) pool.push([c, k]);
+        // version minimale
+        if (o.versions !== 'pompe') {
+          const frs = [];
+          for (const t of tops) for (const g of sousEnsembles(pool, notes - 1)) {
+            const f = [...g, [n, t]];
+            if (etendue(f) <= MAIN) frs.push({ f, m: masque(f) });
+          }
+          const premiers = [];
+          if (avecBasse) for (const t of tops) for (const g of [[], ...sousEnsembles(pool.filter((x) => x[0] !== d[0]), notes - 2)]) {
+            const f = [d, ...g, [n, t]];
+            if (etendue(f) <= MAIN) premiers.push({ f, m: masque(f), i: -1 });
+          }
+          const suite = (choisis, depuis, m) => {   // les fragments suivants, dans l'ordre de la liste (pas de permutations)
+            const reste = nbMini - choisis.length;
+            if (!reste) { if (m === plein && sobre(choisis.map((x) => x.f), avecBasse ? d : null)) ajouter('mini', avecBasse, choisis.map((x) => x.f)); return; }
+            if (nbBits(plein & ~m) > reste * notes) return;
+            for (let j = depuis; j < frs.length; j++) suite([...choisis, frs[j]], j + 1, m | frs[j].m);
+          };
+          if (avecBasse) for (const p of premiers) suite([p], 0, p.m);
+          else for (let j = 0; j < frs.length; j++) suite([frs[j]], j + 1, frs[j].m);
+        }
+        // version pompe
+        if (o.versions !== 'mini') {
+          const graves = avecBasse ? [d] : par[d[0]].map((k) => [d[0], k]);
+          for (const g of graves) for (const a of tops) {
+            const f1 = [g, [n, a]];
+            if (etendue(f1) > MAIN) continue;
+            for (const b of tops) {
+              const choix = [];
+              for (let c = n - 1; c >= g[0]; c--) {
+                const ks = par[c].filter((k) => !(c === g[0] && k <= g[1]) && etendue([[c, k], [n, b]]) <= MAIN);
+                if (ks.length) choix.push(ks.map((k) => [c, k]));
+              }
+              if (choix.length < 2) continue;      // au moins 3 fragments, sinon c'est une version minimale
+              const cur = [];
+              const rec = (i) => {
+                if (i === choix.length) {
+                  if (etendue([...cur, [n, b]]) > MAIN) return;   // la pompe se joue sans deplacer la main
+                  const frags = [f1, ...cur.map((x) => [x, [n, b]])];
+                  if (frags.reduce((m, f) => m | masque(f), 0) === plein) ajouter('pompe', avecBasse, frags);
+                  return;
+                }
+                for (const x of choix[i]) { cur.push(x); rec(i + 1); cur.pop(); }
+              };
+              rec(0);
+            }
+          }
+        }
+      }
+    }
+  }
+  const out = [...res.values()].sort((a, b) => a.score - b.score || a.lo - b.lo);
+  out.trop = trop;
+  return out;
+}
+function lancerRecherche() {
+  const R = rechEtat(), s = arpEtat(), A = ACCORDAGES[etat.acc], gen = !s.ton, T = gen ? A.toniqueType : G.classe(s.ton);
+  const kmin = gen ? 1 : 0, kmax = G.FRETTES_TYPE + (gen ? 1 : 0), brut = chercherPropositions(R.opts);
+  R.res = brut.map((p) => {
+    const vide = p.frags.some((f) => f.some(([, k]) => k === 0));
+    return Object.assign(p, {
+      sel: [...new Set(p.frags.flat().map((x) => x.join(',')))],
+      der: p.frags.map((f, j) => ({ sel: f.map((x) => x.join(',')), duree: p.durees[j] })),
+      txt: p.frags.map((f) => etiquetteEtape(f, T, A)).join(' | '),
+      lignes: [vide ? 0 : Math.max(kmin, p.lo - 1), Math.min(kmax, p.hi + 1)],
+      lieu: gen ? '' : vide ? ' · cordes à vide' : ` · cases ${p.lo} à ${p.hi}`,
+    });
+  });
+  R.trop = brut.trop; R.vus = RECH_PAGE; R.msg = '';
+  vueArpeges();
+  const b = document.getElementById('rech-bilan');
+  if (b) b.scrollIntoView({ block: 'nearest' });
+}
+function etatProposition(p) {                     // '' (nouvelle), 'forme' (forme deja enregistree, autre deroule) ou 'meme'
+  const a = analyserForme(p.sel, false);
+  if (!a.deja) return '';
+  return a.deja.f.cle !== a.cle || JSON.stringify(a.deja.f.deroule || []) === JSON.stringify(selVersDeroule(p.der, p.sel)) ? 'meme' : 'forme';
+}
+function carteProposition(p, i, s) {
+  const st = etatProposition(p);
+  if (!p.svg) p.svg = svgArpege(etat.acc, s.cle, s.ton, new Set(p.sel), { inactif: true, lignes: p.lignes, etapes: numerosEtapes(p.der) });
+  return `<figure class="mini-arp proposition"><figcaption><b>Proposition ${i + 1}</b><br><small>${p.version === 'pompe' ? 'pompe' : 'minimale'} · ${p.basse ? 'avec basse' : 'sans basse'}${esc(p.lieu)}</small><br><small class="a-deroule">${esc(p.txt)}</small>${st ? `<br><small class="deja">★ ${st === 'meme' ? 'déjà enregistrée' : 'forme déjà enregistrée, autre déroulé'}</small>` : ''}</figcaption>
+    <button type="button" class="ouvrir-arp" data-arpr="agrandir" data-i="${i}" aria-label="Agrandir la proposition ${i + 1}">${p.svg}</button>
+    <div class="boutons-mini">${boutonJouer('p' + i, '▶ Écouter', `data-arpr="ecouter" data-i="${i}"`)}<button type="button" class="btn petit" data-arpr="modifier" data-i="${i}">Modifier</button>
+      <button type="button" class="btn petit" data-arpr="garder" data-i="${i}" ${st === 'meme' ? 'disabled' : ''}>${st === 'meme' ? 'Gardée' : st ? 'Garder ce déroulé' : 'Garder'}</button></div></figure>`;
+}
+function blocPropositions(s, A) {
+  const R = rechEtat(), o = R.opts, uke = !!A.renversements;
+  const choix = (id, val, liste, dis) => `<select id="${id}"${dis ? ' disabled' : ''}>${liste.map(([v, l]) => `<option value="${v}"${String(v) === String(val) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  let corps = '';
+  if (R.res) {
+    const nm = R.res.filter((p) => p.version === 'mini').length, np = R.res.length - nm, pl = (k, m) => `${k} ${m}${k > 1 ? 's' : ''}`;
+    corps = R.res.length ? `<p class="discret" id="rech-bilan">${pl(R.res.length, 'proposition')} (${nm} minimale${nm > 1 ? 's' : ''}, ${np} pompe), les plus resserrées d’abord${R.trop ? ' (recherche arrêtée à ' + RECH_MAX + ' : resserre les réglages)' : ''}. Sur chaque case, le numéro du ou des fragments où elle sert ; touche une proposition pour l’agrandir.</p>
+      ${barreBoucle()}
+      <div class="grille-arp">${R.res.slice(0, R.vus).map((p, i) => carteProposition(p, i, s)).join('')}</div>
+      ${R.res.length > R.vus ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpr="plus">Voir ${Math.min(RECH_PAGE, R.res.length - R.vus)} de plus (${R.res.length - R.vus} restantes)</button></div>` : ''}`
+      : '<p class="discret" id="rech-bilan">Aucune forme ne suit ta règle avec ces réglages : essaie un écart plus grand ou plus de notes par fragment.</p>';
+  }
+  return `<section class="bloc propositions" id="propositions"><h2 class="titre-bloc">Formes proposées (ta règle)</h2>
+    <p class="discret">Chaque fragment a une note sur la corde aiguë. Avec basse (${nomCordeArp(1, A)} ou ${nomCordeArp(2, A)}), le 1er fragment commence par la fondamentale à la basse ; sans basse, ces deux cordes restent libres et le 1er fragment peut commencer par une autre note. Minimale : le moins de fragments possible. Pompe : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
+    <div class="reglages-rech">
+      <label>Versions ${choix('rech-versions', o.versions, [['deux', 'minimale et pompe'], ['mini', 'minimale'], ['pompe', 'pompe']])}</label>
+      <label class="${uke ? 'grise' : ''}">Basse ${choix('rech-basse', uke ? 'sans' : o.basse, [['deux', 'avec et sans'], ['avec', 'avec basse'], ['sans', 'sans basse']], uke)}</label>
+      <label>Notes par fragment ${choix('rech-notes', o.notes, [[2, '2'], [3, 'jusqu’à 3'], [4, 'jusqu’à 4']])}</label>
+      <label>Écart maximal ${choix('rech-ecart', o.ecart, [3, 4, 5, 6, 7].map((v) => [v, v + ' cases']))}</label>
+      <button type="button" class="btn plein" data-arpr="chercher">${R.res ? 'Chercher à nouveau' : 'Chercher'}</button></div>
+    <p class="discret" id="rech-message">${esc(R.msg || '')}</p>
+    ${corps}</section>`;
+}
+function modifierProposition(i) {                 // la proposition va dans l'editeur (carte et deroule)
+  const s = arpEtat(), p = rechEtat().res[i];
+  if (!p) return;
+  Object.assign(s, { sel: p.sel.slice(), der: copieEtapes(p.der), etape: null, sansBasse: false });
+  etat.arpMsg = `Proposition ${i + 1} dans l’éditeur : modifie-la si tu veux, puis « Enregistrer la forme ».`;
+  vueArpeges();
+  const d = document.querySelector('#main .deroule');
+  if (d) d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+async function garderProposition(i) {
+  const p = rechEtat().res[i];
+  if (p) await enregistrerForme({ sel: p.sel, der: copieEtapes(p.der), nom: `Proposition ${i + 1}` });
+}
+function ouvrirProposition(i) {
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], p = rechEtat().res && rechEtat().res[i];
+  if (!p) return;
+  const nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null), titre = `${nom} · proposition ${i + 1}`;
+  const sous = `${A.nom} · ${p.version === 'pompe' ? 'pompe' : 'minimale'} · ${p.basse ? 'avec basse' : 'sans basse'}${p.lieu} · ${p.der.length} fragments`;
+  const grand = svgArpege(etat.acc, s.cle, s.ton, new Set(p.sel), { inactif: true, lignes: p.lignes, etapes: numerosEtapes(p.der) });
+  const st = etatProposition(p);
+  ouvrirDialogue(titre, sous, grand + htmlBande(bandeEtapes(p.der, p.lignes, s.cle, s.ton, A)) + `<p class="case-boucle">${caseBoucle()}</p>`, [
+    ['▶ Écouter', () => basculerDeroule(p.der, '#dlg-corps .bande-deroule', 'dlg'), false],
+    ['Modifier', () => { dlg().close(); modifierProposition(i); }, false],
+    ...(st === 'meme' ? [] : [[st ? 'Garder ce déroulé' : 'Garder', () => { dlg().close(); garderProposition(i); }, false]]),
+    boutonPng(titre, sous, grand, nomPng('proposition', nom, s.ton ? '' : 'generique', etat.acc, 'p' + (i + 1))),
+    ['Fermer', () => dlg().close(), true]]);
+  boutonDlgJoueur('▶ Écouter', 'dlg');
 }
 
 // ---------- la vue
@@ -2801,7 +3047,7 @@ function vueArpeges() {
   </section>
   <h1 class="accord-nom">${esc(nomAvecTon(s.cle, pcR))}${telCle(s.cle) ? `<span class="tel">{${esc(telCle(s.cle))}}</span>` : ''}</h1>
   ${blocRenversementsArp(s)}
-  <p class="discret">${gen ? 'Carte générique : la tonique de la corde 1 est au repère ▸.'
+  <p class="discret">${gen ? `Carte générique : la tonique de la ${nomCordeArp(1, A)} est au repère ▸.`
     : `Carte en ${esc(s.ton)} : avec une corde à vide, la forme est propre à cette tonalité ; sans corde à vide, elle est générique (12 tonalités).`} Touche les cases de ta forme : elle est valide dès que tous les intervalles y sont.</p>
   <div class="pastilles arp-couverts">${ivs.map((i) => `<span class="pastille${x.couverts.has(i) ? ' couverte' : ''}" style="--c:${COUL[INTERVALLES[i]]};color:${COUL[INTERVALLES[i]]}">${esc(INTERVALLES[i])}</span>`).join('')}</div>
   <p class="arp-etat ${x.valide ? 'ok' : ''}">${!x.cells.length ? 'Aucune case choisie.' : x.valide ? '✓ Forme valide : tous les intervalles y sont.' : `Il manque : ${x.manquants.map((i) => INTERVALLES[i]).join(', ')}.`}</p>
@@ -2812,7 +3058,8 @@ function vueArpeges() {
     <button type="button" class="btn" data-arpa="carte">Télécharger cette carte (PNG)</button></div>
   <p class="discret" id="arp-message">${esc(etat.arpMsg || '')}</p>
   ${blocDeroule(s, x, A)}
-  <div class="carte-arp">${svgArpege(etat.acc, s.cle, s.ton, sel, { etapes: numerosEtapes(s.der), actifs: s.etape != null && s.der[s.etape] ? new Set(s.der[s.etape].sel) : null })}</div>`;
+  <div class="carte-arp">${svgArpege(etat.acc, s.cle, s.ton, sel, { etapes: numerosEtapes(s.der), actifs: s.etape != null && s.der[s.etape] ? new Set(s.der[s.etape].sel) : null })}</div>
+  ${blocPropositions(s, A)}`;
   // les formes enregistrees
   const liste = formesAffichees();
   // carte generique : les formes a cordes a vide n'y sont pas ; on indique leurs tonalites
@@ -2825,8 +3072,9 @@ function vueArpeges() {
     ${liste.length ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpa="planche">Télécharger la planche (PNG)</button>
       <label>Formes par ligne <select id="arp-parligne">${['tous', '2', '3', '4', '5', '6', '8', '10'].map((v) => opt(v, v, String(s.parLigne) === v)).join('')}</select></label></div>` : ''}
     ${liste.length ? '<p class="discret">Touche une forme pour l’agrandir.</p>' : ''}
-    <div class="grille-arp">${liste.map((e, i) => { const nd = (e.e.f.deroule || []).length; return `<figure class="mini-arp"><figcaption><b>Forme ${i + 1}</b><br><small>${esc(e.tags)}</small>${nd ? `<br><small class="a-deroule">déroulé : ${nd} intervalle${nd > 1 ? 's' : ''}</small>` : ''}</figcaption>
-      <button type="button" class="ouvrir-arp" data-arpa="agrandir" data-i="${i}" aria-label="Agrandir la forme ${i + 1}">${e.svg}</button><div class="boutons-mini">${nd ? `<button type="button" class="btn petit" data-arpa="ecouterd" data-i="${i}" aria-label="Écouter le déroulé de la forme ${i + 1}">▶ Déroulé</button>` : ''}<button type="button" class="btn petit" data-arpa="reprendre" data-i="${i}">Reprendre</button>
+    ${liste.some((e) => (e.e.f.deroule || []).length) ? barreBoucle() : ''}
+    <div class="grille-arp">${liste.map((e, i) => { const nd = (e.e.f.deroule || []).length; return `<figure class="mini-arp"><figcaption><b>Forme ${i + 1}</b><br><small>${esc(e.tags)}</small>${nd ? `<br><small class="a-deroule">déroulé : ${nd} fragment${nd > 1 ? 's' : ''}</small>` : ''}</figcaption>
+      <button type="button" class="ouvrir-arp" data-arpa="agrandir" data-i="${i}" aria-label="Agrandir la forme ${i + 1}">${e.svg}</button><div class="boutons-mini">${nd ? boutonJouer('f' + e.e.f.id, '▶ Déroulé', `data-arpa="ecouterd" data-i="${i}" aria-label="Écouter le déroulé de la forme ${i + 1}"`) : ''}<button type="button" class="btn petit" data-arpa="reprendre" data-i="${i}">Reprendre</button>
       <button type="button" class="btn petit" data-arpa="supprimer" data-id="${esc(e.e.f.id)}">Supprimer</button></div></figure>`; }).join('')}</div>
     ${liste.length ? '' : '<p class="discret">Aucune forme pour cet accord.</p>'}
     <p class="discret">Échange avec le programme PC : « Tout exporter » et « Importer un fichier », en bas de page (favoris, formes et suites dans un seul fichier).</p></section>`;
@@ -2867,15 +3115,15 @@ function blocRenversementsArp(s) {                // les renversements, avec leu
 }
 
 // ---------- enregistrer, supprimer, reprendre
-async function enregistrerForme() {
-  const s = arpEtat(), A = ACCORDAGES[etat.acc], x = infosSelection(), msg = document.getElementById('arp-message');
-  if (!x.valide) return;
+function analyserForme(sel, sansBasse) {          // ce que serait la forme enregistree : accord, cases, doublon eventuel
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], x = infosSelection(sel, sansBasse);
+  if (!x.valide) return { x };
   let cle = s.cle, generique = true, cases, r = null;
   if (x.gen) cases = x.cells.map(([c, k]) => [c, ARP_REPERE - k]);
   else {
     const rK = mod12(G.classe(s.ton) - A.midi[0]);
     if (x.vide) { generique = false; cases = x.cells.map((c) => c.slice()); r = rK; }
-    else cases = caler(x.cells.map(([c, k]) => [c, rK - k]));     // ordonnee = case de la tonique sur la corde 1 - case
+    else cases = caler(x.cells.map(([c, k]) => [c, rK - k]));     // ordonnee = case de la tonique sur la corde 1 (interne) - case
   }
   let rangee = '';
   if (x.basse !== null && x.basse !== 0) {          // rangee sous l'accord lu depuis sa basse
@@ -2886,22 +3134,31 @@ async function enregistrerForme() {
   }
   const fam = famArp(etat.acc), deja = formesPour(cle, fam).find((e) => e.generique === generique &&
     (generique ? canon(e.cases) === canon(cases) : e.r === r && JSON.stringify(e.cases) === JSON.stringify(cases.slice().sort((a, b) => a[1] - b[1] || a[0] - b[0]))));
-  const deroule = (s.der || []).length ? selVersDeroule(s.der, s.sel) : [];
-  if (deja) {
-    if (deja.f.cle === cle && JSON.stringify(deroule) !== JSON.stringify(deja.f.deroule || [])) {   // meme forme, deroule change : on le met a jour
-      if (deroule.length) deja.f.deroule = deroule; else delete deja.f.deroule;
-      deja.f.modifie = new Date().toISOString();
+  return { x, cle, generique, cases, r, rangee, fam, deja };
+}
+async function enregistrerForme(src) {            // src : une proposition { sel, der, nom } ; sinon la forme de l'editeur
+  const s = arpEtat(), sel = src ? src.sel : s.sel, der = src ? src.der : (s.der || []), a = analyserForme(sel, src ? false : s.sansBasse);
+  if (!a.x.valide) return;
+  const dire = (m) => { if (src) rechEtat().msg = `${src.nom} : ${m.charAt(0).toLowerCase()}${m.slice(1)}`; else etat.arpMsg = m; };
+  const vider = () => { if (!src) { s.sel = []; s.der = []; s.etape = null; } };
+  const deroule = der.length ? selVersDeroule(der, sel) : [];
+  if (a.deja) {
+    if (a.deja.f.cle === a.cle && JSON.stringify(deroule) !== JSON.stringify(a.deja.f.deroule || [])) {   // meme forme, deroule change : on le met a jour
+      if (deroule.length) a.deja.f.deroule = deroule; else delete a.deja.f.deroule;
+      a.deja.f.modifie = new Date().toISOString();
       await sauverArpeges();
-      s.sel = []; s.der = []; s.etape = null; etat.arpMsg = deroule.length ? 'Déroulé enregistré avec cette forme (déjà enregistrée).' : 'Déroulé retiré de cette forme.';
+      vider(); dire(deroule.length ? 'Déroulé enregistré avec cette forme (déjà enregistrée).' : 'Déroulé retiré de cette forme.');
       vueArpeges(); synchroArpegesVue(); return;
     }
-    etat.arpMsg = 'Cette forme est déjà enregistrée' + (deja.f.cle !== cle ? ` (sous ${nomCle(deja.f.cle)})` : '') + '.'; msg.textContent = etat.arpMsg; return;
+    dire('Cette forme est déjà enregistrée' + (a.deja.f.cle !== a.cle ? ` (sous ${nomCle(a.deja.f.cle)})` : '') + '.');
+    if (src) vueArpeges(); else document.getElementById('arp-message').textContent = etat.arpMsg;
+    return;
   }
-  arpeges.formes.push(Object.assign({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), famille: fam, cle, generique, r,
-    cases: generique ? trierCases(cases) : cases.slice().sort((a, b) => a[1] - b[1] || a[0] - b[0]), basse: x.basse !== null, ajoute: new Date().toISOString() },
+  arpeges.formes.push(Object.assign({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), famille: a.fam, cle: a.cle, generique: a.generique, r: a.r,
+    cases: a.generique ? trierCases(a.cases) : a.cases.slice().sort((x, y) => x[1] - y[1] || x[0] - y[0]), basse: a.x.basse !== null, ajoute: new Date().toISOString() },
     deroule.length ? { deroule } : {}));
   await sauverArpeges();
-  s.sel = []; s.der = []; s.etape = null; etat.arpMsg = `Forme enregistrée${rangee} (${generique ? 'générique' : 'propre à ' + s.ton + ', cordes à vide'}).`;
+  vider(); dire(`Forme enregistrée${a.rangee} (${a.generique ? 'générique' : 'propre à ' + s.ton + ', cordes à vide'})${deroule.length ? ', avec son déroulé' : ''}.`);
   vueArpeges(); synchroArpegesVue();
 }
 async function supprimerForme(id) {
@@ -2987,7 +3244,7 @@ function telechargerCarteArp() {                  // la carte de selection telle
   const s = arpEtat(), A = ACCORDAGES[etat.acc], x = infosSelection(), nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null);
   const n = x.cells.length, titre = nom + (telCle(s.cle) ? `  {${telCle(s.cle)}}` : '');
   const sous = `${A.nom} · intervalles : ${ivsCle(s.cle).map((i) => INTERVALLES[i]).join(' ')} · ` +
-    (s.ton ? `carte en ${s.ton}` : 'carte générique : tonique de la corde 1 au repère ▸') +
+    (s.ton ? `carte en ${s.ton}` : 'carte générique : ' + repereArp(A)) +
     (n ? ` · ${n} case${n > 1 ? 's' : ''} choisie${n > 1 ? 's' : ''}${x.valide ? ', forme valide' : ''}` : '');
   telechargerPng(titre, sous, svgArpege(etat.acc, s.cle, s.ton, new Set(s.sel)), nomPng('carte arpege', nom, s.ton ? '' : 'generique', etat.acc));
 }
@@ -3004,16 +3261,17 @@ function ouvrirFormeArp(i) {                      // une forme enregistree en gr
   if (!e) return;
   const nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null), titre = `${nom} · forme ${i + 1}`, sous = `${A.nom} · ${e.tags}`;
   const bande = (e.e.f.deroule || []).length ? bandeDeroule(e, s.cle, s.ton, A) : [];
-  const corps = e.svg + (bande.length ? `<div class="bande-deroule">${bande.map((b) => `<figure data-jd="${b.j}"><figcaption><b>${b.j + 1}</b> · ${esc(b.txt)}<br>${esc(nomDuree(b.e.duree))}</figcaption>${b.svg}</figure>`).join('')}</div>` : '');
+  const corps = e.svg + (bande.length ? htmlBande(bande) + `<p class="case-boucle">${caseBoucle()}</p>` : '');
   ouvrirDialogue(titre, sous, corps, [
-    ...(bande.length ? [['▶ Écouter', () => jouerDeroule(bande.map((b) => b.e), '#dlg-corps .bande-deroule'), false],
+    ...(bande.length ? [['▶ Écouter', () => basculerDeroule(bande.map((b) => b.e), '#dlg-corps .bande-deroule', 'dlg'), false],
       ['Planche du déroulé (PNG)', () => plancheDeroule(i).catch((er) => { if (er && er.name !== 'AbortError') alert('Planche non créée : ' + er.message); }), false]] : []),
     ['Reprendre', () => { dlg().close(); reprendreForme(i); }, false],
     boutonPng(titre, sous, e.svg, nomPng('arpege', nom, s.ton ? '' : 'generique', etat.acc, 'forme' + (i + 1))),
     ['Fermer', () => dlg().close(), true]]);
+  boutonDlgJoueur('▶ Écouter', 'dlg');
 }
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-arp],[data-arpiv],[data-arpa],[data-arpd],[data-versarp],[data-arprenv],[data-arpton]');
+  const t = ev.target.closest('[data-arp],[data-arpiv],[data-arpa],[data-arpd],[data-arpr],[data-versarp],[data-arprenv],[data-arpton]');
   if (!t || t.tagName === 'SELECT') return;
   const s = arpEtat();
   if (t.dataset.arpa !== 'enregistrer') etat.arpMsg = '';
@@ -3035,7 +3293,7 @@ document.addEventListener('click', (ev) => {
     vueArpeges();
   } else if (t.dataset.arpd) {                      // le deroule
     const a = t.dataset.arpd, j = Number(t.dataset.j);
-    if (a === 'ajouter') { s.der.push({ sel: [], duree: s.der.length ? 0.5 : 1 }); s.etape = s.der.length - 1; }
+    if (a === 'ajouter') { s.der.push({ sel: [], duree: s.der.length ? s.der[s.der.length - 1].duree : 1 }); s.etape = s.der.length - 1; }   // meme duree que le precedent
     else if (a === 'choisir') s.etape = s.etape === j ? null : j;
     else if (a === 'terminer') s.etape = null;
     else if (a === 'monter' || a === 'descendre') {
@@ -3044,9 +3302,17 @@ document.addEventListener('click', (ev) => {
       [s.der[j], s.der[k]] = [s.der[k], s.der[j]];
       if (s.etape === j) s.etape = k; else if (s.etape === k) s.etape = j;
     } else if (a === 'retirer') { s.der.splice(j, 1); if (s.etape === j) s.etape = null; else if (s.etape > j) s.etape--; }
-    else if (a === 'ecouter') return jouerDeroule(s.der, '#main .deroule');
+    else if (a === 'ecouter') return basculerDeroule(s.der, '#main .deroule', 'editeur');
     else if (a === 'stop') return arreterSon();
     vueArpeges();
+  } else if (t.dataset.arpr) {                      // les formes proposees
+    const a = t.dataset.arpr, i = Number(t.dataset.i), R = rechEtat(), p = R.res && R.res[i];
+    if (a === 'chercher') { R.msg = 'Recherche…'; const m = document.getElementById('rech-message'); if (m) m.textContent = R.msg; setTimeout(lancerRecherche, 20); }
+    else if (a === 'plus') { R.vus += RECH_PAGE; vueArpeges(); }
+    else if (a === 'ecouter' && p) basculerDeroule(p.der, null, 'p' + i);
+    else if (a === 'modifier') modifierProposition(i);
+    else if (a === 'garder') garderProposition(i);
+    else if (a === 'agrandir') ouvrirProposition(i);
   } else if (t.dataset.arpiv) {
     const iv = Number(t.dataset.arpiv), ivs = ivsCle(s.cle);
     const nv = ivs.includes(iv) ? ivs.filter((v) => v !== iv) : [...ivs, iv];
@@ -3058,7 +3324,8 @@ document.addEventListener('click', (ev) => {
   else if (t.dataset.arpa === 'reprendre') reprendreForme(Number(t.dataset.i));
   else if (t.dataset.arpa === 'agrandir') ouvrirFormeArp(Number(t.dataset.i));
   else if (t.dataset.arpa === 'carte') telechargerCarteArp();
-  else if (t.dataset.arpa === 'ecouterd') { const e = etat.arpListe[Number(t.dataset.i)]; if (e) jouerDeroule(derouleVersSel(e.e.f.deroule, e.cases)); }
+  else if (t.dataset.arpa === 'ecouterd') { const e = etat.arpListe[Number(t.dataset.i)]; if (e) basculerDeroule(derouleVersSel(e.e.f.deroule, e.cases), null, 'f' + e.e.f.id); }
+  else if (t.dataset.arpa === 'stop') arreterSon();
   else if (t.dataset.arpa === 'planche') plancheArpeges().catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
 });
 document.addEventListener('change', (ev) => {
@@ -3068,6 +3335,12 @@ document.addEventListener('change', (ev) => {
   else if (t.id === 'arp-sansbasse') { s.sansBasse = t.checked; arpGarder(); vueArpeges(); }
   else if (t.id === 'arp-parligne') { s.parLigne = t.value; arpGarder(); }
   else if (t.dataset && t.dataset.arpd === 'duree' && s.der[Number(t.dataset.j)]) { s.der[Number(t.dataset.j)].duree = Number(t.value); vueArpeges(); }
+  else if (/^rech-/.test(t.id || '')) {
+    const R = rechEtat(), k = t.id.slice(5);
+    R.opts[k] = ['notes', 'ecart'].includes(k) ? Number(t.value) : t.value;
+    ecrire('gf.arp.rech', R.opts);
+    if (R.res) lancerRecherche();
+  }
 });
 document.addEventListener('submit', (ev) => {
   if (ev.target.id !== 'form-arp') return;
@@ -3077,7 +3350,7 @@ async function plancheArpeges() {
   const s = arpEtat(), A = ACCORDAGES[etat.acc], liste = formesAffichees(), nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null);
   const items = liste.map((e, i) => ({ svg: e.svg, l1: `Forme ${i + 1}`, l2: e.tags.split(' · ').slice(0, 2).join(' · '), l3: e.tags.split(' · ').slice(2).join(' · ') }));
   const blob = await dessinerPlanche(`Formes d’arpège : ${nom}`,
-    `${A.nom} · ${liste.length} forme${liste.length > 1 ? 's' : ''}${s.ton ? '' : ' · cartes génériques : tonique de la corde 1 au repère ▸'}`,
+    `${A.nom} · ${liste.length} forme${liste.length > 1 ? 's' : ''}${s.ton ? '' : ' · cartes génériques : ' + repereArp(A)}`,
     items, s.parLigne || '6', A);
   await donnerFichiers([new File([blob], nomPng('arpeges', nom, s.ton ? '' : 'generique', etat.acc), { type: 'image/png' })]);
 }
@@ -3470,6 +3743,7 @@ document.addEventListener('change', (ev) => {
     else if (r === 'jeu') { if (RYTHMES[t.value]) changerMesure(RYTHMES[t.value].mesure); lecture.jeu = t.value; }
     else if (r === 'tempo') { const v = Math.round(Number(t.value)); if (v) lecture.tempo = Math.max(20, Math.min(320, v)); synchroTempo(); }
     else lecture[r] = t.type === 'checkbox' ? t.checked : (r === 'sens' ? t.value : Number(t.value));
+    if (t.type === 'checkbox') document.querySelectorAll(`[data-son-r="${r}"]`).forEach((e) => { e.checked = lecture[r]; });   // « En boucle » partout pareil
     ecrire('gf.lecture', lecture);
     if (['tpa', 'mesure', 'jeu'].includes(r) && etat.vue === 'harmo') vueHarmo();   // durees et unite du tempo a jour
   }
