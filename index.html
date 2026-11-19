@@ -373,7 +373,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 19/11/2026 10:13</p>
+  <p class="discret" id="version">Version de la page : 19/11/2026 10:34</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -2550,7 +2550,15 @@ const famArp = (acc) => (acc === 'ukulele' ? 'uke' : 'g6');
 const ivsCle = (cle) => cle.split(' ').map((i) => INTERVALLES.indexOf(i));
 const nomCle = (cle) => { const t = M.parNotes.get(cle); return t ? t.item : G.nommerSelonBase(ivsCle(cle)).nom; };
 const telCle = (cle) => { const t = M.parNotes.get(cle); return t ? t.tel : ''; };
-const nomCordeArp = (c, A) => NOM_CORDE[A.cordes.length - c + 1];   // corde interne (1 = la plus grave) -> « 6e corde »
+const noteCorde = (c, A) => A.cordes[c - 1].toUpperCase();          // corde interne -> note a vide (« A », « D »…)
+const numCorde = (c, A) => NOM_CORDE[A.cordes.length - c + 1].replace(' corde', '');   // -> « 6e », « 1re »
+const nomCordeArp = (c, A) => `corde de ${noteCorde(c, A)} (${numCorde(c, A)})`;   // corde interne (1 = la plus grave) -> « corde de D (5e) »
+// code couleur des accords (onglet Accords) : la grille prend la couleur de la corde la plus grave jouee
+const couleurForme = (cells, A) => (cells.length ? COUL_CORDE_TONIQUE[A.cordes.length - Math.min(...cells.map((x) => x[0])) + 1] : null) || GRILLE;
+function legendeCordes(listes, A) {               // « Corde la plus grave : ▬ A (6e) ▬ D (5e) », pour les couleurs presentes
+  const cs = [...new Set(listes.filter((l) => l.length).map((l) => Math.min(...l.map((x) => x[0]))))].sort((a, b) => a - b);
+  return cs.length ? `<p class="legende">Corde la plus grave : ${cs.map((c) => `<span class="pastille-corde" style="background:${couleurForme([[c, 0]], A)}"></span>${esc(noteCorde(c, A))} (${esc(numCorde(c, A))})`).join(' ')}</p>` : '';
+}
 const repereArp = (A) => `tonique de la ${nomCordeArp(1, A)} au repère ▸`;
 function arpEtat() {
   if (!etat.arp) etat.arp = Object.assign({ cle: 'F 3M 5', ton: '', sansBasse: false, parLigne: '6' }, lire('gf.arp', {}), { sel: [], der: [], etape: null });
@@ -2609,11 +2617,11 @@ function svgArpege(acc, cle, ton, sel, opts = {}) {
   const kmin = opts.lignes ? opts.lignes[0] : (gen ? 1 : 0), kmax = opts.lignes ? opts.lignes[1] : nb;
   const haut = kmin === 0 ? 0 : ys + (kmin - 1) * ey - (gen && kmin === 1 ? r * 0.6 : 0), fond = ys + kmax * ey + r * 0.5;
   let s = '';
-  for (let i = 0; i < n; i++) s += `<line x1="${mg + i * ex}" y1="${Math.max(ys, haut)}" x2="${mg + i * ex}" y2="${Math.min(bas, fond)}" stroke="${GRILLE}" stroke-width="2"/>`;
+  for (let i = 0; i < n; i++) s += `<line x1="${mg + i * ex}" y1="${Math.max(ys, haut)}" x2="${mg + i * ex}" y2="${Math.min(bas, fond)}" stroke="${opts.grille || GRILLE}" stroke-width="2"/>`;
   if (!gen && kmin === 0) s += `<line x1="${mg}" y1="${ys}" x2="${mg + ex * (n - 1)}" y2="${ys}" stroke="${SILLET}" stroke-width="${Math.max(3, r * 0.3)}"/>`;
   for (let k = Math.max(gen ? 0 : 1, kmin - 1); k <= kmax; k++) {
     const y = ys + k * ey;
-    if (k > 0 || gen) s += `<line x1="${mg}" y1="${y}" x2="${mg + ex * (n - 1)}" y2="${y}" stroke="${GRILLE}" stroke-width="1.5"/>`;
+    if (k > 0 || gen) s += `<line x1="${mg}" y1="${y}" x2="${mg + ex * (n - 1)}" y2="${y}" stroke="${opts.grille || GRILLE}" stroke-width="1.5"/>`;
     if (k < 1 || k < kmin) continue;
     if (!gen && [3, 5, 7, 9, 12, 15, 17, 19].includes(k))
       s += `<text x="${mg - r * 1.3}" y="${y - ey / 2}" font-size="${r * 0.8}" font-weight="${k === 12 ? 700 : 400}" fill="#555" text-anchor="end" dominant-baseline="central">${k}</text>`;
@@ -2660,7 +2668,7 @@ function texteBasse(x, s) {
   if (ACCORDAGES[etat.acc].renversements) return 'Ukulélé : pas de basse, la forme vaut pour l’accord et tous ses renversements.';
   if (x.basse === null) {
     const autres = ivs.slice(1).map((d) => nomAvecTon(G.cleDe(ivs.map((i) => i - d)), pcRacine === null ? null : pcRacine + d));
-    return (x.graves ? 'Considérée sans basse' : `Sans basse (${nomCordeArp(1, A).replace(' corde', '')} et ${nomCordeArp(2, A).replace(' corde', ' cordes')}, les plus graves, non utilisées)`) + ` : valable pour ${nomAvecTon(s.cle, pcRacine)}` +
+    return (x.graves ? 'Considérée sans basse' : `Sans basse (cordes de ${noteCorde(1, A)} et de ${noteCorde(2, A)}, les plus graves, non utilisées)`) + ` : valable pour ${nomAvecTon(s.cle, pcRacine)}` +
       (autres.length ? ` et ses renversements (${autres.join(', ')}).` : '.');
   }
   const lab = INTERVALLES[x.basse];
@@ -2816,11 +2824,11 @@ function blocDeroule(s, x, A) {                   // sous les boutons de la form
       <button type="button" class="btn" data-arpa="stop">■ Arrêter</button></div>
     ${pied}</section>`;
 }
-function bandeEtapes(etapes, lignes, cle, ton, A) {   // une petite carte par fragment (forme agrandie, planche)
+function bandeEtapes(etapes, lignes, cle, ton, A, grille) {   // une petite carte par fragment (forme agrandie, planche)
   const T = ton ? G.classe(ton) : A.toniqueType;
-  return etapes.map((e, j) => ({ e, j, svg: svgArpege(etat.acc, cle, ton, new Set(e.sel), { inactif: true, lignes }), txt: etiquetteEtape(enCases(e.sel), T, A) }));
+  return etapes.map((e, j) => ({ e, j, svg: svgArpege(etat.acc, cle, ton, new Set(e.sel), { inactif: true, lignes, grille }), txt: etiquetteEtape(enCases(e.sel), T, A) }));
 }
-const bandeDeroule = (x, cle, ton, A) => bandeEtapes(derouleVersSel(x.e.f.deroule, x.cases), x.lignes, cle, ton, A);
+const bandeDeroule = (x, cle, ton, A) => bandeEtapes(derouleVersSel(x.e.f.deroule, x.cases), x.lignes, cle, ton, A, couleurForme(x.cases, A));
 const htmlBande = (bande) => `<div class="bande-deroule">${bande.map((b) => `<figure data-jd="${b.j}"><figcaption><b>${b.j + 1}</b> · ${esc(b.txt)}<br>${esc(nomDuree(b.e.duree))}</figcaption>${b.svg}</figure>`).join('')}</div>`;
 async function plancheDeroule(i) {
   const s = arpEtat(), A = ACCORDAGES[etat.acc], x = etat.arpListe[i], nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null);
@@ -2841,6 +2849,7 @@ async function plancheDeroule(i) {
 //   croches ; toute la partie pompe tient dans 4 cases (une seule position de la main).
 // Toutes les cases tiennent dans « Ecart maximal » cases ; un fragment tient dans 4 cases (cordes a vide non comptees).
 // Version minimale sobre : une note grave (hors basse) n'est jamais en double dans la forme ; la note aigue peut doubler.
+// Seules les formes pas encore enregistrees sont montrees (R.vis), quel que soit leur deroule (Fred, 19/11 a 10:27).
 // Dans le calcul, les cordes sont celles de la carte (1 = la plus grave, comme partout en interne).
 const RECH_DEFAUT = { notes: 2, ecart: 5, cordes: [1, 2] }, RECH_PAGE = 12, RECH_MAX = 50000;
 const cordesRech = (o, n) => new Set((o.cordes || RECH_DEFAUT.cordes).map(Number).filter((x) => x >= 1 && x <= n));
@@ -2852,7 +2861,7 @@ function rechEtat() {
   const s = arpEtat(), cle = `${etat.acc}|${s.cle}|${s.ton}`;
   if (!etat.arpRech) etat.arpRech = { opts: Object.assign({}, RECH_DEFAUT, lire('gf.arp.rech', {})), res: null, cle: '' };
   const R = etat.arpRech;
-  if (R.cle !== cle) Object.assign(R, { cle, res: null, vus: RECH_PAGE, msg: '' });
+  if (R.cle !== cle) Object.assign(R, { cle, res: null, vis: [], vus: RECH_PAGE, msg: '' });
   return R;
 }
 function sousEnsembles(pool, max) {               // cases sur des cordes differentes, de 1 a max cases
@@ -2972,36 +2981,35 @@ function lancerRecherche() {
   const b = document.getElementById('rech-bilan');
   if (b) b.scrollIntoView({ block: 'nearest' });
 }
-function etatProposition(p) {                     // '' (nouvelle), 'forme' (forme deja enregistree, autre deroule) ou 'meme'
-  const a = analyserForme(p.sel, false);
-  if (!a.deja) return '';
-  return a.deja.f.cle !== a.cle || JSON.stringify(a.deja.f.deroule || []) === JSON.stringify(selVersDeroule(p.der, p.sel)) ? 'meme' : 'forme';
-}
 function carteProposition(p, i, s) {
-  const st = etatProposition(p);
-  if (!p.svg) p.svg = svgArpege(etat.acc, s.cle, s.ton, new Set(p.sel), { inactif: true, lignes: p.lignes, etapes: numerosEtapes(p.der) });
-  return `<figure class="mini-arp proposition"><figcaption><b>Proposition ${i + 1}</b><br><small>${p.version === 'pompe' ? 'pompe' : 'minimale'} · ${p.basse ? 'avec basse' : 'sans basse'}${esc(p.lieu)}</small><br><small class="a-deroule">${esc(p.txt)}</small>${st ? `<br><small class="deja">★ ${st === 'meme' ? 'déjà enregistrée' : 'forme déjà enregistrée, autre déroulé'}</small>` : ''}</figcaption>
+  const A = ACCORDAGES[etat.acc];
+  if (!p.svg) p.svg = svgArpege(etat.acc, s.cle, s.ton, new Set(p.sel), { inactif: true, lignes: p.lignes, etapes: numerosEtapes(p.der), grille: couleurForme(p.frags.flat(), A) });
+  return `<figure class="mini-arp proposition"><figcaption><b>Proposition ${i + 1}</b><br><small>${p.version === 'pompe' ? 'pompe' : 'minimale'} · ${p.basse ? 'avec basse' : 'sans basse'}${esc(p.lieu)}</small><br><small class="a-deroule">${esc(p.txt)}</small></figcaption>
     <button type="button" class="ouvrir-arp" data-arpr="agrandir" data-i="${i}" aria-label="Agrandir la proposition ${i + 1}">${p.svg}</button>
     <div class="boutons-mini">${boutonJouer('p' + i, '▶ Écouter', `data-arpr="ecouter" data-i="${i}"`)}<button type="button" class="btn petit" data-arpr="modifier" data-i="${i}">Modifier</button>
-      <button type="button" class="btn petit" data-arpr="garder" data-i="${i}" ${st === 'meme' ? 'disabled' : ''}>${st === 'meme' ? 'Gardée' : st ? 'Garder ce déroulé' : 'Garder'}</button></div></figure>`;
+      <button type="button" class="btn petit" data-arpr="garder" data-i="${i}">Garder</button></div></figure>`;
 }
 function blocPropositions(s, A) {
   const R = rechEtat(), o = R.opts, n = A.cordes.length, coch = cordesRech(o, n), rc = regleCordes(o, A);
   const choix = (id, val, liste) => `<select id="${id}">${liste.map(([v, l]) => `<option value="${v}"${String(v) === String(val) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
-  const cases = [...Array(n).keys()].map((i) => n - i).map((u) => `<label><input type="checkbox" data-rechcorde="${u}" ${coch.has(u) ? 'checked' : ''} aria-label="${esc(NOM_CORDE[u])}"> ${u}</label>`).join('');
+  const cases = [...Array(n).keys()].map((i) => n - i).map((u) => `<label><input type="checkbox" data-rechcorde="${u}" ${coch.has(u) ? 'checked' : ''} aria-label="${esc(nomCordeArp(n - u + 1, A))}"> ${esc(noteCorde(n - u + 1, A))}</label>`).join('');
   const resume = !rc.assez ? 'coche au moins 2 cordes.'
     : `chaque fragment a une note sur la ${nomCordeArp(rc.haut, A)} ; ${rc.basse ? `basse sur la ${nomCordeArp(rc.bas, A)} : le 1er fragment commence par la fondamentale` : `sans basse : le 1er fragment peut commencer par n’importe quelle note`} ; ${rc.pompe ? 'versions minimale et pompe' : 'version minimale (la pompe demande au moins 3 cordes)'}.`;
   let corps = '';
+  R.vis = [];
   if (R.res) {
-    const nm = R.res.filter((p) => p.version === 'mini').length, np = R.res.length - nm, pl = (k, m) => `${k} ${m}${k > 1 ? 's' : ''}`;
-    corps = R.res.length ? `<p class="discret" id="rech-bilan">${pl(R.res.length, 'proposition')} (${nm} minimale${nm > 1 ? 's' : ''}, ${np} pompe), les plus resserrées d’abord${R.trop ? ' (recherche arrêtée à ' + RECH_MAX + ' : resserre les réglages)' : ''}. Sur chaque case, le numéro du ou des fragments où elle sert ; touche une proposition pour l’agrandir.</p>
+    R.vis = R.res.filter((p) => !analyserForme(p.sel, false).deja);   // seulement les formes pas encore enregistrees (deroule ou pas)
+    const V = R.vis, caches = R.res.length - V.length, nm = V.filter((p) => p.version === 'mini').length, np = V.length - nm, pl = (k, m) => `${k} ${m}${k > 1 ? 's' : ''}`;
+    const dej = caches ? ` ${pl(caches, 'forme')} déjà enregistrée${caches > 1 ? 's' : ''}, non montrée${caches > 1 ? 's' : ''}.` : '';
+    corps = V.length ? `<p class="discret" id="rech-bilan">${pl(V.length, 'proposition')} (${nm} minimale${nm > 1 ? 's' : ''}, ${np} pompe), les plus resserrées d’abord${R.trop ? ' (recherche arrêtée à ' + RECH_MAX + ' : resserre les réglages)' : ''}.${dej} Sur chaque case, le numéro du ou des fragments où elle sert ; touche une proposition pour l’agrandir.</p>
+      ${legendeCordes(V.slice(0, R.vus).map((p) => p.frags.flat()), A)}
       ${barreBoucle()}
-      <div class="grille-arp">${R.res.slice(0, R.vus).map((p, i) => carteProposition(p, i, s)).join('')}</div>
-      ${R.res.length > R.vus ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpr="plus">Voir ${Math.min(RECH_PAGE, R.res.length - R.vus)} de plus (${R.res.length - R.vus} restantes)</button></div>` : ''}`
-      : '<p class="discret" id="rech-bilan">Aucune forme ne suit ta règle avec ces réglages : essaie d’autres cordes, un écart plus grand ou plus de notes par fragment.</p>';
+      <div class="grille-arp">${V.slice(0, R.vus).map((p, i) => carteProposition(p, i, s)).join('')}</div>
+      ${V.length > R.vus ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpr="plus">Voir ${Math.min(RECH_PAGE, V.length - R.vus)} de plus (${V.length - R.vus} restantes)</button></div>` : ''}`
+      : `<p class="discret" id="rech-bilan">Aucune nouvelle forme ne suit ta règle avec ces réglages : essaie d’autres cordes, un écart plus grand ou plus de notes par fragment.${dej}</p>`;
   }
   return `<section class="bloc propositions" id="propositions"><h2 class="titre-bloc">Formes proposées (ta règle)</h2>
-    <p class="discret">Coche les cordes à utiliser : chaque proposition utilise exactement ces cordes (1 = la plus aiguë, à droite comme sur la carte), et le reste en découle. La plus aiguë des cordes cochées a une note à chaque fragment. ${A.renversements ? 'Au ukulélé, pas de basse : le 1er fragment peut commencer par n’importe quelle note.' : `Si la plus grave des cordes cochées est la ${nomCordeArp(1, A)} ou la ${nomCordeArp(2, A)}, la forme a une basse et le 1er fragment commence par la fondamentale sur cette corde ; sinon, il peut commencer par une autre note.`} Minimale : le moins de fragments possible. Pompe (3 cordes ou plus) : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
+    <p class="discret">Coche les cordes à utiliser (de la plus grave, à gauche, à la plus aiguë, à droite, comme sur la carte) : chaque proposition utilise exactement ces cordes, et le reste en découle. Les formes déjà enregistrées ne sont pas proposées. Couleur de la grille : celle de la corde la plus grave, comme pour les accords. La plus aiguë des cordes cochées a une note à chaque fragment. ${A.renversements ? 'Au ukulélé, pas de basse : le 1er fragment peut commencer par n’importe quelle note.' : `Si la plus grave des cordes cochées est la ${nomCordeArp(1, A)} ou la ${nomCordeArp(2, A)}, la forme a une basse et le 1er fragment commence par la fondamentale sur cette corde ; sinon, il peut commencer par une autre note.`} Minimale : le moins de fragments possible. Pompe (3 cordes ou plus) : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
     <div class="reglages-rech">
       <span class="cordes-rech"><span>Cordes</span><span class="cases-cordes">${cases}</span></span>
       <p class="discret" id="rech-cordes">Avec ces cordes : ${esc(resume)}</p>
@@ -3012,7 +3020,7 @@ function blocPropositions(s, A) {
     ${corps}</section>`;
 }
 function modifierProposition(i) {                 // la proposition va dans l'editeur (carte et deroule)
-  const s = arpEtat(), p = rechEtat().res[i];
+  const s = arpEtat(), p = rechEtat().vis[i];
   if (!p) return;
   Object.assign(s, { sel: p.sel.slice(), der: copieEtapes(p.der), etape: null, sansBasse: false });
   etat.arpMsg = `Proposition ${i + 1} dans l’éditeur : modifie-la si tu veux, puis « Enregistrer la forme ».`;
@@ -3021,20 +3029,20 @@ function modifierProposition(i) {                 // la proposition va dans l'ed
   if (d) d.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 async function garderProposition(i) {
-  const p = rechEtat().res[i];
+  const p = rechEtat().vis[i];
   if (p) await enregistrerForme({ sel: p.sel, der: copieEtapes(p.der), nom: `Proposition ${i + 1}` });
 }
 function ouvrirProposition(i) {
-  const s = arpEtat(), A = ACCORDAGES[etat.acc], p = rechEtat().res && rechEtat().res[i];
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], p = (rechEtat().vis || [])[i];
   if (!p) return;
+  const coul = couleurForme(p.frags.flat(), A);
   const nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null), titre = `${nom} · proposition ${i + 1}`;
   const sous = `${A.nom} · ${p.version === 'pompe' ? 'pompe' : 'minimale'} · ${p.basse ? 'avec basse' : 'sans basse'}${p.lieu} · ${p.der.length} fragments`;
-  const grand = svgArpege(etat.acc, s.cle, s.ton, new Set(p.sel), { inactif: true, lignes: p.lignes, etapes: numerosEtapes(p.der) });
-  const st = etatProposition(p);
-  ouvrirDialogue(titre, sous, grand + htmlBande(bandeEtapes(p.der, p.lignes, s.cle, s.ton, A)) + `<p class="case-boucle">${caseBoucle()}</p>`, [
+  const grand = svgArpege(etat.acc, s.cle, s.ton, new Set(p.sel), { inactif: true, lignes: p.lignes, etapes: numerosEtapes(p.der), grille: coul });
+  ouvrirDialogue(titre, sous, grand + htmlBande(bandeEtapes(p.der, p.lignes, s.cle, s.ton, A, coul)) + `<p class="case-boucle">${caseBoucle()}</p>`, [
     ['▶ Écouter', () => basculerDeroule(p.der, '#dlg-corps .bande-deroule', 'dlg'), false],
     ['Modifier', () => { dlg().close(); modifierProposition(i); }, false],
-    ...(st === 'meme' ? [] : [[st ? 'Garder ce déroulé' : 'Garder', () => { dlg().close(); garderProposition(i); }, false]]),
+    ['Garder', () => { dlg().close(); garderProposition(i); }, false],
     boutonPng(titre, sous, grand, nomPng('proposition', nom, s.ton ? '' : 'generique', etat.acc, 'p' + (i + 1))),
     ['Fermer', () => dlg().close(), true]]);
   boutonDlgJoueur('▶ Écouter', 'dlg');
@@ -3081,7 +3089,7 @@ function vueArpeges() {
       `<button type="button" class="lien" data-arpton="${esc(t)}">${esc(t + ' ' + nomCle(s.cle))}<small>${nb} forme${nb > 1 ? 's' : ''} à cordes à vide</small></button>`).join('')}</div>` : ''}
     ${liste.length ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpa="planche">Télécharger la planche (PNG)</button>
       <label>Formes par ligne <select id="arp-parligne">${['tous', '2', '3', '4', '5', '6', '8', '10'].map((v) => opt(v, v, String(s.parLigne) === v)).join('')}</select></label></div>` : ''}
-    ${liste.length ? '<p class="discret">Touche une forme pour l’agrandir.</p>' : ''}
+    ${liste.length ? '<p class="discret">Touche une forme pour l’agrandir.</p>' + legendeCordes(liste.map((e) => e.cases), A) : ''}
     ${liste.some((e) => (e.e.f.deroule || []).length) ? barreBoucle() : ''}
     <div class="grille-arp">${liste.map((e, i) => { const nd = (e.e.f.deroule || []).length; return `<figure class="mini-arp"><figcaption><b>Forme ${i + 1}</b><br><small>${esc(e.tags)}</small>${nd ? `<br><small class="a-deroule">déroulé : ${nd} fragment${nd > 1 ? 's' : ''}</small>` : ''}</figcaption>
       <button type="button" class="ouvrir-arp" data-arpa="agrandir" data-i="${i}" aria-label="Agrandir la forme ${i + 1}">${e.svg}</button><div class="boutons-mini">${nd ? boutonJouer('f' + e.e.f.id, '▶ Déroulé', `data-arpa="ecouterd" data-i="${i}" aria-label="Écouter le déroulé de la forme ${i + 1}"`) : ''}<button type="button" class="btn petit" data-arpa="reprendre" data-i="${i}">Reprendre</button>
@@ -3109,7 +3117,7 @@ function formesAffichees() {                      // les formes de l'accord en c
   return formesVisibles(s.cle, s.ton).map((x) => {
     const ks = x.cases.map((c) => c[1]), vide = !x.gen && !x.e.generique;
     const lo = vide ? 0 : Math.max(x.gen ? 1 : 0, Math.min(...ks) - 1), hi = Math.min(G.FRETTES_TYPE + (x.gen ? 1 : 0), Math.max(...ks) + 1);
-    return Object.assign(x, { lignes: [lo, hi], svg: svgArpege(etat.acc, s.cle, s.ton, new Set(x.cases.map(([c, k]) => `${c},${k}`)), { inactif: true, lignes: [lo, hi] }) });
+    return Object.assign(x, { lignes: [lo, hi], svg: svgArpege(etat.acc, s.cle, s.ton, new Set(x.cases.map(([c, k]) => `${c},${k}`)), { inactif: true, lignes: [lo, hi], grille: couleurForme(x.cases, ACCORDAGES[etat.acc]) }) });
   });
 }
 function blocRenversementsArp(s) {                // les renversements, avec leur nombre de formes : un toucher y mene
@@ -3316,7 +3324,7 @@ document.addEventListener('click', (ev) => {
     else if (a === 'stop') return arreterSon();
     vueArpeges();
   } else if (t.dataset.arpr) {                      // les formes proposees
-    const a = t.dataset.arpr, i = Number(t.dataset.i), R = rechEtat(), p = R.res && R.res[i];
+    const a = t.dataset.arpr, i = Number(t.dataset.i), R = rechEtat(), p = (R.vis || [])[i];
     if (a === 'chercher') { R.msg = 'Recherche…'; const m = document.getElementById('rech-message'); if (m) m.textContent = R.msg; setTimeout(lancerRecherche, 20); }
     else if (a === 'plus') { R.vus += RECH_PAGE; vueArpeges(); }
     else if (a === 'ecouter' && p) basculerDeroule(p.der, null, 'p' + i);
