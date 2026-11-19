@@ -268,6 +268,10 @@ details.pli[open] > summary::after { content: "−"; }
 .case-boucle { margin: .6rem 0 0; color: #1c2140; }
 .reglages-rech { display: flex; flex-wrap: wrap; gap: .5rem .9rem; align-items: center; margin: .5rem 0; }
 .reglages-rech label { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+.cordes-rech { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .7rem; flex-basis: 100%; }
+.cordes-rech label { gap: .2rem; min-height: 2.2rem; }
+.cordes-rech input { width: 1.25rem; height: 1.25rem; }
+.cordes-rech small { color: var(--discret, #666); }
 .reglages-rech select { font: inherit; border: 1.5px solid var(--ligne); border-radius: .45rem; background: var(--surface); color: var(--encre); padding: .2rem .3rem; min-height: 2.2rem; max-width: 100%; }
 .bande-deroule { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); gap: .5rem; margin-top: .7rem; }
 .bande-deroule figure { margin: 0; border-radius: .4rem; padding: .15rem; }
@@ -367,7 +371,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 19/11/2026 09:29</p>
+  <p class="discret" id="version">Version de la page : 19/11/2026 09:53</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -2833,7 +2837,9 @@ async function plancheDeroule(i) {
 // Toutes les cases tiennent dans « Ecart maximal » cases ; un fragment tient dans 4 cases (cordes a vide non comptees).
 // Version minimale sobre : une note grave (hors basse) n'est jamais en double dans la forme ; la note aigue peut doubler.
 // Les cordes sont ici celles de la carte (1 = la plus grave, comme partout en interne).
-const RECH_DEFAUT = { versions: 'deux', basse: 'deux', notes: 2, ecart: 5 }, RECH_PAGE = 12, RECH_MAX = 50000;
+// Cordes a utiliser (19/11/2026) : numeros usuels (1 = la plus aigue), 1 et 2 par defaut ; la 1re est toujours prise (regle).
+const RECH_DEFAUT = { versions: 'deux', basse: 'deux', notes: 2, ecart: 5, cordes: [1, 2] }, RECH_PAGE = 12, RECH_MAX = 50000;
+const cordesRech = (o, n) => { const u = new Set((o.cordes || RECH_DEFAUT.cordes).map(Number).filter((x) => x >= 1 && x <= n)); u.add(1); return u; };
 function rechEtat() {
   const s = arpEtat(), cle = `${etat.acc}|${s.cle}|${s.ton}`;
   if (!etat.arpRech) etat.arpRech = { opts: Object.assign({}, RECH_DEFAUT, lire('gf.arp.rech', {})), res: null, cle: '' };
@@ -2858,6 +2864,7 @@ function chercherPropositions(o) {                // -> [{ version, basse, frags
   const bit = ([c, k]) => 1 << mod12(A.midi[c - 1] + k - T), masque = (f) => f.reduce((m, x) => m | bit(x), 0);
   const nbBits = (m) => { let b = 0; for (; m; m &= m - 1) b++; return b; };
   const etendue = (f) => { const ks = f.map((x) => x[1]).filter((k) => k > 0); return ks.length ? Math.max(...ks) - Math.min(...ks) : 0; };
+  const permises = cordesRech(o, n), ok = (c) => permises.has(n - c + 1);   // corde interne (1 = la plus grave) cochee ?
   const nbMini = Math.max(2, Math.ceil(ivs.length / notes)), res = new Map();
   const sobre = (frags, basse) => {               // version minimale : pas de note grave en double (la note aigue peut doubler)
     const vues = new Map();
@@ -2876,10 +2883,10 @@ function chercherPropositions(o) {                // -> [{ version, basse, frags
     res.set(cle, { version, basse, frags, durees: frags.map((f, j) => (version === 'pompe' && j ? 0.5 : 1)), lo, hi,
       score: (hi - lo) * 2 + frags.reduce((t, f) => t + etendue(f), 0) + cases * 0.5 });
   };
-  const modes = uke ? [false] : o.basse === 'avec' ? [true] : o.basse === 'sans' ? [false] : [true, false];
+  const modes = uke || !(ok(1) || ok(2)) ? [false] : o.basse === 'avec' ? [true] : o.basse === 'sans' ? [false] : [true, false];
   for (let lo = kmin; lo <= kmax - ecart; lo++) {
     const hi = lo + ecart, par = [];
-    for (let c = 1; c <= n; c++) { par[c] = []; for (let k = lo; k <= hi; k++) if (plein & bit([c, k])) par[c].push(k); }
+    for (let c = 1; c <= n; c++) { par[c] = []; if (ok(c)) for (let k = lo; k <= hi; k++) if (plein & bit([c, k])) par[c].push(k); }
     const tops = par[n];
     if (!tops.length) continue;
     for (const avecBasse of modes) {
@@ -2979,22 +2986,25 @@ function carteProposition(p, i, s) {
       <button type="button" class="btn petit" data-arpr="garder" data-i="${i}" ${st === 'meme' ? 'disabled' : ''}>${st === 'meme' ? 'Gardée' : st ? 'Garder ce déroulé' : 'Garder'}</button></div></figure>`;
 }
 function blocPropositions(s, A) {
-  const R = rechEtat(), o = R.opts, uke = !!A.renversements;
+  const R = rechEtat(), o = R.opts, uke = !!A.renversements, n = A.cordes.length, coch = cordesRech(o, n);
+  const basseOk = !uke && (coch.has(n) || coch.has(n - 1)), pompeOk = coch.size >= 3;
+  const cases = [...Array(n).keys()].map((i) => i + 1).map((u) => `<label class="${u === 1 ? 'grise' : ''}"><input type="checkbox" data-rechcorde="${u}" ${coch.has(u) ? 'checked' : ''} ${u === 1 ? 'disabled' : ''} aria-label="${esc(NOM_CORDE[u])}"> ${u}</label>`).join('');
   const choix = (id, val, liste, dis) => `<select id="${id}"${dis ? ' disabled' : ''}>${liste.map(([v, l]) => `<option value="${v}"${String(v) === String(val) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
   let corps = '';
   if (R.res) {
     const nm = R.res.filter((p) => p.version === 'mini').length, np = R.res.length - nm, pl = (k, m) => `${k} ${m}${k > 1 ? 's' : ''}`;
-    corps = R.res.length ? `<p class="discret" id="rech-bilan">${pl(R.res.length, 'proposition')} (${nm} minimale${nm > 1 ? 's' : ''}, ${np} pompe), les plus resserrées d’abord${R.trop ? ' (recherche arrêtée à ' + RECH_MAX + ' : resserre les réglages)' : ''}. Sur chaque case, le numéro du ou des fragments où elle sert ; touche une proposition pour l’agrandir.</p>
+    corps = R.res.length ? `<p class="discret" id="rech-bilan">${pl(R.res.length, 'proposition')} (${nm} minimale${nm > 1 ? 's' : ''}, ${np} pompe), les plus resserrées d’abord${R.trop ? ' (recherche arrêtée à ' + RECH_MAX + ' : resserre les réglages)' : ''}.${o.versions !== 'mini' && !pompeOk ? ' La pompe demande au moins 3 cordes cochées.' : ''} Sur chaque case, le numéro du ou des fragments où elle sert ; touche une proposition pour l’agrandir.</p>
       ${barreBoucle()}
       <div class="grille-arp">${R.res.slice(0, R.vus).map((p, i) => carteProposition(p, i, s)).join('')}</div>
       ${R.res.length > R.vus ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpr="plus">Voir ${Math.min(RECH_PAGE, R.res.length - R.vus)} de plus (${R.res.length - R.vus} restantes)</button></div>` : ''}`
-      : '<p class="discret" id="rech-bilan">Aucune forme ne suit ta règle avec ces réglages : essaie un écart plus grand ou plus de notes par fragment.</p>';
+      : `<p class="discret" id="rech-bilan">Aucune forme ne suit ta règle avec ces réglages : essaie d’autres cordes, un écart plus grand ou plus de notes par fragment.${o.versions === 'pompe' && !pompeOk ? ' La pompe demande au moins 3 cordes cochées.' : ''}</p>`;
   }
   return `<section class="bloc propositions" id="propositions"><h2 class="titre-bloc">Formes proposées (ta règle)</h2>
-    <p class="discret">Chaque fragment a une note sur la corde aiguë. Avec basse (${nomCordeArp(1, A)} ou ${nomCordeArp(2, A)}), le 1er fragment commence par la fondamentale à la basse ; sans basse, ces deux cordes restent libres et le 1er fragment peut commencer par une autre note. Minimale : le moins de fragments possible. Pompe : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
+    <p class="discret">Seules les cordes cochées servent (1 = la plus aiguë, toujours prise : chaque fragment a une note sur la corde aiguë). Avec basse (${nomCordeArp(1, A)} ou ${nomCordeArp(2, A)}, à cocher), le 1er fragment commence par la fondamentale à la basse ; sans basse, ces deux cordes restent libres et le 1er fragment peut commencer par une autre note. Minimale : le moins de fragments possible. Pompe : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
     <div class="reglages-rech">
+      <span class="cordes-rech">Cordes ${cases}<small>(1 = la plus aiguë)</small></span>
       <label>Versions ${choix('rech-versions', o.versions, [['deux', 'minimale et pompe'], ['mini', 'minimale'], ['pompe', 'pompe']])}</label>
-      <label class="${uke ? 'grise' : ''}">Basse ${choix('rech-basse', uke ? 'sans' : o.basse, [['deux', 'avec et sans'], ['avec', 'avec basse'], ['sans', 'sans basse']], uke)}</label>
+      <label class="${basseOk ? '' : 'grise'}">Basse ${choix('rech-basse', basseOk ? o.basse : 'sans', [['deux', 'avec et sans'], ['avec', 'avec basse'], ['sans', 'sans basse']], !basseOk)}</label>
       <label>Notes par fragment ${choix('rech-notes', o.notes, [[2, '2'], [3, 'jusqu’à 3'], [4, 'jusqu’à 4']])}</label>
       <label>Écart maximal ${choix('rech-ecart', o.ecart, [3, 4, 5, 6, 7].map((v) => [v, v + ' cases']))}</label>
       <button type="button" class="btn plein" data-arpr="chercher">${R.res ? 'Chercher à nouveau' : 'Chercher'}</button></div>
@@ -3335,6 +3345,13 @@ document.addEventListener('change', (ev) => {
   else if (t.id === 'arp-sansbasse') { s.sansBasse = t.checked; arpGarder(); vueArpeges(); }
   else if (t.id === 'arp-parligne') { s.parLigne = t.value; arpGarder(); }
   else if (t.dataset && t.dataset.arpd === 'duree' && s.der[Number(t.dataset.j)]) { s.der[Number(t.dataset.j)].duree = Number(t.value); vueArpeges(); }
+  else if (t.dataset && t.dataset.rechcorde) {      // cordes a utiliser pour la recherche
+    const R = rechEtat(), u = Number(t.dataset.rechcorde), c = new Set((R.opts.cordes || RECH_DEFAUT.cordes).map(Number));
+    if (t.checked) c.add(u); else c.delete(u);
+    R.opts.cordes = [...c].sort((a, b) => a - b);
+    ecrire('gf.arp.rech', R.opts);
+    if (R.res) lancerRecherche(); else vueArpeges();
+  }
   else if (/^rech-/.test(t.id || '')) {
     const R = rechEtat(), k = t.id.slice(5);
     R.opts[k] = ['notes', 'ecart'].includes(k) ? Number(t.value) : t.value;
