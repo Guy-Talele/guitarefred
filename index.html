@@ -382,7 +382,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 19/11/2026 15:32</p>
+  <p class="discret" id="version">Version de la page : 19/11/2026 16:11</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -1063,7 +1063,8 @@ function cordeTonique(forme) {
   const i = forme.findIndex((x) => x !== 'x');
   return i < 0 ? null : forme.length - i;               // numero usuel : 6 = la plus grave d'un instrument a 6 cordes
 }
-// favoris ranges par corde la plus grave jouee (19/11, demande de Fred) : 6e corde d'abord, puis 5e… ; a egalite, l'ordre d'avant
+// accords ranges par corde la plus grave jouee (19/11, demande de Fred) : 6e corde d'abord, puis 5e… ; a egalite, l'ordre
+// d'avant. Pour les favoris (15:32), puis pour toutes les positions, « Favoris seulement » decoche (16:07).
 const cmpCorde = (a, b) => (cordeTonique(b) || 0) - (cordeTonique(a) || 0);
 function texteCorde(forme, acc, racinePc) {
   const ct = cordeTonique(forme), i = forme.findIndex((x) => x !== 'x');
@@ -1266,12 +1267,12 @@ function listePositions() {
   if (!a.racine) {
     if (etat.favSeul) return { liste: [...generiquesFav(etat.acc, r.notes).values()].sort((x, y) => cmpCorde(x.forme, y.forme) || cmpForme(x.forme, y.forme)), total: null };
     const g = M.generiques(r, etat.acc, { sansEtouffee: f.sansEtouffee, sansBasse: f.sansBasse });
-    return { liste: g, total: null };
+    return { liste: g.slice().sort((x, y) => cmpCorde(x.forme, y.forme)), total: null };
   }
   const rp = G.classe(a.racine);
   if (etat.favSeul) return { liste: favDe(etat.acc, rp, r.notes).map((s) => ({ forme: s.split(' '), racine: rp })).sort((x, y) => cmpCorde(x.forme, y.forme)), total: null };
   const p = M.positions(r, a.racine, etat.acc, f);
-  return { liste: p.formes.map((fo) => ({ forme: fo, racine: rp })), total: p.total };
+  return { liste: p.formes.map((fo) => ({ forme: fo, racine: rp })).sort((x, y) => cmpCorde(x.forme, y.forme)), total: p.total };
 }
 function majGrisage() {
   const a = etat.res;
