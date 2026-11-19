@@ -269,6 +269,8 @@ details.pli[open] > summary::after { content: "−"; }
 .reglages-rech { display: flex; flex-wrap: wrap; gap: .5rem .9rem; align-items: center; margin: .5rem 0; }
 .reglages-rech label { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
 .cordes-rech { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .7rem; flex-basis: 100%; }
+#rech-cordes { flex-basis: 100%; margin: 0; }
+.cases-cordes { display: flex; flex-wrap: nowrap; gap: .5rem; }   /* de 6 a 1, toujours sur une ligne : la 1 a droite */
 .cordes-rech label { gap: .2rem; min-height: 2.2rem; }
 .cordes-rech input { width: 1.25rem; height: 1.25rem; }
 .cordes-rech small { color: var(--discret, #666); }
@@ -371,7 +373,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 19/11/2026 09:53</p>
+  <p class="discret" id="version">Version de la page : 19/11/2026 10:13</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -2697,11 +2699,12 @@ function etiquetteEtape(cells, T, A) {            // « F + 5 », « 5 ⌒ 7 » 
   return tri.map(([c, k], i) => (i === 0 ? '' : tri[i - 1][0] === c ? ' ⌒ ' : ' + ') + INTERVALLES[mod12(A.midi[c - 1] + k - T)]).join('');
 }
 function verifierDeroule(etapes, x, A, cle) {     // la regle de Fred, sans rien bloquer : { ok, msgs, basse }
-  const n = A.cordes.length, lab = ([c, k]) => mod12(A.midi[c - 1] + k - x.T), msgs = [], basse = x.basse !== null;
+  // corde aigue : la plus aigue de la forme (la 1re corde le plus souvent ; Fred peut choisir d'autres cordes, 19/11)
+  const n = x.cells.length ? Math.max(...x.cells.map((c) => c[0])) : A.cordes.length, lab = ([c, k]) => mod12(A.midi[c - 1] + k - x.T), msgs = [], basse = x.basse !== null;
   if (basse && !enCases(etapes[0].sel).some((ck) => lab(ck) === 0)) msgs.push('le 1er fragment n’a pas la fondamentale');
   etapes.forEach((e, j) => {
     if (!e.sel.length) msgs.push(`fragment ${j + 1} : aucune case`);
-    else if (!enCases(e.sel).some(([c]) => c === n)) msgs.push(`fragment ${j + 1} : pas de note sur la corde aiguë`);
+    else if (!enCases(e.sel).some(([c]) => c === n)) msgs.push(`fragment ${j + 1} : pas de note sur la corde aiguë de la forme (${nomCordeArp(n, A)})`);
   });
   const joues = new Set(etapes.flatMap((e) => enCases(e.sel).map(lab))), manque = ivsCle(cle).filter((i) => !joues.has(i));
   if (manque.length) msgs.push('pas joué : ' + manque.map((i) => INTERVALLES[i]).join(', '));
@@ -2710,8 +2713,8 @@ function verifierDeroule(etapes, x, A, cle) {     // la regle de Fred, sans rien
   return { ok: !msgs.length, msgs, basse };
 }
 const texteRegle = (v) => (!v.ok ? '⚠ ' + v.msgs.join(' ; ') + '.' : v.basse
-  ? '✓ Ta règle est respectée : la fondamentale au 1er fragment, une note sur la corde aiguë à chaque fragment, tous les intervalles joués.'
-  : '✓ Ta règle est respectée : une note sur la corde aiguë à chaque fragment, tous les intervalles joués (forme sans basse : le 1er fragment peut commencer par une autre note que la fondamentale).');
+  ? '✓ Ta règle est respectée : la fondamentale au 1er fragment, une note sur la corde aiguë de la forme à chaque fragment, tous les intervalles joués.'
+  : '✓ Ta règle est respectée : une note sur la corde aiguë de la forme à chaque fragment, tous les intervalles joués (forme sans basse : le 1er fragment peut commencer par une autre note que la fondamentale).');
 const numerosEtapes = (etapes) => {               // 'c,k' -> [numeros des fragments ou la case sert]
   const m = new Map();
   (etapes || []).forEach((e, j) => e.sel.forEach((ck) => { if (!m.has(ck)) m.set(ck, []); m.get(ck).push(j + 1); }));
@@ -2827,19 +2830,24 @@ async function plancheDeroule(i) {
 }
 
 // ---------- formes proposees : recherche automatique selon la regle de Fred (19/11/2026)
-// Chaque fragment a une note, et une seule, sur la corde aigue. Avec basse (6e ou 5e corde, les plus graves), le 1er
-// fragment a la basse, qui est la fondamentale ; sans basse (ces deux cordes libres ; toujours au ukulele), il peut
-// commencer par une autre note. Deux versions :
-// - minimale : le moins de fragments possible (2, ou plus si l'accord a trop de notes pour les « notes par fragment ») ;
-// - pompe (exemples de Fred : A maj et 7, forme 4) : 1er fragment = la note grave + une note aigue A ; puis, corde par
-//   corde de la voisine de l'aigue vers la plus grave, une note de l'accord avec une meme note aigue B ; noire puis croches.
-//   Toute la partie pompe tient dans 4 cases (une seule position de la main), comme dans les exemples.
+// Fred coche les cordes a utiliser (numeros usuels, 1 = la plus aigue, a droite comme sur la carte ; 1 et 2 par defaut) :
+// chaque proposition utilise exactement ces cordes, et le reste en decoule (choix de Fred, 19/11 a 10:04) :
+// - la corde aigue de la regle est la plus aigue des cordes cochees : chaque fragment y a une note, et une seule ;
+// - basse : si la plus grave des cordes cochees est la 6e ou la 5e (guitare, guitalele), la forme a une basse, la
+//   fondamentale, dans le 1er fragment ; sinon (et toujours au ukulele), le 1er fragment peut commencer par une autre note ;
+// - versions : minimale (le moins de fragments qui utilise toutes les cordes et tous les intervalles) et pompe (exemples
+//   de Fred : A maj et 7, forme 4 ; 3 cordes ou plus) : 1er fragment = la note grave + une note aigue A ; puis, corde par
+//   corde de la voisine de l'aigue vers la plus grave, une note de l'accord avec une meme note aigue B ; noire puis
+//   croches ; toute la partie pompe tient dans 4 cases (une seule position de la main).
 // Toutes les cases tiennent dans « Ecart maximal » cases ; un fragment tient dans 4 cases (cordes a vide non comptees).
 // Version minimale sobre : une note grave (hors basse) n'est jamais en double dans la forme ; la note aigue peut doubler.
-// Les cordes sont ici celles de la carte (1 = la plus grave, comme partout en interne).
-// Cordes a utiliser (19/11/2026) : numeros usuels (1 = la plus aigue), 1 et 2 par defaut ; la 1re est toujours prise (regle).
-const RECH_DEFAUT = { versions: 'deux', basse: 'deux', notes: 2, ecart: 5, cordes: [1, 2] }, RECH_PAGE = 12, RECH_MAX = 50000;
-const cordesRech = (o, n) => { const u = new Set((o.cordes || RECH_DEFAUT.cordes).map(Number).filter((x) => x >= 1 && x <= n)); u.add(1); return u; };
+// Dans le calcul, les cordes sont celles de la carte (1 = la plus grave, comme partout en interne).
+const RECH_DEFAUT = { notes: 2, ecart: 5, cordes: [1, 2] }, RECH_PAGE = 12, RECH_MAX = 50000;
+const cordesRech = (o, n) => new Set((o.cordes || RECH_DEFAUT.cordes).map(Number).filter((x) => x >= 1 && x <= n));
+function regleCordes(o, A) {                      // ce que les cordes cochees decident : { coch (internes, grave -> aigue), haut, bas, basse }
+  const n = A.cordes.length, coch = [...cordesRech(o, n)].map((u) => n - u + 1).sort((a, b) => a - b);
+  return { coch, haut: coch[coch.length - 1], bas: coch[0], basse: !A.renversements && coch.length >= 2 && coch[0] <= 2, assez: coch.length >= 2, pompe: coch.length >= 3 };
+}
 function rechEtat() {
   const s = arpEtat(), cle = `${etat.acc}|${s.cle}|${s.ton}`;
   if (!etat.arpRech) etat.arpRech = { opts: Object.assign({}, RECH_DEFAUT, lire('gf.arp.rech', {})), res: null, cle: '' };
@@ -2858,101 +2866,93 @@ function sousEnsembles(pool, max) {               // cases sur des cordes differ
   return out;
 }
 function chercherPropositions(o) {                // -> [{ version, basse, frags: [[[c,k]…]…], durees, lo, hi, score }], les meilleures d'abord
-  const s = arpEtat(), A = ACCORDAGES[etat.acc], n = A.cordes.length, gen = !s.ton, T = gen ? A.toniqueType : G.classe(s.ton);
-  const ivs = ivsCle(s.cle), plein = ivs.reduce((m, i) => m | (1 << i), 0), uke = !!A.renversements, MAIN = 4;
+  const s = arpEtat(), A = ACCORDAGES[etat.acc], gen = !s.ton, T = gen ? A.toniqueType : G.classe(s.ton);
+  const ivs = ivsCle(s.cle), plein = ivs.reduce((m, i) => m | (1 << i), 0), MAIN = 4;
   const kmin = gen ? 1 : 0, kmax = G.FRETTES_TYPE + (gen ? 1 : 0), ecart = Math.min(Number(o.ecart), kmax - kmin), notes = Number(o.notes);
+  const rc = regleCordes(o, A), res = new Map();
+  let trop = false;
+  const fin = () => { const out = [...res.values()].sort((a, b) => a.score - b.score || a.lo - b.lo); out.trop = trop; return out; };
+  if (!rc.assez) return fin();
+  const { haut, bas, basse: avecBasse } = rc, ok = (c) => rc.coch.includes(c);
+  const toutes = rc.coch.reduce((m, c) => m | (1 << c), 0), cordesDe = (f) => f.reduce((m, x) => m | (1 << x[0]), 0);
   const bit = ([c, k]) => 1 << mod12(A.midi[c - 1] + k - T), masque = (f) => f.reduce((m, x) => m | bit(x), 0);
   const nbBits = (m) => { let b = 0; for (; m; m &= m - 1) b++; return b; };
   const etendue = (f) => { const ks = f.map((x) => x[1]).filter((k) => k > 0); return ks.length ? Math.max(...ks) - Math.min(...ks) : 0; };
-  const permises = cordesRech(o, n), ok = (c) => permises.has(n - c + 1);   // corde interne (1 = la plus grave) cochee ?
-  const nbMini = Math.max(2, Math.ceil(ivs.length / notes)), res = new Map();
+  const nbMini = Math.max(2, Math.ceil(ivs.length / notes), Math.ceil((rc.coch.length - 1) / Math.max(1, notes - 1)));
   const sobre = (frags, basse) => {               // version minimale : pas de note grave en double (la note aigue peut doubler)
     const vues = new Map();
     for (const x of frags.flat()) vues.set(x.join(','), x);
     const nb = new Map();
     for (const x of vues.values()) nb.set(bit(x), (nb.get(bit(x)) || 0) + 1);
-    return frags.every((f) => f.every((x) => x[0] === n || (basse && x[0] === basse[0] && x[1] === basse[1]) || nb.get(bit(x)) === 1));
+    return frags.every((f) => f.every((x) => x[0] === haut || (basse && x[0] === basse[0] && x[1] === basse[1]) || nb.get(bit(x)) === 1));
   };
-  let trop = false;
-  const ajouter = (version, basse, frags) => {
+  const ajouter = (version, frags) => {
+    if (cordesDe(frags.flat()) !== toutes) return;  // exactement les cordes cochees
     if (res.size >= RECH_MAX) { trop = true; return; }
     const ks = frags.flat().map((x) => x[1]), lo = Math.min(...ks), hi = Math.max(...ks), m = lo >= 1 ? Math.floor((lo - 1) / 12) : 0;   // sans corde a vide : une octave plus haut = la meme
     const cle = frags.map((f) => f.map(([c, k]) => `${c},${k - 12 * m}`).join(' ')).join('|');
     if (res.has(cle)) return;                      // meme proposition dans une autre fenetre (ou une octave plus haut)
     const cases = new Set(frags.flat().map((x) => x.join(','))).size;
-    res.set(cle, { version, basse, frags, durees: frags.map((f, j) => (version === 'pompe' && j ? 0.5 : 1)), lo, hi,
+    res.set(cle, { version, basse: avecBasse, frags, durees: frags.map((f, j) => (version === 'pompe' && j ? 0.5 : 1)), lo, hi,
       score: (hi - lo) * 2 + frags.reduce((t, f) => t + etendue(f), 0) + cases * 0.5 });
   };
-  const modes = uke || !(ok(1) || ok(2)) ? [false] : o.basse === 'avec' ? [true] : o.basse === 'sans' ? [false] : [true, false];
   for (let lo = kmin; lo <= kmax - ecart; lo++) {
     const hi = lo + ecart, par = [];
-    for (let c = 1; c <= n; c++) { par[c] = []; if (ok(c)) for (let k = lo; k <= hi; k++) if (plein & bit([c, k])) par[c].push(k); }
-    const tops = par[n];
-    if (!tops.length) continue;
-    for (const avecBasse of modes) {
-      const departs = [];                          // la note grave du 1er fragment
-      if (avecBasse) { for (const b of [1, 2]) for (const k of par[b]) if (bit([b, k]) === 1) departs.push([b, k]); }
-      else {
-        const b0 = uke ? 1 : 3, g = [...Array(n - b0).keys()].map((i) => b0 + i).find((c) => par[c].length);
-        if (g) departs.push([g, null]);
+    for (let c = 1; c <= A.cordes.length; c++) { par[c] = []; if (ok(c)) for (let k = lo; k <= hi; k++) if (plein & bit([c, k])) par[c].push(k); }
+    const tops = par[haut];
+    if (!tops.length || !par[bas].length) continue;
+    const departs = avecBasse ? par[bas].filter((k) => bit([bas, k]) === 1).map((k) => [bas, k]) : [[bas, null]];   // la basse F, ou la corde grave
+    for (const d of departs) {
+      const pool = [];                             // les autres notes graves possibles
+      for (let c = bas; c < haut; c++) for (const k of par[c]) if (!(avecBasse && c === bas && k <= d[1])) pool.push([c, k]);
+      // version minimale
+      const frs = [];
+      for (const t of tops) for (const g of sousEnsembles(pool, notes - 1)) {
+        const f = [...g, [haut, t]];
+        if (etendue(f) <= MAIN) frs.push({ f, m: masque(f), cm: cordesDe(f) });
       }
-      for (const d of departs) {
-        const pool = [];                           // les autres notes graves possibles
-        for (let c = d[0]; c < n; c++) for (const k of par[c]) if (!(avecBasse && c === d[0] && k <= d[1])) pool.push([c, k]);
-        // version minimale
-        if (o.versions !== 'pompe') {
-          const frs = [];
-          for (const t of tops) for (const g of sousEnsembles(pool, notes - 1)) {
-            const f = [...g, [n, t]];
-            if (etendue(f) <= MAIN) frs.push({ f, m: masque(f) });
+      const premiers = [];
+      if (avecBasse) for (const t of tops) for (const g of [[], ...sousEnsembles(pool.filter((x) => x[0] !== bas), notes - 2)]) {
+        const f = [d, ...g, [haut, t]];
+        if (etendue(f) <= MAIN) premiers.push({ f, m: masque(f), cm: cordesDe(f) });
+      }
+      const suite = (choisis, depuis, m, cm) => {   // les fragments suivants, dans l'ordre de la liste (pas de permutations)
+        const reste = nbMini - choisis.length;
+        if (!reste) { if (m === plein && cm === toutes && sobre(choisis.map((x) => x.f), avecBasse ? d : null)) ajouter('mini', choisis.map((x) => x.f)); return; }
+        if (nbBits(plein & ~m) > reste * notes || nbBits(toutes & ~cm) > reste * (notes - 1)) return;
+        for (let j = depuis; j < frs.length; j++) suite([...choisis, frs[j]], j + 1, m | frs[j].m, cm | frs[j].cm);
+      };
+      if (avecBasse) for (const p of premiers) suite([p], 0, p.m, p.cm);
+      else for (let j = 0; j < frs.length; j++) suite([frs[j]], j + 1, frs[j].m, frs[j].cm);
+      // version pompe
+      if (!rc.pompe) continue;
+      const graves = avecBasse ? [d] : par[bas].map((k) => [bas, k]);
+      for (const g of graves) for (const a of tops) {
+        const f1 = [g, [haut, a]];
+        if (etendue(f1) > MAIN) continue;
+        for (const b of tops) {
+          const choix = [];
+          for (let c = haut - 1; c >= g[0]; c--) {
+            const ks = par[c].filter((k) => !(c === g[0] && k <= g[1]) && etendue([[c, k], [haut, b]]) <= MAIN);
+            if (ks.length) choix.push(ks.map((k) => [c, k]));
           }
-          const premiers = [];
-          if (avecBasse) for (const t of tops) for (const g of [[], ...sousEnsembles(pool.filter((x) => x[0] !== d[0]), notes - 2)]) {
-            const f = [d, ...g, [n, t]];
-            if (etendue(f) <= MAIN) premiers.push({ f, m: masque(f), i: -1 });
-          }
-          const suite = (choisis, depuis, m) => {   // les fragments suivants, dans l'ordre de la liste (pas de permutations)
-            const reste = nbMini - choisis.length;
-            if (!reste) { if (m === plein && sobre(choisis.map((x) => x.f), avecBasse ? d : null)) ajouter('mini', avecBasse, choisis.map((x) => x.f)); return; }
-            if (nbBits(plein & ~m) > reste * notes) return;
-            for (let j = depuis; j < frs.length; j++) suite([...choisis, frs[j]], j + 1, m | frs[j].m);
-          };
-          if (avecBasse) for (const p of premiers) suite([p], 0, p.m);
-          else for (let j = 0; j < frs.length; j++) suite([frs[j]], j + 1, frs[j].m);
-        }
-        // version pompe
-        if (o.versions !== 'mini') {
-          const graves = avecBasse ? [d] : par[d[0]].map((k) => [d[0], k]);
-          for (const g of graves) for (const a of tops) {
-            const f1 = [g, [n, a]];
-            if (etendue(f1) > MAIN) continue;
-            for (const b of tops) {
-              const choix = [];
-              for (let c = n - 1; c >= g[0]; c--) {
-                const ks = par[c].filter((k) => !(c === g[0] && k <= g[1]) && etendue([[c, k], [n, b]]) <= MAIN);
-                if (ks.length) choix.push(ks.map((k) => [c, k]));
-              }
-              if (choix.length < 2) continue;      // au moins 3 fragments, sinon c'est une version minimale
-              const cur = [];
-              const rec = (i) => {
-                if (i === choix.length) {
-                  if (etendue([...cur, [n, b]]) > MAIN) return;   // la pompe se joue sans deplacer la main
-                  const frags = [f1, ...cur.map((x) => [x, [n, b]])];
-                  if (frags.reduce((m, f) => m | masque(f), 0) === plein) ajouter('pompe', avecBasse, frags);
-                  return;
-                }
-                for (const x of choix[i]) { cur.push(x); rec(i + 1); cur.pop(); }
-              };
-              rec(0);
+          if (choix.length < 2) continue;          // au moins 3 fragments, sinon c'est une version minimale
+          const cur = [];
+          const rec = (i) => {
+            if (i === choix.length) {
+              if (etendue([...cur, [haut, b]]) > MAIN) return;   // la pompe se joue sans deplacer la main
+              const frags = [f1, ...cur.map((x) => [x, [haut, b]])];
+              if (frags.reduce((m, f) => m | masque(f), 0) === plein) ajouter('pompe', frags);
+              return;
             }
-          }
+            for (const x of choix[i]) { cur.push(x); rec(i + 1); cur.pop(); }
+          };
+          rec(0);
         }
       }
     }
   }
-  const out = [...res.values()].sort((a, b) => a.score - b.score || a.lo - b.lo);
-  out.trop = trop;
-  return out;
+  return fin();
 }
 function lancerRecherche() {
   const R = rechEtat(), s = arpEtat(), A = ACCORDAGES[etat.acc], gen = !s.ton, T = gen ? A.toniqueType : G.classe(s.ton);
@@ -2986,28 +2986,28 @@ function carteProposition(p, i, s) {
       <button type="button" class="btn petit" data-arpr="garder" data-i="${i}" ${st === 'meme' ? 'disabled' : ''}>${st === 'meme' ? 'Gardée' : st ? 'Garder ce déroulé' : 'Garder'}</button></div></figure>`;
 }
 function blocPropositions(s, A) {
-  const R = rechEtat(), o = R.opts, uke = !!A.renversements, n = A.cordes.length, coch = cordesRech(o, n);
-  const basseOk = !uke && (coch.has(n) || coch.has(n - 1)), pompeOk = coch.size >= 3;
-  const cases = [...Array(n).keys()].map((i) => i + 1).map((u) => `<label class="${u === 1 ? 'grise' : ''}"><input type="checkbox" data-rechcorde="${u}" ${coch.has(u) ? 'checked' : ''} ${u === 1 ? 'disabled' : ''} aria-label="${esc(NOM_CORDE[u])}"> ${u}</label>`).join('');
-  const choix = (id, val, liste, dis) => `<select id="${id}"${dis ? ' disabled' : ''}>${liste.map(([v, l]) => `<option value="${v}"${String(v) === String(val) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const R = rechEtat(), o = R.opts, n = A.cordes.length, coch = cordesRech(o, n), rc = regleCordes(o, A);
+  const choix = (id, val, liste) => `<select id="${id}">${liste.map(([v, l]) => `<option value="${v}"${String(v) === String(val) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const cases = [...Array(n).keys()].map((i) => n - i).map((u) => `<label><input type="checkbox" data-rechcorde="${u}" ${coch.has(u) ? 'checked' : ''} aria-label="${esc(NOM_CORDE[u])}"> ${u}</label>`).join('');
+  const resume = !rc.assez ? 'coche au moins 2 cordes.'
+    : `chaque fragment a une note sur la ${nomCordeArp(rc.haut, A)} ; ${rc.basse ? `basse sur la ${nomCordeArp(rc.bas, A)} : le 1er fragment commence par la fondamentale` : `sans basse : le 1er fragment peut commencer par n’importe quelle note`} ; ${rc.pompe ? 'versions minimale et pompe' : 'version minimale (la pompe demande au moins 3 cordes)'}.`;
   let corps = '';
   if (R.res) {
     const nm = R.res.filter((p) => p.version === 'mini').length, np = R.res.length - nm, pl = (k, m) => `${k} ${m}${k > 1 ? 's' : ''}`;
-    corps = R.res.length ? `<p class="discret" id="rech-bilan">${pl(R.res.length, 'proposition')} (${nm} minimale${nm > 1 ? 's' : ''}, ${np} pompe), les plus resserrées d’abord${R.trop ? ' (recherche arrêtée à ' + RECH_MAX + ' : resserre les réglages)' : ''}.${o.versions !== 'mini' && !pompeOk ? ' La pompe demande au moins 3 cordes cochées.' : ''} Sur chaque case, le numéro du ou des fragments où elle sert ; touche une proposition pour l’agrandir.</p>
+    corps = R.res.length ? `<p class="discret" id="rech-bilan">${pl(R.res.length, 'proposition')} (${nm} minimale${nm > 1 ? 's' : ''}, ${np} pompe), les plus resserrées d’abord${R.trop ? ' (recherche arrêtée à ' + RECH_MAX + ' : resserre les réglages)' : ''}. Sur chaque case, le numéro du ou des fragments où elle sert ; touche une proposition pour l’agrandir.</p>
       ${barreBoucle()}
       <div class="grille-arp">${R.res.slice(0, R.vus).map((p, i) => carteProposition(p, i, s)).join('')}</div>
       ${R.res.length > R.vus ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpr="plus">Voir ${Math.min(RECH_PAGE, R.res.length - R.vus)} de plus (${R.res.length - R.vus} restantes)</button></div>` : ''}`
-      : `<p class="discret" id="rech-bilan">Aucune forme ne suit ta règle avec ces réglages : essaie d’autres cordes, un écart plus grand ou plus de notes par fragment.${o.versions === 'pompe' && !pompeOk ? ' La pompe demande au moins 3 cordes cochées.' : ''}</p>`;
+      : '<p class="discret" id="rech-bilan">Aucune forme ne suit ta règle avec ces réglages : essaie d’autres cordes, un écart plus grand ou plus de notes par fragment.</p>';
   }
   return `<section class="bloc propositions" id="propositions"><h2 class="titre-bloc">Formes proposées (ta règle)</h2>
-    <p class="discret">Seules les cordes cochées servent (1 = la plus aiguë, toujours prise : chaque fragment a une note sur la corde aiguë). Avec basse (${nomCordeArp(1, A)} ou ${nomCordeArp(2, A)}, à cocher), le 1er fragment commence par la fondamentale à la basse ; sans basse, ces deux cordes restent libres et le 1er fragment peut commencer par une autre note. Minimale : le moins de fragments possible. Pompe : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
+    <p class="discret">Coche les cordes à utiliser : chaque proposition utilise exactement ces cordes (1 = la plus aiguë, à droite comme sur la carte), et le reste en découle. La plus aiguë des cordes cochées a une note à chaque fragment. ${A.renversements ? 'Au ukulélé, pas de basse : le 1er fragment peut commencer par n’importe quelle note.' : `Si la plus grave des cordes cochées est la ${nomCordeArp(1, A)} ou la ${nomCordeArp(2, A)}, la forme a une basse et le 1er fragment commence par la fondamentale sur cette corde ; sinon, il peut commencer par une autre note.`} Minimale : le moins de fragments possible. Pompe (3 cordes ou plus) : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
     <div class="reglages-rech">
-      <span class="cordes-rech">Cordes ${cases}<small>(1 = la plus aiguë)</small></span>
-      <label>Versions ${choix('rech-versions', o.versions, [['deux', 'minimale et pompe'], ['mini', 'minimale'], ['pompe', 'pompe']])}</label>
-      <label class="${basseOk ? '' : 'grise'}">Basse ${choix('rech-basse', basseOk ? o.basse : 'sans', [['deux', 'avec et sans'], ['avec', 'avec basse'], ['sans', 'sans basse']], !basseOk)}</label>
+      <span class="cordes-rech"><span>Cordes</span><span class="cases-cordes">${cases}</span></span>
+      <p class="discret" id="rech-cordes">Avec ces cordes : ${esc(resume)}</p>
       <label>Notes par fragment ${choix('rech-notes', o.notes, [[2, '2'], [3, 'jusqu’à 3'], [4, 'jusqu’à 4']])}</label>
       <label>Écart maximal ${choix('rech-ecart', o.ecart, [3, 4, 5, 6, 7].map((v) => [v, v + ' cases']))}</label>
-      <button type="button" class="btn plein" data-arpr="chercher">${R.res ? 'Chercher à nouveau' : 'Chercher'}</button></div>
+      <button type="button" class="btn plein" data-arpr="chercher" ${rc.assez ? '' : 'disabled'}>${R.res ? 'Chercher à nouveau' : 'Chercher'}</button></div>
     <p class="discret" id="rech-message">${esc(R.msg || '')}</p>
     ${corps}</section>`;
 }
@@ -3350,7 +3350,7 @@ document.addEventListener('change', (ev) => {
     if (t.checked) c.add(u); else c.delete(u);
     R.opts.cordes = [...c].sort((a, b) => a - b);
     ecrire('gf.arp.rech', R.opts);
-    if (R.res) lancerRecherche(); else vueArpeges();
+    if (R.res && c.size >= 2) lancerRecherche(); else { if (c.size < 2) R.res = null; vueArpeges(); }
   }
   else if (/^rech-/.test(t.id || '')) {
     const R = rechEtat(), k = t.id.slice(5);
