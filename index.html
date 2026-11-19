@@ -373,7 +373,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 19/11/2026 10:34</p>
+  <p class="discret" id="version">Version de la page : 19/11/2026 11:15</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -2851,7 +2851,9 @@ async function plancheDeroule(i) {
 // Version minimale sobre : une note grave (hors basse) n'est jamais en double dans la forme ; la note aigue peut doubler.
 // Seules les formes pas encore enregistrees sont montrees (R.vis), quel que soit leur deroule (Fred, 19/11 a 10:27).
 // Dans le calcul, les cordes sont celles de la carte (1 = la plus grave, comme partout en interne).
-const RECH_DEFAUT = { notes: 2, ecart: 5, cordes: [1, 2] }, RECH_PAGE = 12, RECH_MAX = 50000;
+// Avec basse, « Corde aigue au-dessus de la basse » (19/11 a 11:09) : non (defaut) = aucune note de la corde aigue sur une
+// case plus proche du sillet que la basse ; oui = au moins une (exemple de Fred : 7, F en basse, 7 deux cases plus haut).
+const RECH_DEFAUT = { notes: 2, ecart: 5, cordes: [1, 2], dessus: 'non' }, RECH_PAGE = 12, RECH_MAX = 50000;
 const cordesRech = (o, n) => new Set((o.cordes || RECH_DEFAUT.cordes).map(Number).filter((x) => x >= 1 && x <= n));
 function regleCordes(o, A) {                      // ce que les cordes cochees decident : { coch (internes, grave -> aigue), haut, bas, basse }
   const n = A.cordes.length, coch = [...cordesRech(o, n)].map((u) => n - u + 1).sort((a, b) => a - b);
@@ -2897,6 +2899,10 @@ function chercherPropositions(o) {                // -> [{ version, basse, frags
   };
   const ajouter = (version, frags) => {
     if (cordesDe(frags.flat()) !== toutes) return;  // exactement les cordes cochees
+    if (avecBasse) {                               // la corde aigue au-dessus de la basse (case plus petite) : oui ou non, au choix
+      const kb = Math.min(...frags.flat().filter((x) => x[0] === bas).map((x) => x[1]));
+      if (frags.flat().some((x) => x[0] === haut && x[1] < kb) !== (o.dessus === 'oui')) return;
+    }
     if (res.size >= RECH_MAX) { trop = true; return; }
     const ks = frags.flat().map((x) => x[1]), lo = Math.min(...ks), hi = Math.max(...ks), m = lo >= 1 ? Math.floor((lo - 1) / 12) : 0;   // sans corde a vide : une octave plus haut = la meme
     const cle = frags.map((f) => f.map(([c, k]) => `${c},${k - 12 * m}`).join(' ')).join('|');
@@ -2994,7 +3000,7 @@ function blocPropositions(s, A) {
   const choix = (id, val, liste) => `<select id="${id}">${liste.map(([v, l]) => `<option value="${v}"${String(v) === String(val) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
   const cases = [...Array(n).keys()].map((i) => n - i).map((u) => `<label><input type="checkbox" data-rechcorde="${u}" ${coch.has(u) ? 'checked' : ''} aria-label="${esc(nomCordeArp(n - u + 1, A))}"> ${esc(noteCorde(n - u + 1, A))}</label>`).join('');
   const resume = !rc.assez ? 'coche au moins 2 cordes.'
-    : `chaque fragment a une note sur la ${nomCordeArp(rc.haut, A)} ; ${rc.basse ? `basse sur la ${nomCordeArp(rc.bas, A)} : le 1er fragment commence par la fondamentale` : `sans basse : le 1er fragment peut commencer par n’importe quelle note`} ; ${rc.pompe ? 'versions minimale et pompe' : 'version minimale (la pompe demande au moins 3 cordes)'}.`;
+    : `chaque fragment a une note sur la ${nomCordeArp(rc.haut, A)} ; ${rc.basse ? `basse sur la ${nomCordeArp(rc.bas, A)} : le 1er fragment commence par la fondamentale ; ${o.dessus === 'oui' ? 'au moins une note de la corde aiguë au-dessus de la basse' : 'aucune note de la corde aiguë au-dessus de la basse'}` : `sans basse : le 1er fragment peut commencer par n’importe quelle note`} ; ${rc.pompe ? 'versions minimale et pompe' : 'version minimale (la pompe demande au moins 3 cordes)'}.`;
   let corps = '';
   R.vis = [];
   if (R.res) {
@@ -3009,10 +3015,11 @@ function blocPropositions(s, A) {
       : `<p class="discret" id="rech-bilan">Aucune nouvelle forme ne suit ta règle avec ces réglages : essaie d’autres cordes, un écart plus grand ou plus de notes par fragment.${dej}</p>`;
   }
   return `<section class="bloc propositions" id="propositions"><h2 class="titre-bloc">Formes proposées (ta règle)</h2>
-    <p class="discret">Coche les cordes à utiliser (de la plus grave, à gauche, à la plus aiguë, à droite, comme sur la carte) : chaque proposition utilise exactement ces cordes, et le reste en découle. Les formes déjà enregistrées ne sont pas proposées. Couleur de la grille : celle de la corde la plus grave, comme pour les accords. La plus aiguë des cordes cochées a une note à chaque fragment. ${A.renversements ? 'Au ukulélé, pas de basse : le 1er fragment peut commencer par n’importe quelle note.' : `Si la plus grave des cordes cochées est la ${nomCordeArp(1, A)} ou la ${nomCordeArp(2, A)}, la forme a une basse et le 1er fragment commence par la fondamentale sur cette corde ; sinon, il peut commencer par une autre note.`} Minimale : le moins de fragments possible. Pompe (3 cordes ou plus) : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
+    <p class="discret">Coche les cordes à utiliser (de la plus grave, à gauche, à la plus aiguë, à droite, comme sur la carte) : chaque proposition utilise exactement ces cordes, et le reste en découle. Les formes déjà enregistrées ne sont pas proposées. Couleur de la grille : celle de la corde la plus grave, comme pour les accords. La plus aiguë des cordes cochées a une note à chaque fragment. ${A.renversements ? 'Au ukulélé, pas de basse : le 1er fragment peut commencer par n’importe quelle note.' : `Si la plus grave des cordes cochées est la ${nomCordeArp(1, A)} ou la ${nomCordeArp(2, A)}, la forme a une basse et le 1er fragment commence par la fondamentale sur cette corde ; sinon, il peut commencer par une autre note. Avec une basse, « Corde aiguë au-dessus de la basse » : « non », aucune note de la corde aiguë n’est plus haut sur la carte (plus près du sillet) que la basse ; « oui », au moins une l’est.`} Minimale : le moins de fragments possible. Pompe (3 cordes ou plus) : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
     <div class="reglages-rech">
       <span class="cordes-rech"><span>Cordes</span><span class="cases-cordes">${cases}</span></span>
       <p class="discret" id="rech-cordes">Avec ces cordes : ${esc(resume)}</p>
+      <label class="${rc.basse ? '' : 'grise'}">Corde aiguë au-dessus de la basse <select id="rech-dessus" ${rc.basse ? '' : 'disabled'}>${[['non', 'non'], ['oui', 'oui']].map(([v, l]) => `<option value="${v}"${(o.dessus || 'non') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
       <label>Notes par fragment ${choix('rech-notes', o.notes, [[2, '2'], [3, 'jusqu’à 3'], [4, 'jusqu’à 4']])}</label>
       <label>Écart maximal ${choix('rech-ecart', o.ecart, [3, 4, 5, 6, 7].map((v) => [v, v + ' cases']))}</label>
       <button type="button" class="btn plein" data-arpr="chercher" ${rc.assez ? '' : 'disabled'}>${R.res ? 'Chercher à nouveau' : 'Chercher'}</button></div>
