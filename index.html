@@ -316,6 +316,11 @@ details.zone-arp:not([open]) .pli-etat::after { content: ' — toucher pour dép
 .subst { display: grid; gap: .6rem; }
 .subst-ligne { border: 1px solid var(--ligne); border-radius: .6rem; padding: .5rem .7rem; }
 .subst h3 { margin: .6rem 0 .1rem; font-size: 1rem; }
+.tete-gamme { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .2rem 1rem; }
+.tete-gamme h2 { margin-right: auto; }
+.tete-gamme .choix-ton { margin: 0; }
+.toast { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%); background: #1c2140; color: #fff; padding: .55rem 1rem; border-radius: .6rem;
+  font-weight: 700; z-index: 1000; box-shadow: 0 4px 14px rgba(0,0,0,.25); max-width: 90vw; text-align: center; }
 .durete-mini { display: inline-block; font-size: .78rem; font-weight: 700; padding: .05rem .45rem; border-radius: .7rem; margin-left: .25rem; vertical-align: .08em; color: #fff; }
 .d-doux { background: #2e7d32; } .d-leger { background: #00897b; } .d-tendu { background: #e08a00; } .d-dur { background: #c62828; }
 .durete-acc { margin: .3rem 0 .5rem; }
@@ -400,7 +405,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 21/11/2026 09:23</p>
+  <p class="discret" id="version">Version de la page : 21/11/2026 10:31</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -1418,21 +1423,24 @@ function basculerVue(vue, dessiner = true) {
   else if (vue === 'arpeges') { vueArpeges(); if (arpegesCharges) synchroArpegesVue(); }
   else if (etat.res) afficher(); else accueil();
 }
+// Chaque gamme a sa tonique (21/11/2026 ; avant, une seule en haut de l'onglet), gardee sur l'appareil.
+const tonGammes = lire('gf.tonGammes', {});
+const tonDeGamme = (rang) => tonGammes[rang] || '';
 function vueGammes() {
   const A = ACCORDAGES[etat.acc];
-  const ton = etat.tonGamme || '';
-  const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === ton ? ' selected' : ''}>${n || 'générique'}</option>`).join('');
-  let h = `<p class="discret">${esc(A.nom)}. Touche un mode pour voir sa carte : générique (le motif du mode sur 21 cases, sans repère de position) ou, en choisissant une tonique, sur le manche dans cette tonalité.</p>
-    <label class="choix-ton">Tonique <select id="ton-gamme">${opts}</select></label>`;
+  let h = `<p class="discret">${esc(A.nom)}. Touche un mode pour voir sa carte : générique (le motif du mode sur 21 cases, sans repère de position) ou, en choisissant la tonique de la gamme, sur le manche dans cette tonalité.</p>`;
   for (const [rang, titre, modes] of DONNEES.familles || []) {
-    h += `<section class="gamme"><h2>${String(rang).padStart(3, '0')} · ${esc(titre)}</h2><div class="liens">` +
+    const ton = tonDeGamme(rang);
+    const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === ton ? ' selected' : ''}>${n || 'générique'}</option>`).join('');
+    h += `<section class="gamme"><div class="tete-gamme"><h2>${String(rang).padStart(3, '0')} · ${esc(titre)}</h2>
+      <label class="choix-ton">Tonique <select data-tong="${rang}">${opts}</select></label></div><div class="liens">` +
       modes.map(([nom], k) => `<button type="button" class="lien" data-gamme="${rang}|${k}">${esc(nom)}<small>mode ${k + 1}</small></button>`).join('') + '</div></section>';
   }
   main().innerHTML = h;
 }
 function ouvrirGamme(rang, k) {
   const fam = DONNEES.familles.find((f) => f[0] === rang), [nom, ivs] = fam[2][k], A = ACCORDAGES[etat.acc];
-  const ton = etat.tonGamme;
+  const ton = tonDeGamme(rang);
   const tonique = ton ? G.classe(ton) : A.toniqueType;
   const pcs = ivs.map((i) => mod12(tonique + i));
   const sous = `${A.nom} · ${String(rang).padStart(3, '0')} ${fam[1]}, mode ${k + 1} · ` +
@@ -1453,7 +1461,7 @@ function harmoEtat() {
   if (!etat.harmo) {
     const memo = lire('gf.harmo', null);
     etat.harmo = memo && DONNEES.familles.some((f) => f[0] === memo.rang) ? memo
-      : { rang: (DONNEES.familles[0] || [])[0], depart: 0, ton: '', etiquettes: 'mode', degres: {} };
+      : { rang: (DONNEES.familles[0] || [])[0], depart: 0, ton: '', etiquettes: 'accord', restoDegre1: true, degres: {} };
   }
   return etat.harmo;
 }
@@ -1541,7 +1549,9 @@ function blocCouleurGamme(c) {
   const ton = c.h.ton ? ' de ' + NOMS_HARMO[c.T] : '';
   return `<div class="couleur-gamme"><p>${coul.length ? `Couleur de la gamme : <b>${esc(coul.map((p) => nomCouleur(c, p)).join(' '))}</b> (ce qui la distingue de la gamme ${g.ref}${esc(ton)})${porteurs.length ? ` · portée par ${porteurs.length > 1 ? 'les degrés' : 'le degré'} ${esc(porteurs.join(', '))}` : ''}.`
       : `Cette gamme n’a pas de note étrangère à la gamme ${g.ref}${esc(ton)}.`}</p>
-    <p><button type="button" class="btn" data-h="douce">Harmonisation douce</button> <span class="discret">Pour chaque degré, l’accord le plus doux de son mode (de préférence un accord de trois sons avec quinte juste), en privilégiant ceux qui portent la couleur de la gamme.</span></p></div>`;
+    <div class="boutons-harmo"><button type="button" class="btn plein" data-h="douce">Harmonisation douce</button>
+      <button type="button" class="btn" data-h="effacer">Tout effacer</button></div>
+    <p class="discret">Harmonisation douce : pour chaque degré, l’accord le plus doux de son mode (de préférence un accord de trois sons avec quinte juste), en privilégiant ceux qui portent la couleur de la gamme. Tout effacer : chaque degré revient à F seul.</p></div>`;
 }
 function restitution(c, d) {
   const r = c.degres[d.resto], gen = !c.h.ton;
@@ -1684,6 +1694,10 @@ document.addEventListener('click', (ev) => {
     h.degres[d.pas] = Object.assign({}, h.degres[d.pas], { sel }); harmoSauver(); vueHarmo();
   } else if (t.dataset.h === 'carte') ouvrirRestitution(k);
   else if (t.dataset.h === 'douce') harmonisationDouce();
+  else if (t.dataset.h === 'effacer') {
+    if (Object.values(h.degres || {}).some((d) => d && d.sel && d.sel.length > 1) && !confirm('Effacer les accords de tous les degrés ?')) return;
+    h.degres = {}; harmoSauver(); vueHarmo();
+  }
   else if (t.dataset.h === 'planche') plancheHarmo().then((f) => donnerFichiers([f])).catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
   else if (t.dataset.h === 'planche12') planches12(t).catch((e) => { if (e && e.name !== 'AbortError') alert('Planches non créées : ' + e.message); });
   else if (t.dataset.h === 'planchesModes') planchesModes(t).catch((e) => { if (e && e.name !== 'AbortError') alert('Planches non créées : ' + e.message); });
@@ -1699,7 +1713,10 @@ document.addEventListener('change', (ev) => {
   else if (t.dataset.h === 'depart') h.depart = Number(t.value);       // les accords restent dans leurs modes
   else if (t.dataset.h === 'ton') h.ton = t.value;
   else if (t.dataset.h === 'etiquettes') h.etiquettes = t.value;
-  else if (t.dataset.h === 'type') h.type = t.value;
+  else if (t.dataset.h === 'type') {               // harmoniser une gamme : intervalles de l'accord, tout dans le mode du degre I
+    h.type = t.value;
+    if (t.value === 'gamme') { h.etiquettes = 'accord'; h.restoDegre1 = true; }
+  }
   else if (t.dataset.h === 'tpa') {                // le temps d'un degre, retenu par son pas dans la gamme
     const d = harmoCalcul().degres[Number(t.dataset.k)];
     h.degres[d.pas] = Object.assign({}, h.degres[d.pas], { tpa: t.value === '' ? null : Number(t.value) });
@@ -4172,7 +4189,7 @@ document.addEventListener('click', (ev) => {
     return chercherIntervalles(G.cleDe(nv.length ? nv : [0]), ton);
   }
   if (t.dataset.gamme) { const [rg, k] = t.dataset.gamme.split('|').map(Number); ouvrirGamme(rg, k); }
-  else if (t.dataset.cherche) { if (dlg().open) dlg().close(); rechercher(t.dataset.cherche); }
+  else if (t.dataset.cherche) { if (dlg().open) dlg().close(); if (etat.vue === 'accords' || !voirAccordAilleurs(t.dataset.cherche)) rechercher(t.dataset.cherche); }
   else if (t.dataset.vue) basculerVue(t.dataset.vue);
   else if (t.dataset.versbase !== undefined) { etat.base = { texte: t.dataset.versbase, racine: (etat.base || {}).racine || '' }; basculerVue('base'); }
   else if (t.id === 'chercher-pos') { etat.posOuvert = true; document.getElementById('saisie').value = etat.pos.join(' '); chercherPosition(etat.pos.slice()); }
@@ -4201,7 +4218,7 @@ document.addEventListener('change', (ev) => {
   if (t.id === 'favseul') { etat.favSeul = t.checked; etat.lot = 1; afficherPositions(); majGrisage(); return; }
   if (t.id === 'ton-acc') { const a = etat.res; chercherIntervalles((a && a.r) ? a.r.notes : (etat.accCle || 'F'), t.value); return; }
   if (t.dataset.corde !== undefined) { etat.pos[Number(t.dataset.corde)] = t.value; return; }
-  if (t.id === 'ton-gamme') { etat.tonGamme = t.value; return; }
+  if (t.dataset && t.dataset.tong) { if (t.value) tonGammes[t.dataset.tong] = t.value; else delete tonGammes[t.dataset.tong]; ecrire('gf.tonGammes', tonGammes); return; }
   if (t.id === 'racine-base') { etat.base = { texte: (etat.base || {}).texte || '', racine: t.value }; vueBase(); return; }
   if (t.id === 'fichier' && t.files[0]) {
     importerTout(t.files[0]).catch((e) => alert('Import impossible : ' + e.message));
@@ -4278,8 +4295,50 @@ if (canal) canal.onmessage = async (ev) => {
     else if (m.type === 'synchro') GFDrive.noterSynchro(m.quand);
     else if (m.type === 'arp-synchro') { arpSync = { etat: 'ok', heure: m.heure }; rafraichirVue('arpeges'); }
     else if (m.type === 'arp-accord') { accordVersArpeges({ r: { notes: m.cle }, racine: m.ton || null }, false); rafraichirVue('arpeges'); }
+    else if (m.type === 'present') autresFenetres.set(m.id, m.actif || 0);
+    else if (m.type === 'present?') annoncerPresence();
+    else if (m.type === 'parti') autresFenetres.delete(m.id);
+    else if (m.type === 'voir-accord' && m.cible === MON_ID) {
+      diffuser('voir-ok', { cible: m.de, jeton: m.jeton });
+      if (dlg().open) dlg().close();
+      rechercher(m.texte); window.scrollTo({ top: 0 });
+    } else if (m.type === 'voir-ok' && m.cible === MON_ID && attenteVoir && attenteVoir.jeton === m.jeton) {
+      clearTimeout(attenteVoir.minuterie); attenteVoir = null;
+      annoncer('Accord affiché dans l’autre fenêtre');
+    }
   } catch (e) { /* une fenetre en retard se remettra a jour a la prochaine ecriture */ }
 };
+// « Voir l'accord » dans l'autre fenetre (21/11/2026) : avec deux fenetres (ou le volet du telephone), un accord demande
+// hors de l'onglet Accords s'affiche dans l'autre, celle qui a servi le plus recemment ; celle-ci garde son onglet.
+// Chaque fenetre annonce sa presence (ouverture, retour au premier plan, premier clic apres une pause) et son depart.
+// Sans reponse de l'autre (fermee entre-temps), on essaie la suivante, puis on affiche l'accord ici.
+const MON_ID = Math.random().toString(36).slice(2) + Date.now().toString(36);
+const autresFenetres = new Map();                   // id -> moment ou elle a servi pour la derniere fois
+let monActivite = Date.now(), attenteVoir = null;
+function annoncerPresence() { diffuser('present', { id: MON_ID, actif: monActivite }); }
+function activite() { if (Date.now() - monActivite > 1500) { monActivite = Date.now(); annoncerPresence(); } }
+window.addEventListener('focus', activite);
+document.addEventListener('pointerdown', activite, true);
+window.addEventListener('pagehide', () => diffuser('parti', { id: MON_ID }));
+diffuser('present?', { id: MON_ID }); annoncerPresence();
+function voirAccordAilleurs(texte) {
+  const [cible] = [...autresFenetres.entries()].sort((a, b) => b[1] - a[1])[0] || [];
+  if (!cible) return false;
+  const jeton = Math.random().toString(36).slice(2);
+  if (attenteVoir) clearTimeout(attenteVoir.minuterie);
+  attenteVoir = { jeton, minuterie: setTimeout(() => {          // pas de reponse : fenetre fermee
+    attenteVoir = null; autresFenetres.delete(cible);
+    if (!voirAccordAilleurs(texte)) rechercher(texte);
+  }, 700) };
+  diffuser('voir-accord', { cible, de: MON_ID, jeton, texte });
+  return true;
+}
+function annoncer(texte) {                           // un message bref en bas de l'ecran
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.textContent = texte; el.hidden = false;
+  clearTimeout(annoncer.minuterie); annoncer.minuterie = setTimeout(() => { el.hidden = true; }, 2500);
+}
 document.addEventListener('click', (ev) => {         // ↗ : l'onglet en cours dans une nouvelle fenetre, cote a cote
   if (!ev.target.closest('[data-fenetre]')) return;
   const l = Math.max(480, Math.round((screen.availWidth || 1200) / 2)), h = screen.availHeight || 900;
