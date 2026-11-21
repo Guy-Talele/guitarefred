@@ -405,7 +405,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 21/11/2026 10:31</p>
+  <p class="discret" id="version">Version de la page : 21/11/2026 10:53</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -1423,8 +1423,8 @@ function basculerVue(vue, dessiner = true) {
   else if (vue === 'arpeges') { vueArpeges(); if (arpegesCharges) synchroArpegesVue(); }
   else if (etat.res) afficher(); else accueil();
 }
-// Chaque gamme a sa tonique (21/11/2026 ; avant, une seule en haut de l'onglet), gardee sur l'appareil.
-const tonGammes = lire('gf.tonGammes', {});
+// Chaque gamme a sa tonique (21/11/2026 ; avant, une seule en haut de l'onglet) ; au lancement, toutes sont generiques.
+const tonGammes = {};
 const tonDeGamme = (rang) => tonGammes[rang] || '';
 function vueGammes() {
   const A = ACCORDAGES[etat.acc];
@@ -1457,12 +1457,8 @@ function ouvrirGamme(rang, k) {
 const ROMAINS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 // Harmonisation : Db et Gb plutot que C# et F# (une ecriture par note, et des noms de fichiers distincts)
 const NOMS_HARMO = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
-function harmoEtat() {
-  if (!etat.harmo) {
-    const memo = lire('gf.harmo', null);
-    etat.harmo = memo && DONNEES.familles.some((f) => f[0] === memo.rang) ? memo
-      : { rang: (DONNEES.familles[0] || [])[0], depart: 0, ton: '', etiquettes: 'accord', restoDegre1: true, degres: {} };
-  }
+function harmoEtat() {                             // au lancement : la page initiale (21/11/2026) ; les suites se gardent dans l'onglet Suites
+  if (!etat.harmo) etat.harmo = { rang: (DONNEES.familles[0] || [])[0], depart: 0, ton: '', etiquettes: 'accord', restoDegre1: true, degres: {} };
   return etat.harmo;
 }
 const harmoSauver = () => ecrire('gf.harmo', etat.harmo);
@@ -2879,8 +2875,8 @@ function legendeCordes(listes, A) {               // « Corde la plus grave : �
   return cs.length ? `<p class="legende">Corde la plus grave : ${cs.map((c) => `<span class="pastille-corde" style="background:${couleurForme([[c, 0]], A)}"></span>${esc(noteCorde(c, A))} (${esc(numCorde(c, A))})`).join(' ')}</p>` : '';
 }
 const repereArp = (A) => `tonique de la ${nomCordeArp(1, A)} au repère ▸`;
-function arpEtat() {
-  if (!etat.arp) etat.arp = Object.assign({ cle: 'F 3M 5', ton: '', sansBasse: false, parLigne: '6' }, lire('gf.arp', {}), { sel: [], der: [], etape: null });
+function arpEtat() {                              // au lancement : F seul, generique (21/11/2026) ; seule la mise en page est gardee
+  if (!etat.arp) etat.arp = { cle: 'F', ton: '', sansBasse: false, parLigne: lire('gf.arp', {}).parLigne || '6', sel: [], der: [], etape: null };
   return etat.arp;
 }
 const arpGarder = () => { const s = etat.arp; ecrire('gf.arp', { cle: s.cle, ton: s.ton, sansBasse: s.sansBasse, parLigne: s.parLigne }); };
@@ -4218,7 +4214,7 @@ document.addEventListener('change', (ev) => {
   if (t.id === 'favseul') { etat.favSeul = t.checked; etat.lot = 1; afficherPositions(); majGrisage(); return; }
   if (t.id === 'ton-acc') { const a = etat.res; chercherIntervalles((a && a.r) ? a.r.notes : (etat.accCle || 'F'), t.value); return; }
   if (t.dataset.corde !== undefined) { etat.pos[Number(t.dataset.corde)] = t.value; return; }
-  if (t.dataset && t.dataset.tong) { if (t.value) tonGammes[t.dataset.tong] = t.value; else delete tonGammes[t.dataset.tong]; ecrire('gf.tonGammes', tonGammes); return; }
+  if (t.dataset && t.dataset.tong) { if (t.value) tonGammes[t.dataset.tong] = t.value; else delete tonGammes[t.dataset.tong]; return; }
   if (t.id === 'racine-base') { etat.base = { texte: (etat.base || {}).texte || '', racine: t.value }; vueBase(); return; }
   if (t.id === 'fichier' && t.files[0]) {
     importerTout(t.files[0]).catch((e) => alert('Import impossible : ' + e.message));
@@ -4401,15 +4397,15 @@ window.addEventListener('resize', () => { if (document.getElementById('volet')) 
 
 async function demarrer(donnees) {
   try {
+    const encours = M && etat.res ? document.getElementById('saisie').value : '';   // reference rechargee : on garde l'accord
     const octets = await degonfler(donnees.formes);
     M = new G.Moteur(donnees, octets);
     DONNEES = donnees;
     if (completerRenversements() + completerJumeaux()) { sauverFavoris(); majNbFav(); }
     COUL = Object.assign({}, COUL_DEFAUT, M.couleurs);
     majInstruments(); majNbFav();
-    const derniere = lire('gf.derniere', '');
-    etat.sansSuiviArp = true;                       // au demarrage, l'onglet Arpeges garde son propre accord
-    try { if (derniere) rechercher(derniere); else accueil(); } finally { etat.sansSuiviArp = false; }
+    etat.sansSuiviArp = true;                       // l'onglet Arpeges garde son propre accord
+    try { if (encours) rechercher(encours); else accueil(); } finally { etat.sansSuiviArp = false; }   // au lancement : F seul (21/11/2026)
     const v = vueDeAdresse(); if (v && v !== 'accords') basculerVue(v);          // fenetre ouverte sur un onglet (…#harmo)
     if (!DANS_VOLET && volet.ouvert && petitEcran()) ouvrirVolet();              // le volet etait ouvert : on le rouvre
   } catch (e) {
