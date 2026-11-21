@@ -268,12 +268,20 @@ details.pli[open] > summary::after { content: "−"; }
 .case-boucle { margin: .6rem 0 0; color: #1c2140; }
 /* Arpèges : « Formes proposées » et « Formes enregistrées » dans deux cadres bien distincts (demande de Fred, 19/11) */
 .zone-arp { --zone: var(--accent); border: 2px solid var(--zone); border-radius: .8rem; padding: 0 .75rem .75rem; margin: 1.6rem 0; background: var(--surface); }
-.zone-arp > h2.titre-bloc { background: var(--zone); color: var(--surface); margin: 0 -.75rem .7rem; padding: .5rem .75rem; border-radius: .6rem .6rem 0 0; font-size: 1.1rem; }
+.zone-arp > h2.titre-bloc, .zone-arp > summary.titre-bloc { background: var(--zone); color: var(--surface); margin: 0 -.75rem .7rem; padding: .5rem .75rem; border-radius: .6rem .6rem 0 0; font-size: 1.1rem; }
+.zone-arp > summary.titre-bloc { cursor: pointer; list-style: none; display: block; font-weight: 700; }
+.zone-arp > summary.titre-bloc::-webkit-details-marker { display: none; }
+.zone-arp > summary.titre-bloc::before { content: '▸ '; }
+.zone-arp[open] > summary.titre-bloc::before { content: '▾ '; }
+details.zone-arp:not([open]) { padding-bottom: 0; }
+details.zone-arp:not([open]) > summary.titre-bloc { margin-bottom: 0; border-radius: .6rem; }
+details.zone-arp:not([open]) .pli-etat::after { content: ' — toucher pour déplier'; font-weight: 400; font-size: .9rem; }
 .zone-enregistrees { --zone: #2e7d32; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .zone-enregistrees { --zone: #81c784; } }
 :root[data-theme="dark"] .zone-enregistrees { --zone: #81c784; }
 .reglages-rech label.case-rech { flex-wrap: nowrap; align-items: flex-start; }
 .case-rech input { margin-top: .3rem; flex: none; }
+.acc-intervalles { margin-bottom: .6rem; }
 .avis { font-weight: 700; color: var(--encre); background: color-mix(in srgb, #ef6c00 14%, var(--surface)); border-left: 4px solid #ef6c00; border-radius: .4rem; padding: .55rem .7rem; }
 .reglages-rech { display: flex; flex-wrap: wrap; gap: .5rem .9rem; align-items: center; margin: .5rem 0; }
 .reglages-rech label { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
@@ -307,6 +315,16 @@ details.pli[open] > summary::after { content: "−"; }
 .degre-rom { font-weight: 700; color: var(--accent); margin-left: .35rem; }
 .subst { display: grid; gap: .6rem; }
 .subst-ligne { border: 1px solid var(--ligne); border-radius: .6rem; padding: .5rem .7rem; }
+.subst h3 { margin: .6rem 0 .1rem; font-size: 1rem; }
+.durete-mini { display: inline-block; font-size: .78rem; font-weight: 700; padding: .05rem .45rem; border-radius: .7rem; margin-left: .25rem; vertical-align: .08em; color: #fff; }
+.d-doux { background: #2e7d32; } .d-leger { background: #00897b; } .d-tendu { background: #e08a00; } .d-dur { background: #c62828; }
+.durete-acc { margin: .3rem 0 .5rem; }
+.durete-acc .discret { margin: 0 .3rem; }
+.porte-couleur { font-size: .82rem; font-weight: 700; color: #6a1b9a; margin-left: .3rem; }
+.couleur-gamme { border-left: 4px solid #6a1b9a; padding: .1rem .7rem; margin: .5rem 0; }
+.couleur-gamme p { margin: .35rem 0; }
+.carte .frotte { display: block; text-align: center; font-size: .75rem; font-weight: 700; margin-top: .1rem; }
+.f-doux { color: #2e7d32; } .f-leger { color: #00897b; } .f-dur { color: #c62828; }
 .subst-ligne.orig { background: var(--accent-doux); }
 .subst-ligne p { margin: .25rem 0; }
 .subst-ligne .boutons-harmo { margin-top: .3rem; }
@@ -382,7 +400,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 19/11/2026 16:11</p>
+  <p class="discret" id="version">Version de la page : 21/11/2026 09:23</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -552,6 +570,9 @@ footer .liens { margin-top: .5rem; }
     return [f.map((x) => (x === 'x' ? 'x' : String(Number(x) - d))), d];
   }
 
+  // nombre de cordes graves a etouffer pour qu'une position soit « sans basse » : les cordes 6 et 5 (20/11/2026)
+  function kSansBasse(A, nbNotes) { return A.renversements ? 0 : Math.max(0, Math.min(2, A.cordes.length - nbNotes)); }
+
   class Moteur {
     constructor(donnees, octets) {
       this.items = donnees.items.map(([item, page, semis, tel], i) =>
@@ -634,12 +655,18 @@ footer .liens { margin-top: .5rem; }
       return { pcs: [...new Set(rel)].sort((a, b) => a - b).map((i) => mod12(tonique + i)), source: ivs ? 'zicscale' : 'Mega_Base' };
     }
 
+    // « Sans basse » (guitare, guitalele) : les cordes 6 et 5 ne sont pas jouees (k = 2) ; avant le 20/11/2026, il fallait
+    // etouffer autant de cordes graves qu'il manque de notes (3 pour un accord de 3 notes). Une position sans basse vaut
+    // pour l'accord et tous ses renversements ; pour un accord de 2 ou 3 notes, elle est montree meme sans cocher
+    // « Sans basse » (demande de Fred du 20/11/2026), a cote des positions dont la basse est la fondamentale.
     positions(r, racine, accordage, o) {
       const A = ACCORDAGES[accordage];
       const semis = r.semis;
       const sansBasse = o.sansBasse && semis.length < 5;
       const classes = semis.map((d) => mod12(classe(racine) + d));
-      const avecRenv = sansBasse || A.renversements;
+      const auto = !A.renversements && semis.length <= 3;      // 2 ou 3 notes : les positions sans basse des renversements aussi
+      const avecRenv = sansBasse || A.renversements || auto;
+      const k = kSansBasse(A, semis.length);
       let formes = [];
       const vues = new Set();
       for (const bas of (avecRenv ? classes : classes.slice(0, 1))) {
@@ -648,6 +675,7 @@ footer .liens { margin-top: .5rem; }
         else { it = this.parNotes.get(cleDe(classes.map((c) => c - bas))); if (!it) continue; }
         for (const f of this.formesGroupe(it.i, mod12(bas - A.decalage))) {
           const fi = formeInstrument(f, A);
+          if (fi && auto && !sansBasse && bas !== classes[0] && !fi.slice(0, k).every((x) => x === 'x')) continue;   // renversement : sans basse seulement
           if (fi && !vues.has(fi.join(' '))) { vues.add(fi.join(' ')); formes.push(fi); }
         }
       }
@@ -658,7 +686,6 @@ footer .liens { margin-top: .5rem; }
       if (o.sansEtouffee) formes = formes.filter((f) => !f.includes('x'));
       if (o.sansVide) formes = formes.filter((f) => !f.includes('0'));
       else if (o.avecVide) formes = formes.filter((f) => f.includes('0'));      // au moins une corde a vide
-      const k = Math.max(0, A.cordes.length - semis.length);
       if (sansBasse && !A.renversements) formes = formes.filter((f) => f.slice(0, k).every((x) => x === 'x'));
       return { formes, total };
     }
@@ -667,8 +694,9 @@ footer .liens { margin-top: .5rem; }
       const A = ACCORDAGES[accordage];
       const semis = r.semis;
       const sansBasse = o.sansBasse && semis.length < 5;
-      const avecRenv = sansBasse || A.renversements;
-      const k = Math.max(0, A.cordes.length - semis.length);
+      const auto = !A.renversements && semis.length <= 3;
+      const avecRenv = sansBasse || A.renversements || auto;
+      const k = kSansBasse(A, semis.length);
       const vues = new Map();
       for (let racine = 0; racine < 12; racine++) {
         const classes = semis.map((d) => mod12(racine + d));
@@ -681,6 +709,7 @@ footer .liens { margin-top: .5rem; }
             if (!fi || fi.includes('0') || fi.every((x) => x === 'x')) continue;
             if (o.sansEtouffee && fi.includes('x')) continue;
             if (sansBasse && !A.renversements && !fi.slice(0, k).every((x) => x === 'x')) continue;
+            if (auto && !sansBasse && bas !== classes[0] && !fi.slice(0, k).every((x) => x === 'x')) continue;   // renversement : sans basse seulement
             const [g, d] = normaliser(fi);
             const cle = g.join(' ');
             if (!vues.has(cle)) vues.set(cle, { forme: g, racine: mod12(racine - d) });
@@ -807,7 +836,7 @@ footer .liens { margin-top: .5rem; }
     }
   }
 
-  const exports = { Moteur, INTERVALLES, NOMS_NOTES, ACCORDAGES, FRETTES_TYPE, QUALITES, classe, cleDe, cleMode, normItem, triNaturel, mod12,
+  const exports = { Moteur, kSansBasse, INTERVALLES, NOMS_NOTES, ACCORDAGES, FRETTES_TYPE, QUALITES, classe, cleDe, cleMode, normItem, triNaturel, mod12,
     analyserSymbole, parseIntervalles, nommerSelonBase };
   if (typeof module !== 'undefined' && module.exports) module.exports = exports;
   else racineGlobale.GFMoteur = exports;
@@ -829,7 +858,7 @@ function lire(cle, defaut) { try { const v = localStorage.getItem(cle); return v
 function ecrire(cle, v) { try { localStorage.setItem(cle, JSON.stringify(v)); } catch (e) { /* stockage indisponible */ } }
 const etat = {
   acc: lire('gf.acc', 'guitalele'),
-  filtres: Object.assign({ fretteMin: null, fretteMax: 12, sansEtouffee: false, sansVide: false, avecVide: false, sansBasse: false }, lire('gf.filtres', {})),
+  filtres: Object.assign({ fretteMin: null, fretteMax: 12, sansEtouffee: false, sansVide: false, avecVide: false, sansBasse: false, douces: false }, lire('gf.filtres', {})),
   favSeul: false, res: null, lot: 1, vue: 'accords', pos: null, posOuvert: false, base: null,
 };
 // Favoris : gardes dans IndexedDB (des milliers de favoris depassent la petite memoire « localStorage »)
@@ -919,9 +948,10 @@ function cascade(acc, racinePc, intervalles, forme, ajout) {
 // Guitalele et guitare vont toujours par paires (meme forme, accord une quarte plus bas a la guitare) : un favori
 // arrive par import ou depuis une ancienne version sans son jumeau le recoit. Le ukulele n'est pas concerne.
 // Accords sans basse : la forme (cordes graves en trop etouffees) vaut pour l'accord et pour ses renversements
-function estSansBasse(acc, intervalles, forme) {
-  const f = (forme || '').split(' '), k = 6 - (intervalles || '').split(' ').length;
-  return (acc === 'guitalele' || acc === 'guitare') && f.length === 6 && k >= 2 && f.slice(0, k).every((x) => x === 'x');
+function estSansBasse(acc, intervalles, forme) {   // cordes 6 et 5 non jouees, accord de 4 notes au plus (20/11/2026 ;
+  // avant : autant de cordes graves etouffees qu'il manquait de notes)
+  const f = (forme || '').split(' '), nb = (intervalles || '').split(' ').length;
+  return (acc === 'guitalele' || acc === 'guitare') && f.length === 6 && nb <= 4 && f.slice(0, 2).every((x) => x === 'x');
 }
 function familleInv(rc, intervalles) {           // renversements presents dans la base : [classe, intervalles, nom]
   if (!M) return [];
@@ -1157,7 +1187,16 @@ function rechercher(saisie) {
   main().innerHTML = blocPosition() + entete + (trads.length > 1 ? `<p><button type="button" class="btn plein" data-grille-accords="${esc(saisie)}">Faire une suite de ces ${trads.length} accords (Harmonisation)</button></p>` : '');
 }
 // nouvel accord : « Favoris seulement » coche par defaut, sauf recherche d'une position (a montrer encadree)
-function montrer(res) { etat.res = res; etat.lot = 1; etat.favSeul = !res.cible; afficher(); window.scrollTo({ top: 0 }); }
+function montrer(res) { etat.res = res; etat.lot = 1; etat.favSeul = !res.cible; if (!etat.sansSuiviArp) accordVersArpeges(res, true); afficher(); window.scrollTo({ top: 0 }); }
+// l'accord choisi dans Accords devient celui de l'onglet Arpeges (20/11/2026, demande de Fred), ici et dans les autres fenetres
+function accordVersArpeges(res, diffuse) {
+  if (!res || !res.r || typeof arpEtat !== 'function') return;
+  const s = arpEtat(), ton = res.racine ? NOMS_NOTES[G.classe(res.racine)] : '';
+  if (s.cle === res.r.notes && (s.ton || '') === ton) return;
+  Object.assign(s, { cle: res.r.notes, ton, sel: [], der: [], etape: null });
+  arpGarder();
+  if (diffuse) diffuser('arp-accord', { cle: s.cle, ton });
+}
 function blocTraductions(trads, erreurs) {
   const ligne = (lib, cle, accord, nomBasse) => {
     const nom = accord ? `<button type="button" class="lien" data-cherche="${esc(nomBasse + ' ' + accord.item)}">${esc(nomBasse + ' ' + accord.item)}<small>{${esc(accord.tel)}}</small></button>`
@@ -1205,11 +1244,35 @@ function chercherPosition(frettes) {
   etat.res = null;
   main().innerHTML = blocPosition() + h;
 }
+// recherche par intervalles (20/11/2026, demande de Fred) : pastilles d'intervalles et fondamentale, comme dans l'onglet
+// Arpeges. Chaque pastille touchee cherche l'accord de la base qui a ces intervalles ; sans fondamentale, cartes generiques.
+const ivsDeCle = (cle) => cle.split(' ').map((i) => INTERVALLES.indexOf(i)).filter((i) => i >= 0);
+function blocIntervallesAcc() {
+  const a = etat.res, cle = (a && a.r) ? a.r.notes : (etat.accCle || 'F'), ivs = ivsDeCle(cle);
+  const ton = a && a.r ? (a.racine ? NOMS_NOTES[G.classe(a.racine)] : '') : (etat.accTon || '');
+  const absent = !(a && a.r) && ivs.length >= 2 && !M.parNotes.get(cle);
+  return `<section class="bloc arp-choix acc-intervalles"><p class="discret" style="margin:0 0 .3rem">Recherche par intervalles :</p>
+    <div class="chips">${INTERVALLES.map((lab, iv) => {
+      const on = ivs.includes(iv);
+      return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-acciv="${iv}" aria-pressed="${on}" ${iv === 0 ? 'disabled' : ''}>${esc(lab)}</button>`;
+    }).join('')}</div>
+    <label>Fondamentale <select id="ton-acc">${['', ...NOMS_NOTES].map((nn) => `<option value="${esc(nn)}"${nn === ton ? ' selected' : ''}>${esc(nn || 'générique')}</option>`).join('')}</select></label>
+    ${absent ? `<p class="avis" id="acc-absent">Aucun accord de la base n’a ces intervalles (${esc(cle)}).</p>` : ''}</section>`;
+}
+function chercherIntervalles(cle, ton) {          // l'accord de la base qui a ces intervalles, avec ou sans fondamentale
+  etat.accCle = cle; etat.accTon = ton;
+  const r = M.parNotes.get(cle);
+  if (etat.vue !== 'accords') basculerVue('accords', false);
+  if (!r) { etat.res = null; main().innerHTML = blocPosition() + '<p class="discret">Touche d’autres pastilles, ou tape un nom d’accord.</p>'; return; }
+  const nom = (ton ? ton + ' ' : '') + r.item;
+  document.getElementById('saisie').value = nom; ecrire('gf.derniere', nom);
+  montrer({ r, racine: ton || null, entete: '', cible: null });
+}
 function blocPosition() {
   const A = ACCORDAGES[etat.acc];
   if (!etat.pos || etat.pos.length !== A.cordes.length) etat.pos = A.cordes.map(() => 'x');
   const opts = (v) => ['x', ...Array.from({ length: 16 }, (_, i) => String(i))].map((o) => `<option${o === v ? ' selected' : ''}>${o}</option>`).join('');
-  return `<details class="pli" id="pli-position"${etat.posOuvert ? ' open' : ''}><summary>Recherche par position</summary>
+  return blocIntervallesAcc() + `<details class="pli" id="pli-position"${etat.posOuvert ? ' open' : ''}><summary>Recherche par position</summary>
     <div class="position-cases">${A.cordes.map((c, i) => `<label>${esc(c)}<select data-corde="${i}" aria-label="Corde ${esc(c)}">${opts(etat.pos[i])}</select></label>`).join('')}
     <button type="button" class="btn plein" id="chercher-pos">Chercher la position</button></div>
     <p class="discret" style="margin:.4rem 0 0">De la corde grave à la plus aiguë ; x = étouffée. Tu peux aussi taper les frettes dans le champ de recherche.</p></details>`;
@@ -1231,6 +1294,7 @@ function afficher() {
   const modes = M.modes(r.i);
   let h = blocPosition() + (a.entete || '') + `<h1 class="accord-nom">${esc(nomAccord(a))}<span class="tel">{${esc(r.tel)}}</span></h1>`;
   h += `<div class="pastilles" aria-label="Intervalles">${r.notes.split(' ').map((iv) => `<span class="pastille" style="color:${COUL[iv]}">${esc(iv)}</span>`).join('')}</div>`;
+  h += blocDureteAcc(a);
   h += `<p><button type="button" class="btn" data-versarp="${esc(r.notes + '|' + (a.racine || ''))}">Formes d’arpège</button></p>`;
   if (r.semis.length > A.cordes.length) h += `<p class="encadre alerte">${esc(texteTropDeNotes(r.semis.length, A))}</p>`;
   if (renv.length) h += `<section class="bloc"><h2>${A.renversements ? 'Mêmes notes, autres noms (pas de basse au ukulélé : positions communes)' : 'Renversements'}</h2><div class="liens">${renv.map((x) => lienAccord(x.accord, x.basse, !!a.racine)).join('')}</div></section>`;
@@ -1256,13 +1320,22 @@ function afficher() {
     <label class="${basseGrise ? 'grise' : ''}"><input type="checkbox" data-f="sansBasse" ${f.sansBasse ? 'checked' : ''} ${basseGrise ? 'disabled' : ''}> Sans basse</label>
   </div><p class="discret" id="note-reglages" hidden>Sans effet sur les favoris, qui s’affichent tous : décoche « Favoris seulement » pour t’en servir.</p></details>`;
   h += `<div class="entete-pos"><h2>${gen ? 'Formes génériques' : 'Positions'} · ${esc(A.court)}</h2>
-    <label><input type="checkbox" id="favseul" ${etat.favSeul ? 'checked' : ''}> Favoris seulement</label></div>
+    <label><input type="checkbox" id="favseul" ${etat.favSeul ? 'checked' : ''}> Favoris seulement</label>
+    <label><input type="checkbox" data-f="douces" ${f.douces ? 'checked' : ''}> Positions douces d’abord</label></div>
     <div id="positions"></div>`;
   main().innerHTML = h;
   afficherPositions();
   majGrisage();
 }
 function listePositions() {
+  const res = listePositions0();
+  if (etat.filtres.douces) {                       // les positions ou les notes frottent le moins d'abord (tri stable)
+    const s = new Map(res.liste.map((x) => [x, frottementsForme(x.forme, etat.acc)]));
+    res.liste = res.liste.slice().sort((x, y) => s.get(x) - s.get(y));
+  }
+  return res;
+}
+function listePositions0() {
   const a = etat.res, r = a.r, f = etat.filtres;
   if (!a.racine) {
     if (etat.favSeul) return { liste: [...generiquesFav(etat.acc, r.notes).values()].sort((x, y) => cmpCorde(x.forme, y.forme) || cmpForme(x.forme, y.forme)), total: null };
@@ -1306,13 +1379,15 @@ function afficherPositions() {
   if (gen) info += ', sans corde à vide ni indication de case';
   const cordes = [...new Set(liste.map((x) => cordeTonique(x.forme)))].filter(Boolean).sort((a, b) => b - a);
   const legende = cordes.length ? `<p class="legende">Corde la plus grave : ${cordes.map((c) => `<span class="pastille-corde" style="background:${COUL_CORDE_TONIQUE[c]}"></span>${NOM_CORDE[c].replace(' corde', '')}`).join(' ')}</p>` : '';
-  let h = `<p class="info">${info}. Touche un diagramme pour l’agrandir.</p>` + legende +
+  let h = `<p class="info">${info}. Touche un diagramme pour l’agrandir.${etat.filtres.douces ? ' Positions douces d’abord : celles dont les notes sont à un demi-ton, une 7M ou une b9 les unes des autres viennent après.' : ''}</p>` + legende +
     (etat.favSeul ? `<p><button type="button" class="btn" id="png-tous">Télécharger la planche des ${liste.length} favori${liste.length > 1 ? 's' : ''} (PNG)</button></p>` : '') +
     '<div class="grille-diag">';
   liste.slice(0, n).forEach((x, k) => {
     const est = favs.has(x.forme.join(' '));
     const cible = !gen && a.cible && a.cible === x.forme.join(' ');
+    const fr = etat.filtres.douces ? frottementsForme(x.forme, etat.acc) : null;
     h += `<div class="carte${est ? ' fav' : ''}${cible ? ' cible' : ''}"><button type="button" class="ouvrir" data-pos="${k}">${svgDiagramme(x.forme, etat.acc, x.racine, gen)}</button>` +
+      (fr != null ? `<span class="frotte f-${fr === 0 ? 'doux' : fr <= 2 ? 'leger' : 'dur'}">${texteFrottement(fr)}</span>` : '') +
       `<button type="button" class="etoile" data-etoile="${k}" aria-label="${est ? 'Retirer des favoris' : 'Ajouter aux favoris'}${gen ? ' (12 tons)' : ''}" aria-pressed="${est}">${est ? '★' : '☆'}</button></div>`;
   });
   h += '</div>';
@@ -1436,15 +1511,18 @@ function vueHarmo() {
     <label>Intervalles affichés <select data-h="etiquettes">${opt('mode', 'du mode', h.etiquettes !== 'accord')}${opt('accord', 'de l’accord', h.etiquettes === 'accord')}</select></label>
     <label class="case-harmo"><input type="checkbox" data-h="resto1" ${h.restoDegre1 ? 'checked' : ''}> Restituer tous les degrés dans le mode du degré I</label>
   </section>
-  <p class="discret">${esc(c.fam[1])} : ${c.degres.length} degrés à partir de ${esc(nomMode(c, c.degres[0]))}. Pour chaque degré, touche les intervalles de l’accord (F est déjà choisi) ; son nom s’affiche dès le deuxième.</p>` + barreSuite() + blocSuites();
+  <p class="discret">${esc(c.fam[1])} : ${c.degres.length} degrés à partir de ${esc(nomMode(c, c.degres[0]))}. Pour chaque degré, touche les intervalles de l’accord (F est déjà choisi) ; son nom s’affiche dès le deuxième.</p>` +
+    blocCouleurGamme(c) + barreSuite() + blocSuites();
+  const coul = couleurGamme(c.ivs1).notes;
   for (const d of c.degres) {
     const n = nomDegre(c, d);
+    const porte = d.sel.map((x) => mod12(d.off + x)).filter((p) => coul.includes(p));
     html += `<section class="degre"><h3>Degré ${ROMAINS[d.k]}${h.ton ? ' · ' + NOMS_HARMO[d.racine] : ''} · ${esc(d.mode)}</h3>
       <div class="chips">${d.ivs.map((iv) => {
         const lab = INTERVALLES[iv], on = d.sel.includes(iv);
         return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-h="iv" data-k="${d.k}" data-iv="${iv}" aria-pressed="${on}">${esc(lab)}</button>`;
       }).join('')}</div>
-      <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(h.ton ? NOMS_HARMO[d.racine] + ' ' + n.item : n.item)}">Voir l’accord</button>`
+      <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${badgeDurete(durete(d.sel, h.ton ? d.racine : null))}${porte.length ? ` <span class="porte-couleur">porte la couleur (${esc(porte.map((p) => nomCouleur(c, p)).join(' '))})</span>` : ''} ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(h.ton ? NOMS_HARMO[d.racine] + ' ' + n.item : n.item)}">Voir l’accord</button>`
         : '<small>nom selon Base.txt, absent de ta base</small>'}` : '<span class="discret">Choisis au moins un deuxième intervalle.</span>'}</p>
       <div class="resto">${choixTemps('data-h', d.k, d.tpa)}<label class="${h.restoDegre1 ? 'grise' : ''}">Restitution dans le mode <select data-h="resto" data-k="${d.k}" ${h.restoDegre1 ? 'disabled' : ''}>${c.degres.map((e) => opt(e.k, `${e.mode} (degré ${ROMAINS[e.k]})`, e.k === d.resto)).join('')}</select></label>
       <button type="button" class="btn" data-h="carte" data-k="${d.k}">Voir la restitution</button></div></section>`;
@@ -1455,6 +1533,15 @@ function vueHarmo() {
     <p class="discret">Tous les degrés côte à côte, à partir du degré I, en format paysage. « … dans les 12 tonalités » donne les 12 planches de A à Ab ; « … dans tous les modes » fait de même avec chaque mode en degré I, à partir du mode choisi, dans une archive ZIP. Les accords restent dans leurs modes.</p></section>`;
   main().innerHTML = html;
   afficherSuites();
+}
+const nomCouleur = (c, p) => (c.h.ton ? NOMS_HARMO[mod12(c.T + p)] : INTERVALLES[p]);
+function blocCouleurGamme(c) {
+  const g = couleurGamme(c.ivs1), coul = g.notes;
+  const porteurs = c.degres.filter((d) => d.sel.length > 1 && d.sel.some((x) => coul.includes(mod12(d.off + x)))).map((d) => ROMAINS[d.k]);
+  const ton = c.h.ton ? ' de ' + NOMS_HARMO[c.T] : '';
+  return `<div class="couleur-gamme"><p>${coul.length ? `Couleur de la gamme : <b>${esc(coul.map((p) => nomCouleur(c, p)).join(' '))}</b> (ce qui la distingue de la gamme ${g.ref}${esc(ton)})${porteurs.length ? ` · portée par ${porteurs.length > 1 ? 'les degrés' : 'le degré'} ${esc(porteurs.join(', '))}` : ''}.`
+      : `Cette gamme n’a pas de note étrangère à la gamme ${g.ref}${esc(ton)}.`}</p>
+    <p><button type="button" class="btn" data-h="douce">Harmonisation douce</button> <span class="discret">Pour chaque degré, l’accord le plus doux de son mode (de préférence un accord de trois sons avec quinte juste), en privilégiant ceux qui portent la couleur de la gamme.</span></p></div>`;
 }
 function restitution(c, d) {
   const r = c.degres[d.resto], gen = !c.h.ton;
@@ -1596,6 +1683,7 @@ document.addEventListener('click', (ev) => {
     const sel = d.sel.includes(iv) ? d.sel.filter((x) => x !== iv) : [...d.sel, iv].sort((a, b) => a - b);
     h.degres[d.pas] = Object.assign({}, h.degres[d.pas], { sel }); harmoSauver(); vueHarmo();
   } else if (t.dataset.h === 'carte') ouvrirRestitution(k);
+  else if (t.dataset.h === 'douce') harmonisationDouce();
   else if (t.dataset.h === 'planche') plancheHarmo().then((f) => donnerFichiers([f])).catch((e) => { if (e && e.name !== 'AbortError') alert('Planche non créée : ' + e.message); });
   else if (t.dataset.h === 'planche12') planches12(t).catch((e) => { if (e && e.name !== 'AbortError') alert('Planches non créées : ' + e.message); });
   else if (t.dataset.h === 'planchesModes') planchesModes(t).catch((e) => { if (e && e.name !== 'AbortError') alert('Planches non créées : ' + e.message); });
@@ -1705,7 +1793,7 @@ function vueLibre() {
         const lab = INTERVALLES[iv], on = a.sel.includes(iv), ok = a.dispo.includes(iv);
         return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-l="iv" data-i="${a.i}" data-iv="${iv}" aria-pressed="${on}" ${ok ? '' : 'disabled'}>${esc(lab)}</button>`;
       }).join('')}</div>
-      <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(h.ton ? NOMS_HARMO[a.racine] + ' ' + n.item : n.item)}">Voir l’accord</button>`
+      <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${badgeDurete(durete(a.sel, h.ton ? a.racine : null))} ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(h.ton ? NOMS_HARMO[a.racine] + ' ' + n.item : n.item)}">Voir l’accord</button>`
         : '<small>nom selon Base.txt, absent de ta base</small>'}` : '<span class="discret">Choisis au moins un deuxième intervalle.</span>'}
       </p><div class="resto">${choixTemps('data-l', a.i, a.tpa)}<label class="${L.resto1 ? 'grise' : ''}">Restitution dans le mode de <select data-l="resto" data-i="${a.i}" ${L.resto1 ? 'disabled' : ''}>${c.accords.map((b) => optH(b.i, b === a ? 'son propre mode' : `l’accord ${b.i + 1} · ${modeLibreTxt(c, b)}`, b.i === a.resto)).join('')}</select></label>
         <button type="button" class="btn" data-l="carte" data-i="${a.i}">Voir la restitution</button>
@@ -1854,19 +1942,23 @@ let substCourant = null;
 function ouvrirSubstitutions(i) {
   const c = libreCalcul(), a = c.accords[i];
   if (!a || a.sel.length < 2) { alert('Choisis d’abord au moins deux intervalles pour cet accord.'); return; }
-  const cands = substitutions(c, a), ref = refDegres(c.L);
+  const vus = new Set();
+  const cands = [...substitutions(c, a), ...adoucirLibre(c, a), ...durcirLibre(c, a)].filter((x) => {
+    const k = mod12(x.r) + '|' + [...x.sel].sort((p, q) => p - q).join(','); if (vus.has(k)) return false; vus.add(k); return true; });
+  const ref = refDegres(c.L);
   substCourant = { i, cands };
   const ligne = (r, sel) => { const n = nomAccordLibre(c, r, sel), d = degreDe(r, sel, ref);
     return `<b>${esc(n.nom)}</b>${d ? ` <span class="degre-rom">${esc(d)}</span>` : ''}${n.dansBase ? '' : ' <small>(hors base)</small>'}`; };
-  let h = `<div class="subst"><div class="subst-ligne orig"><div>${ligne(a.r, a.sel)} <small>· l’accord actuel</small></div>
+  const dA = durete(a.sel, c.h.ton ? a.racine : null);
+  let h = `<div class="subst"><div class="subst-ligne orig"><div>${ligne(a.r, a.sel)} ${badgeDurete(dA)} <small>· l’accord actuel</small></div><p class="discret">${esc(texteDurete(dA))}</p>
     <div class="boutons-harmo"><button type="button" class="btn" data-sub="ecouter" data-j="-1">▶ Écouter</button></div></div>`;
   h += cands.length ? cands.map((x, j) => `<div class="subst-ligne"><div>${ligne(x.r, x.sel)} <small>· ${esc(x.famille)}</small></div>
     <p class="discret">${esc(x.pourquoi)}</p><div class="boutons-harmo"><button type="button" class="btn" data-sub="ecouter" data-j="${j}">▶ Écouter</button>
     <button type="button" class="btn plein" data-sub="remplacer" data-j="${j}">Remplacer dans la suite</button></div></div>`).join('')
-    : '<p class="discret">Pas de substitution proposée pour ce type d’accord : les règles visent les accords majeurs, mineurs et de dominante.</p>';
+    : '<p class="discret">Pas de substitution proposée pour cet accord.</p>';
   const avant = c.accords[i - 1], apres = c.accords[i + 1];
   const ecoute = [avant ? 'l’accord d’avant' : '', 'celui-ci', apres ? 'l’accord d’après' : ''].filter(Boolean).join(', ');
-  ouvrirDialogue(`Accord ${i + 1} · substitutions`, `▶ Écouter joue ${ecoute}, au tempo de la suite. « Remplacer » remet la gamme et le mode de l’accord à choisir.`,
+  ouvrirDialogue(`Accord ${i + 1} · substitutions`, `▶ Écouter joue ${ecoute}, au tempo de la suite. « Remplacer » remet la gamme et le mode de l’accord à choisir. Adoucir : plus doux, en gardant la couleur de l’accord ; Durcir : plus riche ou plus tendu.`,
     '', [['Fermer', () => dlg().close(), true]]);
   document.getElementById('dlg-corps').innerHTML = h + '</div>';
 }
@@ -1883,6 +1975,204 @@ document.addEventListener('click', (ev) => {
     libreModifier(i, { r: x.r, sel: x.sel, rang: null, mode: null });
   }
 });
+
+// ---------------------------------------------------------------- durete des accords : adoucir, durcir (21/11/2026)
+// Trois facettes, avec les mots de Fred : dissonance (deux notes a un demi-ton : 7M, b9 ; plus legere a un ton : 9, 7),
+// tension (triton), ambiguite (pas de quinte juste : la fondamentale s'affirme moins ; triade augmentee : on ne sait pas
+// laquelle de ses notes est la fondamentale). Points : demi-ton 3, triton 2, ton 1, pas de quinte juste 2, triade
+// augmentee 2, au-dela de 4 notes 1 par note. Total 0 : doux ; 1 a 2 : leger ; 3 a 4 : tendu ; 5 et plus : dur.
+// Adoucir garde la couleur de l'accord (ses notes au-dela de fondamentale, tierce et quinte juste) dans un accord plus
+// doux, comme E pour Caug (le G# de Creep) ; Durcir enrichit l'accord (une ou deux notes de plus) ou altere une note
+// d'un demi-ton. Avec une gamme (mode d'un accord de la suite), les accords proposes restent dans la gamme.
+const NIVEAUX_DURETE = [[0, 'doux'], [2, 'léger'], [4, 'tendu'], [Infinity, 'dur']];
+const cssNiveau = (n) => ({ doux: 'doux', léger: 'leger', tendu: 'tendu', dur: 'dur' }[n]);
+function durete(sel, racine) {                    // sel : intervalles depuis la fondamentale ; racine : sa note (null : intervalles)
+  const s = [...new Set(sel.map(mod12))].sort((a, b) => a - b);
+  const nom = (iv) => (racine == null ? INTERVALLES[iv] : NOMS_HARMO[mod12(racine + iv)]);
+  const paires = (ic) => {
+    const out = [];
+    for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) { const d = s[j] - s[i]; if (Math.min(d, 12 - d) === ic) out.push([s[i], s[j]]); }
+    return out;
+  };
+  const txt = (ps, sep) => ps.map(([x, y]) => `${nom(x)}${sep}${nom(y)}`).join(', ');
+  const raisons = []; let score = 0;
+  const dt = paires(1), tr = paires(6), tn = paires(2);
+  if (dt.length) { score += 3 * dt.length; raisons.push({ facette: 'dissonant', txt: `dissonant : ${txt(dt, ' contre ')} (demi-ton)` }); }
+  if (tr.length) { score += 2 * tr.length; raisons.push({ facette: 'tension', txt: `tension : ${txt(tr, ' et ')} (triton)` }); }
+  if (s.length >= 2 && !s.includes(7)) { score += 2; raisons.push({ facette: 'ambigu', txt: 'ambigu : pas de quinte juste' }); }
+  const aug = s.find((p) => s.includes(mod12(p + 4)) && s.includes(mod12(p + 8)));
+  if (aug !== undefined) { score += 2; raisons.push({ facette: 'ambigu', txt: `ambigu : triade augmentée ${[aug, mod12(aug + 4), mod12(aug + 8)].map(nom).join(' ')}` }); }
+  if (tn.length) { score += tn.length; raisons.push({ facette: 'léger', txt: `léger frottement : ${txt(tn, ' contre ')} (un ton)` }); }
+  if (s.length > 4) { score += s.length - 4; raisons.push({ facette: 'chargé', txt: `chargé : ${s.length} notes` }); }
+  return { score, niveau: NIVEAUX_DURETE.find(([max]) => score <= max)[1], raisons };
+}
+function badgeDurete(d) {
+  return `<span class="durete-mini d-${cssNiveau(d.niveau)}" title="${esc(d.raisons.map((r) => r.txt).join(' · ') || 'ni dissonance, ni tension, ni ambiguïté')}">${esc(d.niveau)}</span>`;
+}
+function texteDurete(d) {
+  return d.raisons.length ? d.raisons.map((r) => r.txt).join(' · ') : 'ni dissonance, ni tension, ni ambiguïté';
+}
+function couleurAccord(sel) {                     // les notes au-dela de la triade de base : fondamentale, tierce, quinte juste
+  const s = new Set(sel.map(mod12)), tierce = s.has(4) ? 4 : s.has(3) ? 3 : null;
+  return [...s].filter((x) => x !== 0 && x !== tierce && x !== 7).sort((a, b) => a - b);
+}
+let CATALOGUE = null;                             // les accords de la base, avec leur durete (independante de la fondamentale)
+function catalogue() {
+  if (!CATALOGUE) {
+    CATALOGUE = [...M.parNotes.values()].map((t) => {
+      const sel = t.notes.split(' ').map((iv) => INTERVALLES.indexOf(iv));
+      return { item: t.item, cle: t.notes, sel, d: durete(sel, null) };
+    }).filter((y) => y.sel.length >= 2 && y.sel.length <= 5 && y.sel.every((x) => x >= 0));
+  }
+  return CATALOGUE;
+}
+function changementsAccord(X, Y, nom) {           // « garde G# · C → B · sans E · avec D » (classes de hauteur)
+  const retire = X.filter((p) => !Y.includes(p)), ajout = Y.filter((p) => !X.includes(p)), out = [];
+  for (const p of retire.slice()) {
+    const q = ajout.find((v) => mod12(v - p) === 1 || mod12(p - v) === 1);
+    if (q !== undefined) { out.push(`${nom(p)} → ${nom(q)}`); retire.splice(retire.indexOf(p), 1); ajout.splice(ajout.indexOf(q), 1); }
+  }
+  if (retire.length) out.push('sans ' + retire.map(nom).join(' '));
+  if (ajout.length) out.push('avec ' + ajout.map(nom).join(' '));
+  return out.join(' · ');
+}
+function adoucir(r, sel, gamme, maxNotes = 4) {
+  // r : fondamentale (classe) ; gamme : Set des classes permises ou null. -> [{ r, sel, item, d, garde, memeRacine, X, Y }]
+  // les accords plus doux qui gardent toutes les notes de couleur (2 notes communes au moins), puis ceux de meme
+  // fondamentale, plus simples ; une seule fois chaque ensemble de notes, les plus doux d'abord
+  const X = [...new Set(sel.map((x) => mod12(r + x)))], dX = durete(sel).score, col = couleurAccord(sel).map((x) => mod12(r + x));
+  const out = [];
+  for (const y of catalogue()) {
+    if (y.d.score >= dX || y.sel.length < 3 || y.sel.length > maxNotes) continue;
+    for (let ry = 0; ry < 12; ry++) {
+      const Y = y.sel.map((x) => mod12(ry + x));
+      if (gamme && !Y.every((p) => gamme.has(p))) continue;
+      const communs = Y.filter((p) => X.includes(p)).length, garde = col.length > 0 && col.every((p) => Y.includes(p)), memeRacine = ry === mod12(r);
+      if (communs < 2 || (!garde && !memeRacine)) continue;
+      out.push({ r: ry, sel: y.sel, item: y.item, d: y.d, garde, memeRacine, communs, X, Y });
+    }
+  }
+  out.sort((a, b) => (b.garde - a.garde) || (a.d.score - b.d.score) || (b.communs - a.communs) || (b.memeRacine - a.memeRacine) ||
+    (a.sel.length - b.sel.length) || (mod12(a.r - r) - mod12(b.r - r)));
+  const vus = new Set();
+  return out.filter((x) => { const k = [...x.Y].sort((a, b) => a - b).join(','); if (vus.has(k)) return false; vus.add(k); return true; });
+}
+function durcir(r, sel, gamme, maxNotes = 5) {
+  // meme fondamentale : l'accord enrichi (1 ou 2 notes de plus) ou une note alteree d'un demi-ton, plus dur ; du plus
+  // leger au plus dur
+  const X = [...new Set(sel.map((x) => mod12(r + x)))], dX = durete(sel).score, out = [];
+  for (const y of catalogue()) {
+    if (y.d.score <= dX || y.sel.length > maxNotes) continue;
+    const Y = y.sel.map((x) => mod12(r + x));
+    if (gamme && !Y.every((p) => gamme.has(p))) continue;
+    const ajout = Y.filter((p) => !X.includes(p)), retire = X.filter((p) => !Y.includes(p));
+    const enrichi = !retire.length && ajout.length >= 1 && ajout.length <= 2;
+    const altere = retire.length === 1 && ajout.length === 1 && Math.min(mod12(ajout[0] - retire[0]), mod12(retire[0] - ajout[0])) === 1;
+    if (!enrichi && !altere) continue;
+    out.push({ r: mod12(r), sel: y.sel, item: y.item, d: y.d, enrichi, X, Y });
+  }
+  out.sort((a, b) => (a.d.score - b.d.score) || (b.enrichi - a.enrichi) || (a.Y.length - b.Y.length));
+  return out;
+}
+// Accords : la durete de l'accord affiche, et les fenetres Adoucir et Durcir (ecouter l'accord puis le candidat, voir)
+let duretCourant = null;
+function blocDureteAcc(a) {
+  const sel = a.r.notes.split(' ').map((iv) => INTERVALLES.indexOf(iv)), rp = a.racine ? G.classe(a.racine) : null, d = durete(sel, rp);
+  return `<p class="durete-acc">${badgeDurete(d)} <span class="discret">${esc(texteDurete(d))}</span>
+    ${d.score > 0 ? '<button type="button" class="btn petit" data-dur="adoucir">Adoucir</button>' : ''}
+    <button type="button" class="btn petit" data-dur="durcir">Durcir</button></p>`;
+}
+function nomCandidat(x, racineConnue, r0) {      // « E maj », ou sans fondamentale : « maj sur la 3M »
+  if (racineConnue) return NOMS_HARMO[x.r] + ' ' + x.item;
+  const off = mod12(x.r - r0);
+  return x.item + (off ? ' sur la ' + INTERVALLES[off] : '');
+}
+function ouvrirDurete(sens) {
+  const a = etat.res, A = ACCORDAGES[etat.acc];
+  const sel = a.r.notes.split(' ').map((iv) => INTERVALLES.indexOf(iv)), connue = !!a.racine;
+  const r0 = connue ? G.classe(a.racine) : 0;                      // sans fondamentale : en intervalles depuis F
+  const nom = (p) => (connue ? NOMS_HARMO[p] : INTERVALLES[mod12(p - r0)]);
+  const tous = sens === 'adoucir' ? adoucir(r0, sel, null) : durcir(r0, sel, null, Math.min(5, A.cordes.length));
+  const cands = sens === 'adoucir' ? [...tous.filter((x) => x.garde).slice(0, 8), ...tous.filter((x) => !x.garde).slice(0, 4)] : tous.slice(0, 12);
+  duretCourant = { cands, r0, sel, son: connue ? r0 : A.toniqueType };
+  const dX = durete(sel, connue ? r0 : null), col = couleurAccord(sel).map((x) => nom(mod12(r0 + x)));
+  const ligne = (x, j) => `<div class="subst-ligne"><div><b>${esc(nomCandidat(x, connue, r0))}</b> ${badgeDurete(durete(x.sel, connue ? x.r : null))}
+      <small>· ${esc(changementsAccord(x.X, x.Y, nom))}</small></div>
+    ${x.d.score ? `<p class="discret">${esc(texteDurete(durete(x.sel, connue ? x.r : null)))}</p>` : ''}
+    <div class="boutons-harmo"><button type="button" class="btn" data-durj="ecouter" data-j="${j}">▶ Écouter</button>
+    <button type="button" class="btn" data-cherche="${esc(connue ? NOMS_HARMO[x.r] + ' ' + x.item : x.item)}">Voir l’accord</button></div></div>`;
+  let h = `<div class="subst"><div class="subst-ligne orig"><div><b>${esc(nomAccord(a))}</b> ${badgeDurete(dX)} <small>· l’accord affiché</small></div>
+    <p class="discret">${esc(texteDurete(dX))}</p></div>`;
+  if (sens === 'adoucir') {
+    const g = cands.filter((x) => x.garde), m = cands.filter((x) => !x.garde);
+    h += g.length ? `<h3>Gardent la couleur (${esc(col.join(' '))})</h3>` + g.map((x) => ligne(x, cands.indexOf(x))).join('')
+      : `<p class="discret">${col.length ? 'Aucun accord plus doux de ta base ne garde ' + esc(col.join(' ')) + '.' : 'Cet accord n’a pas de note de couleur au-delà de sa tierce et de sa quinte.'}</p>`;
+    if (m.length) h += '<h3>Même fondamentale, plus simples</h3>' + m.map((x) => ligne(x, cands.indexOf(x))).join('');
+  } else {
+    h += cands.length ? cands.map((x, j) => ligne(x, j)).join('') : '<p class="discret">Aucun accord plus dur de ta base ne garde ces notes.</p>';
+  }
+  ouvrirDialogue(`${sens === 'adoucir' ? 'Adoucir' : 'Durcir'} ${nomAccord(a)}`,
+    sens === 'adoucir' ? 'Des accords plus doux qui gardent la couleur de l’accord (ses notes au-delà de la fondamentale, de la tierce et de la quinte), comme E pour Caug dans Creep ; puis, sur la même fondamentale, des versions plus simples. ▶ Écouter joue l’accord affiché, puis celui-ci.'
+      : 'Le même accord enrichi d’une ou deux notes, ou avec une note déplacée d’un demi-ton, du plus léger au plus dur. ▶ Écouter joue l’accord affiché, puis celui-ci.',
+    '', [['Fermer', () => dlg().close(), true]]);
+  document.getElementById('dlg-corps').innerHTML = h + '</div>';
+}
+document.addEventListener('click', (ev) => {
+  const o = ev.target.closest('[data-dur]');
+  if (o && etat.res) return ouvrirDurete(o.dataset.dur);
+  const t = ev.target.closest('[data-durj]');
+  if (!t || !duretCourant) return;
+  const x = duretCourant.cands[Number(t.dataset.j)], dec = mod12(duretCourant.son - duretCourant.r0);
+  if (x && t.dataset.durj === 'ecouter') jouerAccords([{ racine: duretCourant.son, sel: duretCourant.sel, tpa: null }, { racine: mod12(x.r + dec), sel: x.sel, tpa: null }]);
+});
+// Suite libre : Adoucir et Durcir s'ajoutent aux substitutions (dans la gamme de l'accord si un mode est choisi)
+function gammeLibre(a) { return a.ivsMode ? new Set(a.ivsMode.map((x) => mod12(a.r + x))) : null; }
+function adoucirLibre(c, a) {
+  const g = gammeLibre(a), nom = (p) => (c.h.ton ? NOMS_HARMO[mod12(c.T + p)] : INTERVALLES[mod12(p - a.r)]);
+  const tous = adoucir(a.r, a.sel, g), cands = [...tous.filter((x) => x.garde).slice(0, 4), ...tous.filter((x) => !x.garde).slice(0, 2)];
+  return cands.map((x) => ({ famille: 'Adoucir', r: x.r, sel: x.sel, pourquoi: `${x.d.niveau}${x.garde ? ' · garde la couleur' : ' · même fondamentale'} · ${changementsAccord(x.X, x.Y, nom)}${g ? ' · dans la gamme de l’accord' : ''}` }));
+}
+function durcirLibre(c, a) {
+  const g = gammeLibre(a), nom = (p) => (c.h.ton ? NOMS_HARMO[mod12(c.T + p)] : INTERVALLES[mod12(p - a.r)]);
+  return durcir(a.r, a.sel, g, Math.min(5, c.A.cordes.length)).slice(0, 4).map((x) => ({ famille: 'Durcir', r: x.r, sel: x.sel,
+    pourquoi: `${x.d.niveau} · ${changementsAccord(x.X, x.Y, nom)}${g ? ' · dans la gamme de l’accord' : ''}` }));
+}
+// Harmonisation par gamme : la couleur de la gamme (ce qui la distingue de la majeure, ou de la mineure naturelle si son
+// degre I a une tierce mineure) et l'harmonisation douce (pour chaque degre, l'accord le plus doux de son mode)
+function couleurGamme(ivs1) {
+  const s = ivs1.map(mod12), mineur = s.includes(3) && !s.includes(4);
+  const ref = mineur ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11];
+  return { ref: mineur ? 'mineure naturelle' : 'majeure', notes: s.filter((x) => !ref.includes(x)) };
+}
+const lexi = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i]; return 0; };
+function accordDoux(d, couleurs) {               // les intervalles de l'accord le plus doux du mode de ce degre
+  let mieux = null, cle = null;                   // le moins dur, puis a trois sons avec quinte juste, puis qui porte la couleur
+  for (const y of catalogue()) {
+    if (y.sel.length < 3 || y.sel.length > 4 || !y.sel.includes(0) || !y.sel.every((x) => d.ivs.includes(x))) continue;
+    const triade = (y.sel.includes(3) || y.sel.includes(4)) && y.sel.includes(7) ? 0 : 1;
+    const col = y.sel.filter((x) => couleurs.includes(mod12(d.off + x))).length;
+    const k = [y.d.score, triade, -col, y.sel.length];
+    if (!cle || lexi(k, cle) < 0) { mieux = y; cle = k; }
+  }
+  return mieux ? [...mieux.sel].sort((a, b) => a - b) : [0];
+}
+function harmonisationDouce() {
+  const c = harmoCalcul(), h = c.h, col = couleurGamme(c.ivs1).notes;
+  if (c.degres.some((d) => d.sel.length > 1) && !confirm('Remplacer les accords choisis par l’harmonisation douce ?')) return;
+  for (const d of c.degres) h.degres[d.pas] = Object.assign({}, h.degres[d.pas], { sel: accordDoux(d, col) });
+  harmoSauver(); vueHarmo();
+}
+// Accords : positions douces d'abord (les notes jouees a un demi-ton, une 7M ou une b9 les unes des autres frottent)
+function frottementsForme(forme, acc) {
+  const A = ACCORDAGES[acc], p = forme.map((f, i) => (f === 'x' ? null : A.midi[i] + Number(f))).filter((v) => v != null);
+  let s = 0;
+  for (let i = 0; i < p.length; i++) for (let j = i + 1; j < p.length; j++) {
+    const d = Math.abs(p[i] - p[j]);
+    s += d === 1 ? 4 : d === 11 || d === 13 ? 2 : d === 2 ? 1 : 0;
+  }
+  return s;
+}
+const texteFrottement = (s) => (s === 0 ? 'doux' : s <= 2 ? 'léger' : 'frotte');
 
 // ---------------------------------------------------------------- pupitre : la suite en grand, un accord a la fois
 // Pour chaque accord, un favori (celui qui est le plus pres, sur le manche, de la position de l'accord d'avant),
@@ -2997,6 +3287,8 @@ function chercherPropositions(o) {                // -> [{ version, basse, frags
   }
   return fin();
 }
+// « Formes proposees » se plie et se deplie ; plie a l'ouverture de la page, l'etat est garde pendant la visite
+document.addEventListener('toggle', (ev) => { if (ev.target.id === 'propositions') etat.rechOuvert = ev.target.open; }, true);
 function lancerRecherche() {
   const R = rechEtat(), s = arpEtat(), A = ACCORDAGES[etat.acc], gen = !s.ton, T = gen ? A.toniqueType : G.classe(s.ton);
   const kmin = gen ? 1 : 0, kmax = G.FRETTES_TYPE + (gen ? 1 : 0), brut = chercherPropositions(R.opts);
@@ -3042,7 +3334,7 @@ function blocPropositions(s, A) {
       ${V.length > R.vus ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpr="plus">Voir ${Math.min(RECH_PAGE, V.length - R.vus)} de plus (${V.length - R.vus} restantes)</button></div>` : ''}`
       : `<p class="avis" id="rech-bilan">Aucune nouvelle forme ne suit ta règle avec ces réglages : essaie d’autres cordes, un écart plus grand ou plus de notes par fragment.${dej}</p>`;
   }
-  return `<section class="bloc propositions zone-arp" id="propositions"><h2 class="titre-bloc">Formes proposées (ta règle)</h2>
+  return `<details class="bloc propositions zone-arp" id="propositions"${etat.rechOuvert ? ' open' : ''}><summary class="titre-bloc">Formes proposées (ta règle)<span class="pli-etat"></span></summary>
     <p class="discret">Coche les cordes à utiliser (de la plus grave, à gauche, à la plus aiguë, à droite, comme sur la carte) : chaque proposition utilise exactement ces cordes, et le reste en découle. Les formes déjà enregistrées ne sont pas proposées, et chaque forme ne l’est qu’une fois, avec son meilleur découpage (1er fragment le plus court) : « Modifier » pour en changer. Couleur de la grille : celle de la corde la plus grave, comme pour les accords. La plus aiguë des cordes cochées a une note à chaque fragment. ${A.renversements ? 'Au ukulélé, pas de basse : le 1er fragment peut commencer par n’importe quelle note.' : `Si la plus grave des cordes cochées est la ${nomCordeArp(1, A)} ou la ${nomCordeArp(2, A)}, la forme a une basse et le 1er fragment commence par la fondamentale sur cette corde ; sinon, il peut commencer par une autre note. Avec une basse, « Corde aiguë au-dessus de la basse » : « non », aucune note de la corde aiguë n’est plus haut sur la carte (plus près du sillet) que la basse ; « oui », au moins une l’est.`} Minimale : le moins de fragments possible. Pompe (3 cordes ou plus) : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
     <div class="reglages-rech">
       <span class="cordes-rech"><span>Cordes</span><span class="cases-cordes">${cases}</span></span>
@@ -3053,7 +3345,7 @@ function blocPropositions(s, A) {
       <label>Écart maximal ${choix('rech-ecart', o.ecart, [3, 4, 5, 6, 7].map((v) => [v, v + ' cases']))}</label>
       <button type="button" class="btn plein" data-arpr="chercher" ${rc.assez ? '' : 'disabled'}>${R.res ? 'Chercher à nouveau' : 'Chercher'}</button></div>
     <p class="discret" id="rech-message">${esc(R.msg || '')}</p>
-    ${corps}</section>`;
+    ${corps}</details>`;
 }
 function modifierProposition(i) {                 // la proposition va dans l'editeur (carte et deroule)
   const s = arpEtat(), p = rechEtat().vis[i];
@@ -3112,8 +3404,7 @@ function vueArpeges() {
     <button type="button" class="btn" data-arpa="carte">Télécharger cette carte (PNG)</button></div>
   <p class="discret" id="arp-message">${esc(etat.arpMsg || '')}</p>
   ${blocDeroule(s, x, A)}
-  <div class="carte-arp">${svgArpege(etat.acc, s.cle, s.ton, sel, { etapes: numerosEtapes(s.der), actifs: s.etape != null && s.der[s.etape] ? new Set(s.der[s.etape].sel) : null })}</div>
-  ${blocPropositions(s, A)}`;
+  <div class="carte-arp">${svgArpege(etat.acc, s.cle, s.ton, sel, { etapes: numerosEtapes(s.der), actifs: s.etape != null && s.der[s.etape] ? new Set(s.der[s.etape].sel) : null })}</div>`;
   // les formes enregistrees
   const liste = formesAffichees();
   // carte generique : les formes a cordes a vide n'y sont pas ; on indique leurs tonalites
@@ -3131,7 +3422,8 @@ function vueArpeges() {
       <button type="button" class="ouvrir-arp" data-arpa="agrandir" data-i="${i}" aria-label="Agrandir la forme ${i + 1}">${e.svg}</button><div class="boutons-mini">${nd ? boutonJouer('f' + e.e.f.id, '▶ Déroulé', `data-arpa="ecouterd" data-i="${i}" aria-label="Écouter le déroulé de la forme ${i + 1}"`) : ''}<button type="button" class="btn petit" data-arpa="reprendre" data-i="${i}">Reprendre</button>
       <button type="button" class="btn petit" data-arpa="supprimer" data-id="${esc(e.e.f.id)}">Supprimer</button></div></figure>`; }).join('')}</div>
     ${liste.length ? '' : '<p class="discret">Aucune forme pour cet accord.</p>'}
-    <p class="discret">Échange avec le programme PC : « Tout exporter » et « Importer un fichier », en bas de page (favoris, formes et suites dans un seul fichier).</p></section>`;
+    <p class="discret">Échange avec le programme PC : « Tout exporter » et « Importer un fichier », en bas de page (favoris, formes et suites dans un seul fichier).</p></section>
+  ${blocPropositions(s, A)}`;   // apres les formes enregistrees, plie par defaut (20/11/2026, demande de Fred)
   main().innerHTML = h;
   etat.arpListe = liste;
 }
@@ -3871,8 +4163,14 @@ function majInstruments() {
   document.querySelectorAll('.instruments button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.acc === etat.acc)));
 }
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-gamme],[data-cherche],[data-acc],[data-vue],[data-versbase],[data-pos],[data-etoile],[data-carte],[data-type],#plus,#png-tous,#exporter,#importer,#chercher-pos');
+  const t = ev.target.closest('[data-gamme],[data-cherche],[data-acc],[data-vue],[data-versbase],[data-pos],[data-etoile],[data-carte],[data-type],[data-acciv],#plus,#png-tous,#exporter,#importer,#chercher-pos');
   if (!t) return;
+  if (t.dataset.acciv) {                             // une pastille d'intervalle (recherche par intervalles)
+    const a = etat.res, iv = Number(t.dataset.acciv), ivs = ivsDeCle((a && a.r) ? a.r.notes : (etat.accCle || 'F'));
+    const ton = a && a.r ? (a.racine ? NOMS_NOTES[G.classe(a.racine)] : '') : (etat.accTon || '');
+    const nv = ivs.includes(iv) ? ivs.filter((v) => v !== iv) : [...ivs, iv];
+    return chercherIntervalles(G.cleDe(nv.length ? nv : [0]), ton);
+  }
   if (t.dataset.gamme) { const [rg, k] = t.dataset.gamme.split('|').map(Number); ouvrirGamme(rg, k); }
   else if (t.dataset.cherche) { if (dlg().open) dlg().close(); rechercher(t.dataset.cherche); }
   else if (t.dataset.vue) basculerVue(t.dataset.vue);
@@ -3901,6 +4199,7 @@ document.addEventListener('click', (ev) => {
 document.addEventListener('change', (ev) => {
   const t = ev.target;
   if (t.id === 'favseul') { etat.favSeul = t.checked; etat.lot = 1; afficherPositions(); majGrisage(); return; }
+  if (t.id === 'ton-acc') { const a = etat.res; chercherIntervalles((a && a.r) ? a.r.notes : (etat.accCle || 'F'), t.value); return; }
   if (t.dataset.corde !== undefined) { etat.pos[Number(t.dataset.corde)] = t.value; return; }
   if (t.id === 'ton-gamme') { etat.tonGamme = t.value; return; }
   if (t.id === 'racine-base') { etat.base = { texte: (etat.base || {}).texte || '', racine: t.value }; vueBase(); return; }
@@ -3978,6 +4277,7 @@ if (canal) canal.onmessage = async (ev) => {
     } else if (m.type === 'jeton?') { const j = GFDrive.jetonActuel(); if (j) diffuser('jeton', j); }
     else if (m.type === 'synchro') GFDrive.noterSynchro(m.quand);
     else if (m.type === 'arp-synchro') { arpSync = { etat: 'ok', heure: m.heure }; rafraichirVue('arpeges'); }
+    else if (m.type === 'arp-accord') { accordVersArpeges({ r: { notes: m.cle }, racine: m.ton || null }, false); rafraichirVue('arpeges'); }
   } catch (e) { /* une fenetre en retard se remettra a jour a la prochaine ecriture */ }
 };
 document.addEventListener('click', (ev) => {         // ↗ : l'onglet en cours dans une nouvelle fenetre, cote a cote
@@ -4049,7 +4349,8 @@ async function demarrer(donnees) {
     COUL = Object.assign({}, COUL_DEFAUT, M.couleurs);
     majInstruments(); majNbFav();
     const derniere = lire('gf.derniere', '');
-    if (derniere) rechercher(derniere); else accueil();
+    etat.sansSuiviArp = true;                       // au demarrage, l'onglet Arpeges garde son propre accord
+    try { if (derniere) rechercher(derniere); else accueil(); } finally { etat.sansSuiviArp = false; }
     const v = vueDeAdresse(); if (v && v !== 'accords') basculerVue(v);          // fenetre ouverte sur un onglet (…#harmo)
     if (!DANS_VOLET && volet.ouvert && petitEcran()) ouvrirVolet();              // le volet etait ouvert : on le rouvre
   } catch (e) {
