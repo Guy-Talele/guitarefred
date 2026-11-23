@@ -417,7 +417,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 23/11/2026 10:19</p>
+  <p class="discret" id="version">Version de la page : 23/11/2026 15:15</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Super-favoris : <span id="nb-sup">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -876,7 +876,8 @@ function ecrire(cle, v) { try { localStorage.setItem(cle, JSON.stringify(v)); } 
 const etat = {
   acc: lire('gf.acc', 'guitalele'),
   filtres: Object.assign({ fretteMin: null, fretteMax: 12, sansEtouffee: false, sansVide: false, avecVide: false, sansBasse: false, douces: false }, lire('gf.filtres', {})),
-  favSeul: false, supSeul: false, res: null, lot: 1, vue: 'accords', pos: null, posOuvert: false, base: null,
+  favSeul: false, supSeul: true,                 // « Super-favoris seulement » coche au lancement (23/11/2026, 15:06)
+  res: null, lot: 1, vue: 'accords', pos: null, posOuvert: false, base: null,
 };
 // Favoris : gardes dans IndexedDB (des milliers de favoris depassent la petite memoire « localStorage »)
 let favoris = { version: 2, favoris: [], retires: [] };
