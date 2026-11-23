@@ -332,6 +332,12 @@ details.zone-arp:not([open]) .pli-etat::after { content: ' — toucher pour dép
 .f-doux { color: #2e7d32; } .f-leger { color: #00897b; } .f-dur { color: #c62828; }
 .subst-ligne.orig { background: var(--accent-doux); }
 .subst-ligne.grise { opacity: .5; }
+.dirs { display: grid; gap: .4rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-top: .2rem; }
+.dir { border: 1px dashed var(--ligne); border-radius: .5rem; padding: .35rem .5rem; }
+.dir[data-hdir] { cursor: pointer; }
+.dir.on { border: 2px solid var(--accent); background: var(--accent-doux); }
+.dir p { margin: .2rem 0; }
+.titre-dir { color: var(--discret); font-weight: 600; }
 .subst-ligne p { margin: .25rem 0; }
 .subst-ligne .boutons-harmo { margin-top: .3rem; }
 .case-ecran { display: inline-flex; align-items: center; gap: .4rem; margin: .4rem 0; }
@@ -406,7 +412,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 23/11/2026 08:24</p>
+  <p class="discret" id="version">Version de la page : 23/11/2026 08:49</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -2176,151 +2182,209 @@ function accordDoux(d, couleurs) {               // les intervalles de l'accord 
   }
   return mieux ? [...mieux.sel].sort((a, b) => a - b) : [0];
 }
-// Niveaux d'harmonisation (23/11/2026) : Douce, puis 4, 5 et 6 notes. Chaque niveau ajoute des notes au precedent
-// (Am, Am7, Am7(11)...), prises dans le mode (sans mode : n'importe quelle note) : d'abord un accord de la base, puis le
-// moins dur, puis celui qui porte le plus la couleur de la gamme, puis les notes qui s'empilent en tierces (7, 9, 11, 13).
-// Un seul bouton « Harmoniser… » pour toute la suite (ou tous les degres), un par accord : la fenetre montre chaque
-// niveau, on l'ecoute, puis on l'applique.
-const NIVEAUX_HARMO = [['douce', 'Douce (3 notes)', 3], ['4', '4 notes', 4], ['5', '5 notes', 5], ['6', '6 notes', 6]];
+// Niveaux d'harmonisation (23/11/2026) : 3, 4, 5 et 6 notes, chacun dans deux directions : « plus douce » (d'abord un
+// accord de la base, puis le moins dur, puis la couleur de la gamme) et « en tierces » (1-3-5, puis 7, 9, 11, 13 du
+// mode : G7 plutot que G6, Bdim plutot que B m(#5)). Chaque niveau ajoute des notes a l'accord choisi au niveau d'avant :
+// G6 ou G7 a 4 notes decide du 5 notes (G6/9 ou G9...). Un seul bouton « Harmoniser… » pour toute la suite (ou tous
+// les degres), un par accord : la fenetre montre chaque niveau et ses directions, on ecoute, puis on applique.
+const NIVEAUX_HARMO = [['douce', '3 notes', 3], ['4', '4 notes', 4], ['5', '5 notes', 5], ['6', '6 notes', 6]];
+const DIRECTIONS = { doux: 'Plus douce', tierces: 'En tierces' };
 const POIDS_AJOUT = { 10: 1, 11: 1, 1: 2, 2: 2, 3: 2, 5: 3, 6: 3, 8: 4, 9: 4 };
+const RANGS_TIERCES = { 0: 0, 4: 1, 3: 1.1, 7: 2, 6: 2.6, 8: 2.7, 10: 3, 11: 3.1, 2: 4, 1: 4.1, 5: 5, 9: 6 };
+function rangsTierces(ivs, P) {                  // le rang de chaque note dans l'empilement en tierces depuis la fondamentale
+  const s = [...new Set(ivs.map(mod12))].sort((a, b) => a - b), r = {};
+  if (s.length === 7 && s[0] === 0) { [0, 2, 4, 6, 1, 3, 5].forEach((i, k) => { r[s[i]] = k; }); return r; }   // mode de 7 notes : une sur deux
+  Object.assign(r, RANGS_TIERCES);                // autres modes, ou sans mode : tierce, quinte, 7, 9, 11, 13
+  if (P.includes(4)) r[3] = 4.2;                  // #9 quand la tierce majeure est la
+  if (P.includes(3)) r[4] = 5.5;
+  if (P.includes(7)) { r[6] = 5.2; r[8] = 6.2; }  // #11 et b13 quand la quinte juste est la
+  return r;
+}
+const DUR_CACHE = new Map();
+const scoreDur = (sel) => { const k = sel.join(','); if (!DUR_CACHE.has(k)) DUR_CACHE.set(k, durete(sel, null).score); return DUR_CACHE.get(k); };
 function* combinaisons(liste, k, depuis = 0) {
   if (k === 0) { yield []; return; }
   for (let i = depuis; i <= liste.length - k; i++) for (const suite of combinaisons(liste, k - 1, i + 1)) yield [liste[i], ...suite];
 }
-function enrichir(P, ivs, n, couleurs, off) {   // l'accord P (intervalles) avec des notes en plus, jusqu'a n notes
+function enrichir(P, ivs, n, couleurs, off, dir = 'doux') {   // l'accord P (intervalles) avec des notes en plus, jusqu'a n notes
   const reste = [...new Set(ivs.map(mod12))].filter((x) => !P.includes(x)).sort((a, b) => a - b), k = n - P.length;
   if (k <= 0) return k === 0 ? P : null;
+  const rangs = dir === 'tierces' ? rangsTierces(ivs, P) : null;
   let mieux = null, cle = null;
   for (const aj of combinaisons(reste, k)) {
-    const sel = [...P, ...aj].sort((a, b) => a - b);
-    const cs = [M.parNotes.get(G.cleDe(sel)) ? 0 : 1, durete(sel, null).score, -sel.filter((x) => couleurs.includes(mod12(off + x))).length,
-      aj.reduce((t, x) => t + (POIDS_AJOUT[x] || 5), 0), ...aj];
+    const sel = [...P, ...aj].sort((a, b) => a - b), base = M.parNotes.get(G.cleDe(sel)) ? 0 : 1, sc = scoreDur(sel);
+    const col = -sel.filter((x) => couleurs.includes(mod12(off + x))).length;
+    const cs = dir === 'tierces' ? [aj.reduce((t, x) => t + (rangs[x] ?? 9), 0), base, sc, col, ...aj]
+      : [base, sc, col, aj.reduce((t, x) => t + (POIDS_AJOUT[x] || 5), 0), ...aj];
     if (!cle || lexi(cs, cle) < 0) { mieux = sel; cle = cs; }
   }
   return mieux;
 }
-function niveauxHarmo(ctx, cordes) {            // ctx : { douce, ivs, couleurs, off } -> [{ niv, lib, n, sel | null, pourquoi }]
-  const nb = new Set(ctx.ivs.map(mod12)).size;
-  let P = ctx.douce;
+// ctx : { ivs, couleurs, off, doux3: { r, sel }, tierces3: { r, sel } } ; chemin : { 3: 'doux' | 'tierces', 4: …, 5: …, 6: … }
+// -> pour chaque niveau : { niv, lib, n, options: [{ r, sel, dirs }], choix, r, sel (l'accord choisi), pourquoi }
+function niveauxHarmo(ctx, cordes, chemin = {}) {
+  const nb = new Set(ctx.ivs.map(mod12)).size, memo = ctx.memo || (ctx.memo = new Map());
+  const etendre = (P, n, dir) => {
+    const k = `${P.sel.join(',')}|${n}|${dir}`;
+    if (!memo.has(k)) memo.set(k, P.sel.length >= n ? P.sel : enrichir(P.sel, ctx.ivs, n, ctx.couleurs, ctx.off, dir));
+    return memo.get(k);
+  };
+  let P = null;
   return NIVEAUX_HARMO.map(([niv, lib, n]) => {
-    if (niv === 'douce') return { niv, lib, n, sel: P };
-    if (n > cordes) return { niv, lib, n, sel: null, pourquoi: `l’instrument n’a que ${cordes} cordes` };
-    if (n > nb) return { niv, lib, n, sel: null, pourquoi: `le mode n’a que ${nb} notes` };
-    const x = P.length >= n ? P : enrichir(P, ctx.ivs, n, ctx.couleurs, ctx.off);
-    if (x) P = x;
-    return { niv, lib, n, sel: x, pourquoi: x ? '' : 'pas d’accord possible' };
+    const vide = (pourquoi) => ({ niv, lib, n, options: [], choix: null, r: null, sel: null, pourquoi });
+    if (n > 3 && n > cordes) return vide(`l’instrument n’a que ${cordes} cordes`);
+    if (n > 3 && n > nb) return vide(`le mode n’a que ${nb} notes`);
+    if (n > 3 && !P) return vide('pas d’accord possible');
+    const brutes = n === 3 ? [Object.assign({ dir: 'doux' }, ctx.doux3), ctx.tierces3 && Object.assign({ dir: 'tierces' }, ctx.tierces3)]
+      : ['doux', 'tierces'].map((dir) => { const sel = etendre(P, n, dir); return sel && { dir, r: P.r, sel }; });
+    const options = [];
+    for (const o of brutes.filter((x) => x && x.sel)) {
+      const meme = options.find((q) => mod12(q.r) === mod12(o.r) && q.sel.join(',') === o.sel.join(','));
+      if (meme) meme.dirs.push(o.dir); else options.push({ r: o.r, sel: o.sel, dirs: [o.dir] });
+    }
+    const choix = options.find((o) => o.dirs.includes(chemin[n] || 'doux')) || options[0] || null;
+    if (choix) P = choix;
+    return { niv, lib, n, options, choix, r: choix ? choix.r : null, sel: choix ? choix.sel : null, pourquoi: choix ? '' : 'pas d’accord possible' };
   });
 }
-function auNiveau(liste, niv) {                  // le niveau demande, ou le plus riche possible en dessous
-  for (let j = liste.findIndex((x) => x.niv === niv); j >= 0; j--) if (liste[j].sel) return liste[j];
+function auNiveau(liste, j) {                    // le niveau j, ou le plus riche possible en dessous
+  for (let q = j; q >= 0; q--) if (liste[q].sel) return liste[q];
   return liste[0];
 }
-// les accords a harmoniser : { k, r, quoi, ctx, racineSon, nom(sel, r), sel (l'actuel), tpa }
+// les accords a harmoniser : { k, pas, rAct, sel (l'actuel), quoi, ctx, tpa, nom(sel, r), racineSon }
 function ciblesGamme() {
   const c = harmoCalcul(), col = couleurGamme(c.ivs1).notes;
-  return { c, cibles: c.degres.map((d) => ({ k: d.k, pas: d.pas, r: d.off, quoi: 'mode', sel: d.sel, tpa: d.tpa, racineSon: d.racine,
+  return { c, cibles: c.degres.map((d) => ({ k: d.k, pas: d.pas, rAct: d.off, quoi: 'mode', sel: d.sel, tpa: d.tpa, racineSon: () => d.racine,
     nom: (sel) => { const n = nomDegre(c, Object.assign({}, d, { sel })); return n ? n.nom : 'accord à choisir'; },
-    ctx: { douce: accordDoux(d, col), ivs: d.ivs, couleurs: col, off: d.off } })) };
+    ctx: { ivs: d.ivs, couleurs: col, off: d.off, doux3: { r: d.off, sel: accordDoux(d, col) }, tierces3: { r: d.off, sel: enrichir([0], d.ivs, 3, col, d.off, 'tierces') } } })) };
 }
 // Suite libre : un accord qui a un mode (apres « Cycle des quartes », une gamme compatible appliquee ou un mode choisi)
 // prend ses accords dans ce mode ; la couleur de sa gamme se lit depuis la note de reference des degres si elle est dans
 // cette gamme, sinon depuis le premier accord de la suite dans la meme gamme (apres le cycle : l'accord 1, comme le
 // degre I). Un accord sans mode : sa version douce est le premier accord propose par Adoucir (il garde sa couleur ; un
 // accord deja doux reste tel quel) ; s'il a 4 notes ou plus, c'est son accord de trois sons le plus doux, sur la meme
-// fondamentale (Am7 -> Am, G9 -> G). Les niveaux suivants lui ajoutent n'importe quelles notes.
+// fondamentale (Am7 -> Am, G9 -> G) ; en tierces, c'est sa tierce et sa quinte. Les niveaux suivants lui ajoutent
+// n'importe quelles notes.
 function noyauDoux(sel) {                        // les trois sons les plus doux de l'accord, avec sa fondamentale
   let mieux = null, cle = null;
   for (const aj of combinaisons(sel.filter((x) => x !== 0), 2)) {
-    const s3 = [0, ...aj].sort((a, b) => a - b), k = [durete(s3, null).score, (s3.includes(3) || s3.includes(4)) && s3.includes(7) ? 0 : 1, ...s3];
+    const s3 = [0, ...aj].sort((a, b) => a - b), k = [scoreDur(s3), (s3.includes(3) || s3.includes(4)) && s3.includes(7) ? 0 : 1, ...s3];
     if (!cle || lexi(k, cle) < 0) { mieux = s3; cle = k; }
   }
   return mieux;
 }
+function coeurTierces(sel) {                     // fondamentale, tierce et quinte de l'accord (completees si besoin)
+  const t = sel.includes(4) ? 4 : sel.includes(3) ? 3 : null, q = sel.includes(7) ? 7 : sel.includes(6) ? 6 : sel.includes(8) ? 8 : null;
+  const s3 = [0, t, q].filter((x) => x != null);
+  return s3.length === 3 ? s3 : enrichir(s3, [...Array(12).keys()], 3, [], 0, 'tierces');
+}
 function ciblesLibre() {
   const c = libreCalcul(), ref = refDegres(c.L), notes = (a) => [...new Set(a.ivsMode.map((x) => mod12(a.r + x)))].sort((x, y) => x - y);
   const cibles = c.accords.map((a) => {
-    const base = { k: a.i, r: a.r, sel: a.sel, tpa: a.tpa, nom: (sel, r) => nomAccordLibre(c, r, sel).nom, racineSon: (r) => mod12(c.T + r) };
+    const base = { k: a.i, rAct: a.r, sel: a.sel, tpa: a.tpa, nom: (sel, r) => nomAccordLibre(c, r, sel).nom, racineSon: (r) => mod12(c.T + r) };
     if (a.ivsMode) {
       const S = notes(a), cle = S.join(','), b = c.accords.find((e) => e.ivsMode && notes(e).join(',') === cle);
       const t = ref >= 0 && S.includes(mod12(ref)) ? mod12(ref) : mod12(b.r);
       const couleurs = couleurGamme(S.map((p) => mod12(p - t)).sort((x, y) => x - y)).notes, ivs = a.ivsMode.map(mod12), off = mod12(a.r - t);
-      return Object.assign(base, { quoi: 'mode', ctx: { douce: accordDoux({ ivs, off }, couleurs), ivs, couleurs, off } });
+      return Object.assign(base, { quoi: 'mode', ctx: { ivs, couleurs, off, doux3: { r: a.r, sel: accordDoux({ ivs, off }, couleurs) },
+        tierces3: { r: a.r, sel: enrichir([0], ivs, 3, couleurs, off, 'tierces') } } });
     }
     if (a.sel.length < 2) return Object.assign(base, { quoi: null, ctx: null });
-    const tous = [...Array(12).keys()];
-    if (a.sel.length >= 4) return Object.assign(base, { quoi: 'reduit', ctx: { douce: noyauDoux(a.sel), ivs: tous, couleurs: [], off: 0 } });
+    const ctx = { ivs: [...Array(12).keys()], couleurs: [], off: 0, tierces3: { r: a.r, sel: coeurTierces(a.sel) } };
+    if (a.sel.length >= 4) return Object.assign(base, { quoi: 'reduit', ctx: Object.assign(ctx, { doux3: { r: a.r, sel: noyauDoux(a.sel) } }) });
     const x = adoucir(a.r, a.sel, null)[0];
-    return Object.assign(base, { quoi: x ? 'adouci' : 'doux', r: x ? x.r : a.r,
-      ctx: { douce: x ? [...x.sel].sort((p, q) => p - q) : a.sel, ivs: tous, couleurs: [], off: 0 } });
+    return Object.assign(base, { quoi: x ? 'adouci' : 'doux', ctx: Object.assign(ctx, { doux3: x ? { r: x.r, sel: [...x.sel].sort((p, q) => p - q) } : { r: a.r, sel: a.sel } }) });
   });
   return { c, cibles };
 }
-const racineSonDe = (x, r) => (typeof x.racineSon === 'function' ? x.racineSon(r) : x.racineSon);
-// les lignes de la fenetre « Harmoniser » : pour chaque niveau, l'accord (ou les accords) obtenu
-function lignesHarmo(portee, k) {
+// les lignes de la fenetre « Harmoniser » : pour chaque niveau, ses directions, chacune avec l'accord (ou les accords) obtenu
+function lignesHarmo(portee, k, chemin = {}) {
   const { c, cibles } = portee === 'gamme' ? ciblesGamme() : ciblesLibre(), cordes = c.A.cordes.length;
-  const choix = cibles.filter((x) => k == null || x.k === k);
-  const niv = choix.map((x) => (x.ctx ? niveauxHarmo(x.ctx, cordes) : null));
-  return { c, choix, lignes: NIVEAUX_HARMO.map(([cle, lib, n], j) => {
-    const accords = [];
-    let pourquoi = '';
-    choix.forEach((x, q) => {
-      if (!niv[q]) return;
-      const v = auNiveau(niv[q], cle);
-      if (niv[q][j].pourquoi && !pourquoi) pourquoi = niv[q][j].pourquoi;
-      accords.push({ k: x.k, pas: x.pas, r: x.r, sel: v.sel, nb: v.sel.length, tpa: x.tpa, racine: racineSonDe(x, x.r), nom: x.nom(v.sel, x.r), x });
+  const choix = cibles.filter((x) => (k == null || x.k === k) && x.ctx);
+  const niv = choix.map((x) => niveauxHarmo(x.ctx, cordes, chemin));
+  const lignes = NIVEAUX_HARMO.map(([cle, lib, n], j) => {
+    const versions = (dir) => choix.map((x, q) => {
+      const lv = niv[q][j], o = lv.sel ? lv.options.find((v) => v.dirs.includes(dir)) || lv.choix : auNiveau(niv[q], j);
+      return { k: x.k, pas: x.pas, r: o.r, sel: o.sel, nb: o.sel.length, tpa: x.tpa, racine: x.racineSon(o.r), nom: x.nom(o.sel, o.r), x };
     });
-    const dispo = accords.length > 0 && (cle === 'douce' || accords.some((a) => a.nb >= n));
-    return { cle, lib, n, accords, courts: accords.filter((a) => cle !== 'douce' && a.nb < n), dispo, pourquoi };
-  }) };
+    const pourquoi = (niv.map((l) => l[j].pourquoi).find(Boolean)) || '';
+    const dispo = choix.length > 0 && (n === 3 || niv.some((l) => l[j].sel && l[j].sel.length >= n));
+    if (!dispo) return { cle, lib, n, dispo, pourquoi, options: [] };
+    const sig = (acc) => acc.map((a) => mod12(a.r) + ':' + a.sel.join(',')).join(' ');
+    const d = versions('doux'), t = versions('tierces'), memes = sig(d) === sig(t);
+    const options = memes ? [{ dirs: ['doux', 'tierces'], accords: d }] : [{ dirs: ['doux'], accords: d }, { dirs: ['tierces'], accords: t }];
+    for (const o of options) o.courts = n === 3 ? [] : o.accords.filter((a) => a.nb < n);
+    return { cle, lib, n, dispo, pourquoi, options, dir: chemin[n] || 'doux' };
+  });
+  return { c, choix, lignes };
+}
+function cheminInitial(portee, k) {              // la direction de chaque niveau qui retrouve le plus d'accords actuels
+  const { c, cibles } = portee === 'gamme' ? ciblesGamme() : ciblesLibre(), cordes = c.A.cordes.length;
+  const choix = cibles.filter((x) => (k == null || x.k === k) && x.ctx && x.sel.length > 1);
+  let mieux = {}, nMieux = 0;
+  for (let m = 0; m < 16; m++) {
+    const ch = { 3: m & 1 ? 'tierces' : 'doux', 4: m & 2 ? 'tierces' : 'doux', 5: m & 4 ? 'tierces' : 'doux', 6: m & 8 ? 'tierces' : 'doux' };
+    let n = 0;
+    for (const x of choix) if (niveauxHarmo(x.ctx, cordes, ch).some((v) => v.sel && mod12(v.r) === mod12(x.rAct) && v.sel.join(',') === x.sel.join(','))) n++;
+    if (n > nMieux) { nMieux = n; mieux = ch; }
+  }
+  return mieux;
 }
 let harmCourant = null;
 function ouvrirHarmoniser(portee, k) {
-  const { c, choix, lignes } = lignesHarmo(portee, k), seul = k != null, x0 = choix[0];
-  if (!lignes[0].accords.length) {
-    annoncer(seul ? 'Choisis d’abord des intervalles ou un mode pour cet accord.' : 'Rien à harmoniser : choisis des accords, ou un mode pour eux (« Cycle des quartes », gamme compatible).');
+  const { lignes } = lignesHarmo(portee, k, {});
+  if (!lignes[0].dispo) {
+    annoncer(k != null ? 'Choisis d’abord des intervalles ou un mode pour cet accord.' : 'Rien à harmoniser : choisis des accords, ou un mode pour eux (« Cycle des quartes », gamme compatible).');
     return;
   }
-  harmCourant = { portee, k, lignes };
-  const nomNote = (r0) => (p) => (c.h.ton ? NOMS_HARMO[mod12(c.T + p)] : INTERVALLES[mod12(p - r0)]);
+  harmCourant = { portee, k, chemin: cheminInitial(portee, k) };
+  const titre = k != null ? (portee === 'gamme' ? `Degré ${ROMAINS[k]} · harmoniser` : `Accord ${k + 1} · harmoniser`)
+    : (portee === 'gamme' ? 'Harmoniser tous les degrés' : 'Harmoniser la suite');
+  ouvrirDialogue(titre, `Chaque niveau ajoute des notes à celui d’avant, prises dans le mode${portee === 'libre' ? ' (sans mode : n’importe quelle note)' : ''}. Deux directions : « plus douce » (le moins dur, en privilégiant ta base et la couleur de la gamme) ou « en tierces » (1-3-5, puis 7, 9, 11, 13 : G7 plutôt que G6). Touche une direction pour en partir au niveau suivant. ▶ Écouter, puis ${k != null ? '« Choisir »' : '« Appliquer » (remplace les accords choisis)'}.`,
+    '', [['Fermer', () => dlg().close(), true]]);
+  rendreHarmo();
+}
+function rendreHarmo() {
+  const { portee, k, chemin } = harmCourant, { c, choix, lignes } = lignesHarmo(portee, k, chemin), seul = k != null, x0 = choix[0];
+  harmCourant.lignes = lignes;
+  const r0 = seul ? x0.rAct : 0, nomNote = (p) => (c.h.ton ? NOMS_HARMO[mod12(c.T + p)] : INTERVALLES[mod12(p - r0)]);
+  const lieu = (a) => (portee === 'gamme' ? 'degré ' + ROMAINS[a.k] : 'accord ' + (a.k + 1));
   let h = '<div class="subst">';
-  if (seul && x0.sel.length > 1) {
-    h += `<div class="subst-ligne orig"><div><b>${esc(portee === 'gamme' ? x0.nom(x0.sel) : x0.nom(x0.sel, c.accords[k].r))}</b> ${badgeDurete(durete(x0.sel, null))} <small>· l’accord actuel</small></div></div>`;
-  }
+  if (seul && x0.sel.length > 1) h += `<div class="subst-ligne orig"><div><b>${esc(x0.nom(x0.sel, x0.rAct))}</b> ${badgeDurete(durete(x0.sel, null))} <small>· l’accord actuel</small></div></div>`;
   lignes.forEach((l, j) => {
     if (!l.dispo) {
       h += `<div class="subst-ligne grise"><div><b>${esc(l.lib)}</b></div><p class="discret">Pas possible : ${esc(l.pourquoi || 'pas d’accord plus riche dans ce mode')}.</p></div>`;
       return;
     }
-    let corps;
-    if (seul) {
-      const a = l.accords[0], r0 = portee === 'gamme' ? x0.r : c.accords[k].r, X = x0.sel.map((v) => mod12(r0 + v)), Y = a.sel.map((v) => mod12(a.r + v));
-      const pareil = X.length === Y.length && X.every((p) => Y.includes(p)) && mod12(a.r) === mod12(r0);
-      corps = `<div><b>${esc(a.nom)}</b> ${badgeDurete(durete(a.sel, null))}${pareil ? ' <small>· c’est l’accord actuel</small>' : ''}</div>
-        ${x0.sel.length > 1 && !pareil ? `<p class="discret">${esc(changementsAccord(X, Y, nomNote(r0)))}</p>` : ''}`;
-    } else {
-      corps = `<p>${l.accords.map((a) => `<b>${esc(a.nom)}</b>`).join(' · ')}</p>
-        ${l.courts.length ? `<p class="discret">${l.courts.length > 1 ? l.courts.length + ' accords restent' : 'Un accord reste'} à moins de ${l.n} notes (${esc(l.courts.map((a) => (portee === 'gamme' ? 'degré ' + ROMAINS[a.k] : 'accord ' + (a.k + 1))).join(', '))}) : pas plus riche dans leur mode.</p>` : ''}`;
-    }
-    h += `<div class="subst-ligne"><div><b>${esc(l.lib)}</b></div>${corps}
-      <div class="boutons-harmo"><button type="button" class="btn" data-hn="ecouter" data-j="${j}">▶ Écouter</button>
-      <button type="button" class="btn plein" data-hn="appliquer" data-j="${j}">${seul ? 'Choisir' : 'Appliquer'}</button></div></div>`;
+    const deux = l.options.length > 1;
+    h += `<div class="subst-ligne"><div><b>${esc(l.lib)}</b></div><div class="dirs">` + l.options.map((o, q) => {
+      const on = deux && o.dirs.includes(l.dir), titreDir = o.dirs.length > 1 ? 'Plus douce = en tierces' : DIRECTIONS[o.dirs[0]];
+      let corps;
+      if (seul) {
+        const a = o.accords[0], X = x0.sel.map((v) => mod12(x0.rAct + v)), Y = a.sel.map((v) => mod12(a.r + v));
+        const pareil = X.length === Y.length && X.every((p) => Y.includes(p)) && mod12(a.r) === mod12(x0.rAct);
+        corps = `<div><b>${esc(a.nom)}</b> ${badgeDurete(durete(a.sel, null))}${pareil ? ' <small>· c’est l’accord actuel</small>' : ''}</div>
+          ${x0.sel.length > 1 && !pareil ? `<p class="discret">${esc(changementsAccord(X, Y, nomNote))}</p>` : ''}`;
+      } else {
+        corps = `<p>${o.accords.map((a) => `<b>${esc(a.nom)}</b>`).join(' · ')}</p>
+          ${o.courts.length ? `<p class="discret">${o.courts.length > 1 ? o.courts.length + ' accords restent' : 'Un accord reste'} à moins de ${l.n} notes (${esc(o.courts.map(lieu).join(', '))}) : pas plus riche dans leur mode.</p>` : ''}`;
+      }
+      return `<div class="dir${on ? ' on' : ''}"${deux ? ` data-hdir="${o.dirs[0]}" data-n="${l.n}"` : ''}><small class="titre-dir">${esc(titreDir)}${on ? ' · choisie pour la suite' : deux ? ' · touche pour en partir' : ''}</small>${corps}
+        <div class="boutons-harmo"><button type="button" class="btn" data-hn="ecouter" data-j="${j}" data-o="${q}">▶ Écouter</button>
+        <button type="button" class="btn plein" data-hn="appliquer" data-j="${j}" data-o="${q}">${seul ? 'Choisir' : 'Appliquer'}</button></div></div>`;
+    }).join('') + '</div></div>';
   });
-  const titre = seul ? (portee === 'gamme' ? `Degré ${ROMAINS[k]} · harmoniser` : `Accord ${k + 1} · harmoniser`)
-    : (portee === 'gamme' ? 'Harmoniser tous les degrés' : 'Harmoniser la suite');
-  ouvrirDialogue(titre, `Chaque niveau ajoute des notes au précédent, prises dans le mode${portee === 'libre' ? ' (sans mode : n’importe quelle note)' : ''} : les moins dures possible, en privilégiant les accords de ta base et la couleur de la gamme. ▶ Écouter, puis ${seul ? '« Choisir »' : '« Appliquer » (remplace les accords choisis)'}.`,
-    '', [['Fermer', () => dlg().close(), true]]);
   document.getElementById('dlg-corps').innerHTML = h + '</div>';
 }
-function appliquerHarmo(portee, k, ligne) {     // -> message
+function appliquerHarmo(portee, k, ligne, option) {   // -> message
   if (portee === 'gamme') {
     const h = harmoEtat();
-    for (const a of ligne.accords) h.degres[a.pas] = Object.assign({}, h.degres[a.pas], { sel: a.sel });
+    for (const a of option.accords) h.degres[a.pas] = Object.assign({}, h.degres[a.pas], { sel: a.sel });
     harmoSauver(); vueHarmo();
   } else {
     const L = libreEtat(), c = libreCalcul();
     let racine = false;
-    for (const a of ligne.accords) {
+    for (const a of option.accords) {
       const change = { sel: a.sel };
       if (mod12(a.r) !== mod12(c.accords[a.k].r)) { change.r = a.r; racine = true; }
       L.accords[a.k] = Object.assign({}, L.accords[a.k], change);
@@ -2330,32 +2394,38 @@ function appliquerHarmo(portee, k, ligne) {     // -> message
   }
   if (k != null) return '';
   const pl = (n, un, plusieurs) => `${n} ${n > 1 ? plusieurs : un}`;
-  const laisses = portee === 'libre' ? libreCalcul().accords.length - ligne.accords.length : 0;
+  const laisses = portee === 'libre' ? libreCalcul().accords.length - option.accords.length : 0;
   const finLaisses = laisses ? [pl(laisses, 'laissé (ni mode ni accord)', 'laissés (ni mode ni accord)')] : [];
-  if (ligne.cle === 'douce') {
-    const n = (q) => ligne.accords.filter((a) => a.x.quoi === q).length;
+  if (ligne.n === 3 && option.dirs.includes('doux')) {
+    const n = (q) => option.accords.filter((a) => a.x.quoi === q).length;
     return 'Harmonisation douce : ' + [n('mode') && pl(n('mode'), portee === 'gamme' ? 'degré dans son mode' : 'accord dans son mode', portee === 'gamme' ? 'degrés dans leur mode' : 'accords dans leur mode'),
       n('adouci') && pl(n('adouci'), 'accord adouci', 'accords adoucis'), n('reduit') && pl(n('reduit'), 'accord ramené à trois sons', 'accords ramenés à trois sons'),
       n('doux') && pl(n('doux'), 'déjà doux', 'déjà doux'), ...finLaisses].filter(Boolean).join(', ') + '.';
   }
   const parNb = {};
-  for (const a of ligne.accords) parNb[a.nb] = (parNb[a.nb] || 0) + 1;
-  return `Harmonisation ${ligne.lib} : ` + [...Object.keys(parNb).map(Number).sort((a, b) => b - a)
+  for (const a of option.accords) parNb[a.nb] = (parNb[a.nb] || 0) + 1;
+  const dir = option.dirs.length > 1 ? '' : option.dirs[0] === 'tierces' ? ', en tierces' : ', plus douce';
+  return `Harmonisation ${ligne.lib}${dir} : ` + [...Object.keys(parNb).map(Number).sort((a, b) => b - a)
     .map((nb, q) => (q === 0 ? pl(parNb[nb], `${portee === 'gamme' ? 'degré' : 'accord'} à ${nb} notes`, `${portee === 'gamme' ? 'degrés' : 'accords'} à ${nb} notes`) : `${parNb[nb]} à ${nb} notes`)), ...finLaisses].join(', ') + '.';
 }
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-hn]');
-  if (!t || !harmCourant) return;
-  const l = harmCourant.lignes[Number(t.dataset.j)];
-  if (!l) return;
+  if (!harmCourant) return;
+  const t = ev.target.closest('[data-hn]'), carte = ev.target.closest('[data-hdir]');
+  if (!t && carte) {                              // une direction : les niveaux suivants en partent
+    harmCourant.chemin = Object.assign({}, harmCourant.chemin, { [carte.dataset.n]: carte.dataset.hdir });
+    rendreHarmo();
+    return;
+  }
+  if (!t) return;
+  const l = harmCourant.lignes[Number(t.dataset.j)], o = l && l.options[Number(t.dataset.o)];
+  if (!o) return;
   if (t.dataset.hn === 'ecouter') {
-    const actuel = harmCourant.k != null && l.accords[0].x.sel.length > 1
-      ? [{ racine: racineSonDe(l.accords[0].x, harmCourant.portee === 'gamme' ? l.accords[0].r : libreCalcul().accords[harmCourant.k].r), sel: l.accords[0].x.sel, tpa: null }] : [];
-    jouerAccords([...actuel, ...l.accords.map((a) => ({ racine: a.racine, sel: a.sel, tpa: harmCourant.k != null ? null : a.tpa }))]);
+    const x = o.accords[0].x, actuel = harmCourant.k != null && x.sel.length > 1 ? [{ racine: x.racineSon(x.rAct), sel: x.sel, tpa: null }] : [];
+    jouerAccords([...actuel, ...o.accords.map((a) => ({ racine: a.racine, sel: a.sel, tpa: harmCourant.k != null ? null : a.tpa }))]);
   } else if (t.dataset.hn === 'appliquer') {
     const { portee, k } = harmCourant;
     harmCourant = null; dlg().close();
-    const m = appliquerHarmo(portee, k, l);
+    const m = appliquerHarmo(portee, k, l, o);
     if (m) annoncer(m);
   }
 });
