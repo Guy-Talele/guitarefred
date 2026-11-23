@@ -405,7 +405,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 21/11/2026 10:53</p>
+  <p class="discret" id="version">Version de la page : 23/11/2026 07:08</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -1790,8 +1790,9 @@ function vueLibre() {
   <div class="boutons-harmo"><button type="button" class="btn plein" data-l="grille">Coller une grille</button>
     <button type="button" class="btn" data-l="quartes">Cycle des quartes</button>
     <button type="button" class="btn" data-l="dominantes">Cycle des dominantes</button>
+    <button type="button" class="btn" data-l="douce">Harmonisation douce</button>
     <button type="button" class="btn" data-l="effacer">Tout effacer</button></div>
-  <p class="discret">Pour chaque accord : sa fondamentale${h.ton ? '' : ' (par rapport à la référence ; choisis une fondamentale pour voir les notes)'}, ses intervalles et, si tu veux, une gamme et un mode. Les intervalles limitent les gammes et les modes proposés, et un mode limite les intervalles. « Cycle des quartes » prend les quartes réelles du mode de l’accord 1 s’il est choisi (C ionien : C F B E A D G, chaque accord dans son mode), sinon des quartes justes ; choisir ensuite le mode de l’accord 1 met le cycle à jour. « Cycle des dominantes » met des accords 7 en Mixo, de quarte juste en quarte juste.</p>` + barreSuite() + blocSuites();
+  <p class="discret">Pour chaque accord : sa fondamentale${h.ton ? '' : ' (par rapport à la référence ; choisis une fondamentale pour voir les notes)'}, ses intervalles et, si tu veux, une gamme et un mode. Les intervalles limitent les gammes et les modes proposés, et un mode limite les intervalles. « Cycle des quartes » prend les quartes réelles du mode de l’accord 1 s’il est choisi (C ionien : C F B E A D G, chaque accord dans son mode), sinon des quartes justes ; choisir ensuite le mode de l’accord 1 met le cycle à jour. « Cycle des dominantes » met des accords 7 en Mixo, de quarte juste en quarte juste. « Harmonisation douce » : un accord qui a un mode (après « Cycle des quartes », une gamme compatible appliquée ou un mode choisi) prend l’accord le plus doux de son mode, en privilégiant la couleur de sa gamme ; un accord sans mode est adouci en gardant sa couleur, s’il peut l’être.</p>` + barreSuite() + blocSuites();
   for (const a of c.accords) {
     const fams = DONNEES.familles.filter((f) => f[2].some((m) => contient(m[1], a.sel)));
     const modes = a.fam ? a.fam[2].map((m, idx) => [m, idx]).filter(([m]) => contient(m[1], a.sel)) : [];
@@ -1869,7 +1870,8 @@ document.addEventListener('click', (ev) => {
         l === 'dominantes' ? { sel: [0, 4, 7, 10], rang: mixo >= 0 ? 1 : null, mode: mixo >= 0 ? mixo : null } : {})));
     if (!L.titre) L.titre = l === 'quartes' ? 'cycle des quartes' : 'cycle des dominantes';
     harmoSauver(); vueLibre();
-  } else if (l === 'effacer') {
+  } else if (l === 'douce') harmonisationDouceLibre();
+  else if (l === 'effacer') {
     if (!confirm('Effacer les accords de la suite ?')) return;
     L.accords = []; L.titre = ''; L.cycle = null; harmoSauver(); vueLibre();
   }
@@ -2174,6 +2176,46 @@ function harmonisationDouce() {
   if (c.degres.some((d) => d.sel.length > 1) && !confirm('Remplacer les accords choisis par l’harmonisation douce ?')) return;
   for (const d of c.degres) h.degres[d.pas] = Object.assign({}, h.degres[d.pas], { sel: accordDoux(d, col) });
   harmoSauver(); vueHarmo();
+}
+// Suite libre (23/11/2026) : la meme harmonisation douce, accord par accord. Un accord qui a un mode prend l'accord le
+// plus doux de ce mode sur sa fondamentale ; la couleur de sa gamme se lit depuis la note de reference des degres si
+// elle est dans cette gamme, sinon depuis le premier accord de la suite dans la meme gamme (apres « Cycle des quartes » :
+// l'accord 1, comme le degre I d'une gamme). Un accord sans mode prend le premier accord propose par Adoucir (il garde
+// sa couleur ; un accord deja doux reste tel quel).
+function douceLibre(c) {                          // -> [{ i, r, sel, quoi: 'mode' | 'adouci' | 'doux' | null }]
+  const ref = refDegres(c.L), notes = (a) => [...new Set(a.ivsMode.map((x) => mod12(a.r + x)))].sort((x, y) => x - y);
+  return c.accords.map((a) => {
+    if (a.ivsMode) {
+      const S = notes(a), cle = S.join(','), b = c.accords.find((e) => e.ivsMode && notes(e).join(',') === cle);
+      const t = ref >= 0 && S.includes(mod12(ref)) ? mod12(ref) : mod12(b.r);
+      const couleurs = couleurGamme(S.map((p) => mod12(p - t)).sort((x, y) => x - y)).notes;
+      return { i: a.i, r: a.r, sel: accordDoux({ ivs: a.ivsMode.map(mod12), off: mod12(a.r - t) }, couleurs), quoi: 'mode' };
+    }
+    if (a.sel.length < 2) return { i: a.i, r: a.r, sel: a.sel, quoi: null };
+    const x = adoucir(a.r, a.sel, null)[0];
+    return x ? { i: a.i, r: x.r, sel: [...x.sel].sort((p, q) => p - q), quoi: 'adouci' } : { i: a.i, r: a.r, sel: a.sel, quoi: 'doux' };
+  });
+}
+function harmonisationDouceLibre() {
+  const c = libreCalcul(), L = c.L, res = douceLibre(c), n = (q) => res.filter((x) => x.quoi === q).length;
+  if (!n('mode') && !n('adouci')) {
+    annoncer(n('doux') ? 'Les accords de la suite sont déjà doux.' : 'Rien à adoucir : choisis des accords, ou un mode pour eux (« Cycle des quartes », gamme compatible).');
+    return;
+  }
+  if (c.accords.some((a) => a.sel.length > 1) && !confirm('Remplacer les accords de la suite par l’harmonisation douce ?')) return;
+  let racine = false;
+  for (const x of res) {
+    if (x.quoi !== 'mode' && x.quoi !== 'adouci') continue;
+    const change = { sel: x.sel };
+    if (mod12(x.r) !== mod12(c.accords[x.i].r)) { change.r = x.r; racine = true; }
+    L.accords[x.i] = Object.assign({}, L.accords[x.i], change);
+  }
+  if (racine) L.cycle = null;                     // une fondamentale a change : le cycle n'est plus suivi
+  harmoSauver(); vueLibre();
+  const pl = (k, un, plusieurs) => (k > 1 ? `${k} ${plusieurs}` : `${k} ${un}`);
+  annoncer('Harmonisation douce : ' + [n('mode') && pl(n('mode'), 'accord dans son mode', 'accords dans leur mode'),
+    n('adouci') && pl(n('adouci'), 'accord adouci', 'accords adoucis'), n('doux') && pl(n('doux'), 'déjà doux', 'déjà doux'),
+    n(null) && pl(n(null), 'laissé (ni mode ni accord)', 'laissés (ni mode ni accord)')].filter(Boolean).join(', ') + '.');
 }
 // Accords : positions douces d'abord (les notes jouees a un demi-ton, une 7M ou une b9 les unes des autres frottent)
 function frottementsForme(forme, acc) {
