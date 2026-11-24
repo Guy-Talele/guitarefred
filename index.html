@@ -337,6 +337,27 @@ details.zone-arp:not([open]) .pli-etat::after { content: ' — toucher pour dép
 .f-doux { color: #2e7d32; } .f-leger { color: #00897b; } .f-dur { color: #c62828; }
 .subst-ligne.orig { background: var(--accent-doux); }
 .subst-ligne.grise { opacity: .5; }
+.lien-guide { border: 1.5px solid var(--accent); color: var(--accent); background: var(--surface); border-radius: 1rem; padding: .2rem .7rem; font-weight: 600; font-size: .9rem; }
+.tete-guide { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .2rem; }
+.accueil .nouveau { font-weight: 600; }
+.guide-sommaire { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .6rem; }
+.guide-sommaire .lien { min-height: 2.2rem; padding: .25rem .6rem; }
+.guide-sec { border-top: 1px solid var(--ligne); padding-top: .4rem; margin-top: .6rem; scroll-margin-top: .4rem; }
+.guide-sec h3 { margin: .2rem 0 .4rem; font-size: 1.1rem; }
+.guide-sec h4 { margin: .8rem 0 .2rem; font-size: 1rem; }
+.guide-table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+.guide-table td, .guide-table th { border-bottom: 1px solid var(--ligne); padding: .3rem .35rem; text-align: left; vertical-align: middle; }
+.guide-table .pastille { width: 2.1rem; height: 2.1rem; font-size: .82rem; }
+.guide-table .pastilles { display: flex; flex-wrap: wrap; gap: .2rem; margin: 0; }
+.guide-boutons { white-space: nowrap; margin-left: auto; }
+.guide-acc { border-bottom: 1px solid var(--ligne); padding: .35rem 0; }
+.guide-acc .ga-tete { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.guide-acc .pastilles { display: flex; flex-wrap: wrap; gap: .2rem; margin: .25rem 0 0; }
+.guide-acc .pastille { width: 2.1rem; height: 2.1rem; font-size: .82rem; }
+.guide-acc .btn { min-height: 2.2rem; padding: .2rem .6rem; }
+.guide-boutons .btn, .guide-table .btn { min-height: 2.2rem; padding: .2rem .6rem; }
+.guide-lexique dt { font-weight: 700; margin-top: .4rem; }
+.guide-lexique dd { margin: 0 0 0 .8rem; }
 .dirs { display: grid; gap: .4rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-top: .2rem; }
 .dir { border: 1px dashed var(--ligne); border-radius: .5rem; padding: .35rem .5rem; }
 .dir[data-hdir] { cursor: pointer; }
@@ -417,7 +438,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 23/11/2026 15:15</p>
+  <p class="discret" id="version">Version de la page : 24/11/2026 09:48</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Super-favoris : <span id="nb-sup">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -1321,7 +1342,7 @@ function blocIntervallesAcc() {
   const a = etat.res, cle = (a && a.r) ? a.r.notes : (etat.accCle || 'F'), ivs = ivsDeCle(cle);
   const ton = a && a.r ? (a.racine ? NOMS_NOTES[G.classe(a.racine)] : '') : (etat.accTon || '');
   const absent = !(a && a.r) && ivs.length >= 2 && !M.parNotes.get(cle);
-  return `<section class="bloc arp-choix acc-intervalles"><p class="discret" style="margin:0 0 .3rem">Recherche par intervalles :</p>
+  return `<section class="bloc arp-choix acc-intervalles"><div class="tete-guide"><p class="discret" style="margin:0 0 .3rem">Recherche par intervalles :</p>${boutonGuide('g-intervalles')}</div>
     <div class="chips">${INTERVALLES.map((lab, iv) => {
       const on = ivs.includes(iv);
       return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-acciv="${iv}" aria-pressed="${on}" ${iv === 0 ? 'disabled' : ''}>${esc(lab)}</button>`;
@@ -1475,10 +1496,128 @@ function accueil() {
   etat.res = null;
   document.getElementById('saisie').value = '';
   main().innerHTML = blocPosition() + `<section class="accueil">
+    <p class="nouveau">Nouveau sur la page ? ${boutonGuide('', 'Comprendre et utiliser les intervalles')}</p>
     <p>Saisis un accord avec sa fondamentale pour voir ses positions, ou sans fondamentale pour ses formes génériques. Le même champ traduit les symboles (Cm7/F, plusieurs à la suite) et lit les frettes tapées, de la corde grave à la plus aiguë.</p>
     <p>Si un nom n’est pas reconnu, l’onglet Base donne le nom de la base à partir des intervalles, par exemple F 3M b5 7M.</p>
     <div class="exemples">${['Amaj7', 'C#m', 'maj7', 'Cm7/F', 'Cm7/F B/Eb C13', 'x 3 2 0 1 0'].map((s) => `<button type="button" class="lien" data-cherche="${s}">${s}</button>`).join('')}</div></section>`;
 }
+
+// ---------------------------------------------------------------- guide « Comprendre et utiliser les intervalles »
+// (24/11/2026, demande de Fred) : pour qu'un autre utilisateur puisse se servir de la page. Une fenetre, ouverte par
+// les boutons « ? » des onglets Accords, Arpeges, Gammes et Harmonisation, chacun sur sa partie. Les noms d'accords
+// viennent de la base (ils suivront un renommage) ; chaque exemple s'ecoute et s'ouvre dans Accords.
+const GUIDE_NOTES_C = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'G#', 'A', 'Bb', 'B'];
+const GUIDE_IV = [
+  ['la fondamentale : la note qui donne son nom à l’accord, le point de départ', 'unisson'],
+  ['seconde mineure (neuvième mineure plus haut) : frotte fort contre F, très tendue', 'seconde mineure'],
+  ['seconde majeure (ou neuvième) : une couleur douce et ouverte', 'seconde majeure'],
+  ['tierce mineure : rend l’accord mineur', 'tierce mineure'],
+  ['tierce majeure : rend l’accord majeur', 'tierce majeure'],
+  ['quarte (ou onzième) : « suspend » l’accord quand elle remplace la tierce', 'quarte juste'],
+  ['quinte diminuée, le triton : la tension ; au cœur des accords diminués et de la 7 de dominante', 'triton'],
+  ['quinte juste : solide et neutre, elle assoit l’accord', 'quinte juste'],
+  ['quinte augmentée (même case que b6 ou b13) : flottante, instable', 'quinte augmentée'],
+  ['sixte (ou treizième) : douce, chantante', 'sixte majeure'],
+  ['septième mineure : celle de C7 et de Cm7', 'septième mineure'],
+  ['septième majeure : celle de Cmaj7, tendre et lumineuse', 'septième majeure'],
+];
+const GUIDE_ACCORDS = [
+  ['Trois notes : la base de tout accord', 'La tierce décide mineur ou majeur ; la quinte est juste, sauf dans les accords diminués (b5) et augmentés (5#). Sans tierce, l’accord est « suspendu » : 9 ou 4 à sa place.',
+    [[0, 4, 7], [0, 3, 7], [0, 3, 6], [0, 4, 8], [0, 5, 7], [0, 2, 7], [0, 7]]],
+  ['Quatre notes : on ajoute une septième ou une sixte', 'La 7 (septième mineure) donne les accords de dominante et les m7 ; la 7M, les accords maj7, plus tendres ; la 6 adoucit sans tendre.',
+    [[0, 4, 7, 10], [0, 4, 7, 11], [0, 3, 7, 10], [0, 3, 6, 10], [0, 3, 6, 9], [0, 3, 7, 11], [0, 4, 7, 9], [0, 3, 7, 9], [0, 5, 7, 10], [0, 2, 4, 7]]],
+  ['Accords enrichis : les couleurs 9, 4 (11) et 6 (13)', 'On les ajoute par-dessus la septième ; elles se jouent souvent à l’octave au-dessus.',
+    [[0, 2, 4, 7, 9], [0, 2, 4, 7, 10], [0, 2, 4, 7, 11], [0, 2, 3, 7, 10], [0, 1, 4, 7, 10], [0, 2, 3, 5, 7, 10], [0, 2, 4, 7, 9, 10]]],
+  ['Accords allégés : moins de notes, plus faciles à jouer', 'On retire d’abord la quinte (no5), qui n’apporte pas de couleur ; parfois la tierce (no3).',
+    [[0, 4, 10], [0, 4, 11], [0, 7, 10]]],
+];
+const GUIDE_LEXIQUE = [
+  ['Demi-ton', 'le plus petit écart entre deux notes : une case sur le manche.'],
+  ['Ton', 'deux demi-tons : deux cases.'],
+  ['Fondamentale (F)', 'la note qui donne son nom à l’accord ; tous les intervalles se comptent depuis elle.'],
+  ['Tierce, quinte, septième', 'les notes empilées au-dessus de la fondamentale, une sur deux dans la gamme : 3, 5, 7, puis 9, 11 (écrit 4), 13 (écrit 6).'],
+  ['Triton', 'trois tons (b5) : l’intervalle le plus tendu, qui appelle une résolution.'],
+  ['Basse', 'la note la plus grave jouée ; quand ce n’est pas la fondamentale, c’est un renversement (C/E).'],
+  ['Forme générique', 'une position sans corde à vide, que l’on déplace le long du manche pour changer de tonalité.'],
+  ['Gamme, mode', 'une gamme est une suite d’intervalles depuis sa tonique ; un mode est la même gamme vue depuis une autre de ses notes.'],
+  ['Degré', 'la place d’une note dans la gamme, en chiffres romains : I, II… VII ; l’accord du degré V se construit sur la 5e note.'],
+  ['Dureté', 'doux, léger, tendu ou dur, selon les frottements (demi-ton, ton), le triton et l’absence de quinte juste.'],
+];
+const ivsGuide = (sel) => sel.map((x) => `<span class="pastille" style="color:${COUL[INTERVALLES[x]] || '#333'}">${esc(INTERVALLES[x])}</span>`).join('');
+function midisGuide(sel) {                      // l'accord en C, voix ecartees comme a la guitare : 9, 11 et 13 a l'octave
+  const a = sel.includes(3) || sel.includes(4), sept = sel.includes(10) || sel.includes(11);
+  return sel.map((x) => 48 + x + ((x === 1 || x === 2) && sel.length > 3 ? 12 : 0) + (x === 5 && a ? 12 : 0) + (x === 9 && sept ? 12 : 0)).sort((p, q) => p - q);
+}
+function sectionGuide(id, titre, corps) { return `<section class="guide-sec" id="${id}"><h3>${esc(titre)}</h3>${corps}</section>`; }
+function contenuGuide() {
+  const nomBase = (sel) => { const t = M.parNotes.get(G.cleDe(sel)); return t ? t.item : null; };
+  const sommaire = [['g-intervalles', 'Les intervalles'], ['g-construire', 'Construire un accord'], ['g-noms', 'Taper et lire un nom'],
+    ['g-basse', 'Basse et renversements'], ['g-accords', 'L’onglet Accords'], ['g-arpeges', 'Arpèges'], ['g-gammes', 'Gammes et modes'],
+    ['g-harmo', 'Harmonisation'], ['g-lexique', 'Petit lexique']];
+  let h = `<nav class="guide-sommaire">${sommaire.map(([id, t]) => `<button type="button" class="lien" data-guidesec="${id}">${esc(t)}</button>`).join('')}</nav>`;
+  h += sectionGuide('g-intervalles', 'Les intervalles', `<p>Un intervalle est l’écart entre deux notes, compté en demi-tons : une case sur le manche vaut un demi-ton. Dans la page, tous les intervalles se comptent depuis la <b>fondamentale</b> de l’accord, notée <b>F</b> : la note qui lui donne son nom (C dans C7). Il n’y en a que douze ; ils ont toujours le même nom et la même couleur, sur les pastilles comme sur les diagrammes.</p>
+    <p class="discret">Au-delà de l’octave, la page garde le même nom : 9 pour la seconde comme pour la neuvième, 4 pour la quarte et la onzième, 6 pour la sixte et la treizième. ▶ joue C, puis la note, puis les deux ensemble.</p>
+    <table class="guide-table"><thead><tr><th>Intervalle</th><th>En C</th><th>Écart et effet</th><th></th></tr></thead><tbody>${INTERVALLES.map((lab, iv) => `<tr>
+      <td>${ivsGuide([iv])}</td><td><b>${GUIDE_NOTES_C[iv]}</b></td><td><small class="discret">${iv} demi-ton${iv > 1 ? 's' : ''}</small><br>${esc(GUIDE_IV[iv][0])}</td>
+      <td><button type="button" class="btn" data-guideiv="${iv}" aria-label="Écouter : ${esc(GUIDE_IV[iv][1])}">▶</button></td></tr>`).join('')}</tbody></table>`);
+  let c = `<p>Un accord, c’est la fondamentale et quelques intervalles joués ensemble. Pour en construire un dans l’onglet Accords, touche les pastilles de ses intervalles (F est déjà choisi) : 3m, puis 5, puis 7 donnent m7. Les noms sont ceux de la base d’accords de la page : m(b5) est l’accord souvent appelé « dim », m6(b5) celui appelé « dim7 », (#5) l’accord « aug ».</p>`;
+  for (const [titre, texte, liste] of GUIDE_ACCORDS) {
+    c += `<h4>${esc(titre)}</h4><p class="discret">${esc(texte)}</p><div class="guide-accords">${liste.map((sel) => {
+      const nom = nomBase(sel) || (G.nommerSelonBase(sel) || {}).nom || '?';
+      return `<div class="guide-acc"><div class="ga-tete"><b>C ${esc(nom)}</b><span class="discret">${sel.map((x) => GUIDE_NOTES_C[x]).join(' ')}</span>
+        <span class="guide-boutons"><button type="button" class="btn" data-guideacc="${sel.join(',')}" aria-label="Écouter C ${esc(nom)}">▶</button>
+        <button type="button" class="btn" data-guidevoir="${esc('C ' + nom)}">Voir</button></span></div><div class="pastilles">${ivsGuide(sel)}</div></div>`;
+    }).join('')}</div>`;
+  }
+  h += sectionGuide('g-construire', 'Construire un accord', c);
+  h += sectionGuide('g-noms', 'Taper et lire un nom', `<p>Dans le champ de recherche d’Accords, tu peux taper :</p><ul>
+    <li>un nom d’accord : Cmaj7, Am7, G7, Bm7b5, Cdim, Caug, C7sus4, C6/9 ; la page le traduit dans le nom de sa base ;</li>
+    <li>un nom sans note devant (maj7, m7…) : la page montre ses <b>formes génériques</b>, valables dans tous les tons ;</li>
+    <li>plusieurs accords séparés par des espaces : la page propose d’en faire une suite (onglet Harmonisation) ;</li>
+    <li>une position, les frettes de la corde grave à la plus aiguë (x pour une corde étouffée) : la page dit quel accord tu joues.</li></ul>
+    <p>Un accord avec une barre, comme Cm7/F, a une basse imposée : la page en donne les lectures possibles.</p>`);
+  h += sectionGuide('g-basse', 'Basse et renversements', `<p>La <b>basse</b> est la note la plus grave jouée. D’ordinaire, c’est la fondamentale. Quand c’est une autre note de l’accord, on parle de <b>renversement</b> : C/E (basse E) est le premier renversement de C, C/G le deuxième. Dans Accords, la partie « Renversements » nomme chacun d’eux et mène à ses positions.</p>
+    <p>« Sans basse » montre les positions qui laissent les cordes graves au repos : elles valent pour l’accord et pour ses renversements. Au ukulélé, il n’y a pas de vraie basse (la corde G est aiguë) : un accord et ses renversements ont les mêmes positions.</p>`);
+  h += sectionGuide('g-accords', 'L’onglet Accords', `<ul>
+    <li><b>Pastilles</b> : touche les intervalles pour construire l’accord ; « Fondamentale » choisit la note (C, D…) ou laisse « générique » pour les formes déplaçables.</li>
+    <li><b>Diagrammes</b> : chaque point a la couleur de son intervalle et porte son nom (ou la note, avec « Noms de notes ») ; touche un diagramme pour l’agrandir et l’écouter.</li>
+    <li><b>Favoris</b> : l’étoile dorée ☆ garde une position ; l’étoile rose ☆ en fait un <b>super-favori</b>, ta liste réduite. « Super-favoris seulement » (coché au lancement) et « Favoris seulement » n’affichent qu’eux.</li>
+    <li><b>Dureté</b> : doux, léger, tendu ou dur. Dissonant : deux notes à un demi-ton (b9 contre F, 7M contre F) ; tension : le triton (b5, ou 3M contre 7) ; ambigu : pas de quinte juste. « Adoucir » propose des accords plus doux qui gardent la couleur de l’accord ; « Durcir », plus riches ou plus tendus.</li>
+    <li><b>Versions allégées</b> : le même accord sans quinte, ou sans tierce, plus facile à placer sur le manche.</li></ul>`);
+  h += sectionGuide('g-arpeges', 'Arpèges', `<p>Un arpège, c’est l’accord joué note après note. L’onglet Arpèges montre, sur tout le manche, où se trouve chaque intervalle de l’accord (mêmes couleurs), et propose des formes à jouer : touche les pastilles comme dans Accords, ou tape un nom. « Déroulé » fait entendre l’arpège note par note, en suivant le doigté sur le manche.</p>`);
+  h += sectionGuide('g-gammes', 'Gammes et modes', `<p>Une <b>gamme</b> est une suite d’intervalles depuis sa tonique. La majeure : F 9 3M 4 5 6 7M. Partir d’une autre note de la même gamme donne un <b>mode</b> : depuis la deuxième note, le dorien (F 9 3m 4 5 6 7) ; depuis la cinquième, le mixolydien (F 9 3M 4 5 6 7). L’onglet Gammes les range par famille ; touche un mode pour voir sa carte du manche, générique ou dans la tonalité choisie avec « Tonique ».</p>`);
+  h += sectionGuide('g-harmo', 'Harmonisation', `<p>Harmoniser une gamme, c’est construire un accord sur chacune de ses notes, les <b>degrés</b> I à VII. Sur chaque degré, l’accord se construit avec les intervalles du mode de ce degré. En C majeur, en empilant les notes une sur deux : I = C maj7, II = D m7, III = E m7, IV = F maj7, V = G 7, VI = A m7, VII = B m7(b5).</p>
+    <ul><li>Touche les pastilles de chaque degré pour choisir son accord ; seules celles du mode sont permises.</li>
+    <li>« Harmoniser… » le fait pour toi, de 3 à 6 notes, dans deux directions : « plus douce » ou « en tierces » (l’empilement classique ci-dessus).</li>
+    <li>« Couleur de la gamme » : les notes qui la distinguent de la gamme majeure (ou mineure naturelle).</li>
+    <li>« Harmoniser librement » : une suite d’accords quelconque, avec ses substitutions, ses gammes compatibles et ses positions jouables.</li></ul>`);
+  h += sectionGuide('g-lexique', 'Petit lexique', `<dl class="guide-lexique">${GUIDE_LEXIQUE.map(([m, d]) => `<dt>${esc(m)}</dt><dd>${esc(d)}</dd>`).join('')}</dl>`);
+  return `<div class="guide">${h}</div>`;
+}
+function ouvrirGuide(section) {
+  ouvrirDialogue('Comprendre et utiliser les intervalles', 'Les intervalles, la construction des accords et leur usage dans chaque onglet. ▶ fait entendre chaque exemple, « Voir » l’ouvre dans Accords.',
+    contenuGuide(), [['Fermer', () => dlg().close(), true]]);
+  const cible = section && document.getElementById(section);
+  if (cible) cible.scrollIntoView({ block: 'start' }); else document.getElementById('dlg-corps').scrollTop = 0;
+}
+const boutonGuide = (sec, texte = 'Comprendre les intervalles') => `<button type="button" class="lien-guide" data-guide="${sec}">? ${esc(texte)}</button>`;
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-guide],[data-guidesec],[data-guideiv],[data-guideacc],[data-guidevoir]');
+  if (!t) return;
+  if (t.dataset.guide !== undefined) ouvrirGuide(t.dataset.guide);
+  else if (t.dataset.guidesec) document.getElementById(t.dataset.guidesec).scrollIntoView({ block: 'start' });
+  else if (t.dataset.guideiv !== undefined) {
+    const iv = Number(t.dataset.guideiv);
+    jouer([{ midi: 60, t: 0, d: 0.8 }, ...(iv ? [{ midi: 60 + iv, t: 0.9, d: 0.8 }] : []), { midi: 60, t: 1.9, d: 1.4 }, ...(iv ? [{ midi: 60 + iv, t: 1.9, d: 1.4 }] : [])]);
+  } else if (t.dataset.guideacc) {
+    const m = midisGuide(t.dataset.guideacc.split(',').map(Number)), n = m.length;
+    jouer([...m.map((x, k) => ({ midi: x, t: k * 0.3, d: 0.9 })), ...m.map((x, k) => ({ midi: x, t: n * 0.3 + 0.35 + k * 0.025, d: 1.8 }))]);
+  } else if (t.dataset.guidevoir) {
+    dlg().close();
+    if (etat.vue !== 'accords') basculerVue('accords');
+    document.getElementById('saisie').value = t.dataset.guidevoir; rechercher(t.dataset.guidevoir);
+  }
+});
 
 // ---------------------------------------------------------------- onglet Base (renversements)
 function basculerVue(vue, dessiner = true) {
@@ -1499,7 +1638,7 @@ const tonGammes = {};
 const tonDeGamme = (rang) => tonGammes[rang] || '';
 function vueGammes() {
   const A = ACCORDAGES[etat.acc];
-  let h = `<p class="discret">${esc(A.nom)}. Touche un mode pour voir sa carte : générique (le motif du mode sur 21 cases, sans repère de position) ou, en choisissant la tonique de la gamme, sur le manche dans cette tonalité.</p>`;
+  let h = `<p>${boutonGuide('g-gammes', 'Gammes, modes et intervalles')}</p><p class="discret">${esc(A.nom)}. Touche un mode pour voir sa carte : générique (le motif du mode sur 21 cases, sans repère de position) ou, en choisissant la tonique de la gamme, sur le manche dans cette tonalité.</p>`;
   for (const [rang, titre, modes] of DONNEES.familles || []) {
     const ton = tonDeGamme(rang);
     const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === ton ? ' selected' : ''}>${n || 'générique'}</option>`).join('');
@@ -1578,7 +1717,7 @@ function vueHarmo() {
   if (harmoEtat().type === 'libre') return vueLibre();
   const c = harmoCalcul(), h = c.h;
   const opt = optH;
-  let html = `<section class="harmo-choix">
+  let html = `<p>${boutonGuide('g-harmo', 'Harmoniser : degrés et intervalles')}</p><section class="harmo-choix">
     ${choixCommuns(h)}
     <label>Gamme <select data-h="rang">${DONNEES.familles.map(([rg, titre]) => opt(rg, String(rg).padStart(3, '0') + ' · ' + titre, rg === h.rang)).join('')}</select></label>
     <label>Degré I <select data-h="depart">${c.modes.map(([nom], i) => opt(i, nom, i === c.depart)).join('')}</select></label>
@@ -1852,7 +1991,7 @@ function restitutionLibre(c, a) {
 function vueLibre() {
   const h = harmoEtat(), c = libreCalcul(), L = c.L;
   const nomRacine = (r) => (h.ton ? NOMS_HARMO[mod12(c.T + r)] : (r ? INTERVALLES[r] + ' de la référence' : 'référence'));
-  let html = `<section class="harmo-choix">${choixCommuns(h)}
+  let html = `<p>${boutonGuide('g-harmo', 'Harmoniser : degrés et intervalles')}</p><section class="harmo-choix">${choixCommuns(h)}
     <label>Fondamentale <select data-h="ton">${['', ...NOMS_HARMO].map((n) => optH(n, n || 'aucune', n === (h.ton ? NOMS_HARMO[G.classe(h.ton)] : ''))).join('')}</select></label>
     <label>Degrés par rapport à <select data-l="refDeg">${optH(-1, 'aucun (pas de degrés)', refDegres(L) < 0)}${Array.from({ length: 12 }, (_, r) => optH(r, nomRacine(r), r === refDegres(L))).join('')}</select></label>
     <label>Nombre d’accords <select data-l="nb">${Array.from({ length: NB_MAX_SUITE }, (_, i) => optH(i + 1, i + 1, i + 1 === L.nb)).join('')}</select></label>
@@ -3719,7 +3858,7 @@ function vueArpeges() {
   const s = arpEtat(), A = ACCORDAGES[etat.acc], ivs = ivsCle(s.cle), x = infosSelection(), gen = !s.ton;
   const pcR = s.ton ? G.classe(s.ton) : null, sel = new Set(s.sel);
   const opt = (v, l, on) => `<option value="${esc(v)}"${on ? ' selected' : ''}>${esc(l)}</option>`;
-  let h = `<section class="bloc arp-choix">
+  let h = `<section class="bloc arp-choix">${typeof boutonGuide === 'function' ? `<p style="margin:0 0 .4rem">${boutonGuide('g-arpeges', 'Arpèges et intervalles')}</p>` : ''}
     <form id="form-arp" class="rangee" autocomplete="off"><input id="saisie-arp" placeholder="m6, Am6, C#m7b5…" aria-label="Nom ou symbole de l’accord" enterkeyhint="go">
       <button type="submit" class="btn">Choisir</button></form>
     <div class="chips">${INTERVALLES.map((lab, iv) => {
