@@ -364,6 +364,17 @@ html.boutons-dessins [data-ico] > .mot, .mot-cache { position: absolute; width: 
 html.boutons-mots [data-ico] > .ico { display: none; }
 [data-ico], [data-ico] * { -webkit-touch-callout: none; }
 #bulle-ico { position: fixed; z-index: 300; background: var(--encre); color: var(--fond); padding: .3rem .65rem; border-radius: .5rem; font-size: .92rem; pointer-events: none; max-width: 80vw; }
+.sym-f { display: inline-flex; align-items: center; justify-content: center; min-width: 1.6rem; height: 1.6rem; padding: 0 .2rem; border: 2px solid #e00; border-radius: 999px;
+  color: #e00; font-weight: 800; font-size: .9rem; line-height: 1; vertical-align: middle; }
+.sym-pos { font-weight: 700; letter-spacing: .02em; }
+.sym-t, .sym-fr { font-weight: 700; white-space: nowrap; }
+.sym-t { font-size: 1.15em; }
+.sym-eq { display: inline-flex; align-items: center; gap: .3rem; justify-self: start; font-weight: 700; white-space: nowrap; }
+.illu-iv { display: inline-flex; align-items: center; gap: .3rem; font-weight: 700; color: var(--discret); vertical-align: middle; }
+.illu-iv .pm { display: inline-flex; align-items: center; justify-content: center; width: 1.7rem; height: 1.7rem; border-radius: 999px; font-size: .85rem; }
+.illu-iv .pm.f { background: #e00; color: #fff; }
+.illu-iv .pm.q { border: 2px dashed var(--discret); color: var(--discret); }
+.reg-alt { align-items: center; margin-top: .5rem; }
 .btn-info { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem; padding: 0; margin: 0 .15rem; border: 0; border-radius: 999px;
   background: transparent; color: var(--accent); vertical-align: middle; cursor: pointer; }
 .btn-info .i { width: 1.3rem; height: 1.3rem; }
@@ -484,7 +495,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 24/11/2026 14:02</p>
+  <p class="discret" id="version">Version de la page : 24/11/2026 14:42</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Super-favoris : <span id="nb-sup">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> <span data-ico="ecran">Garder l’écran allumé (pendant que tu joues)</span></label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -1007,7 +1018,27 @@ footer .liens { margin-top: .5rem; }
 <script>
 'use strict';
 const G = window.GFMoteur;
-const { INTERVALLES, NOMS_NOTES, ACCORDAGES, mod12 } = G;
+const { INTERVALLES, ACCORDAGES, mod12 } = G;
+// Noms des notes (24/11/2026) : NOTES_DATA (C C# D Eb…) reste l'ecriture des donnees (favoris, communs avec le PC) ;
+// NOMS_NOTES et NOMS_HARMO suivent le choix de Reglages : mixte (comme avant), tout en b ou tout en #.
+const NOTES_DATA = G.NOMS_NOTES;
+const NOMS_NOTES = G.NOMS_NOTES.slice();
+const ALTERATIONS = { mixte: [['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'], ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']],
+  b: [['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']], '#': [['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']] };
+const altChoisie = () => (ALTERATIONS[reglages.alterations] ? reglages.alterations : 'mixte');
+const noteAff = (n) => { if (altChoisie() === 'mixte') return n; try { return NOMS_NOTES[G.classe(n)]; } catch (e) { return n; } };
+function appliquerAlterations() {                 // les deux tableaux de noms, modifies sur place
+  const [a, h] = ALTERATIONS[altChoisie()];
+  NOMS_NOTES.splice(0, 12, ...a);
+  if (typeof NOMS_HARMO !== 'undefined') NOMS_HARMO.splice(0, 12, ...(h || a));
+  const norm = (v) => { try { return v ? NOMS_NOTES[G.classe(v)] : v; } catch (e) { return v; } };
+  if (typeof etat !== 'undefined') {
+    etat.accTon = norm(etat.accTon);
+    if (etat.base) etat.base.racine = norm(etat.base.racine);
+    if (etat.arp) etat.arp.ton = norm(etat.arp.ton);
+  }
+  if (typeof tonGammes !== 'undefined') for (const k of Object.keys(tonGammes)) tonGammes[k] = norm(tonGammes[k]);
+}
 let M = null, DONNEES = null;
 const PAR_LOT = 24;
 const COUL_DEFAUT = { F: 'red', b9: 'peru', 9: 'peru', '3m': 'green', '3M': 'green', 4: 'purple', b5: 'black', 5: 'black', '5#': 'black', 6: 'slateblue', 7: 'olive', '7M': 'olive' };
@@ -1020,7 +1051,7 @@ function ecrire(cle, v) { try { localStorage.setItem(cle, JSON.stringify(v)); } 
 // ---------------------------------------------------------------- Reglages (24/11/2026, demande de Fred : l'onglet Base devient Reglages)
 // Ce que la page prend au lancement (instrument, onglet, cases cochees, harmonisation) et l'ecriture des noms d'accords.
 const REGLAGES_DEFAUT = { instrument: '', vue: 'accords', favSeul: false, supSeul: true, harmoResto: true, harmoEtiquettes: 'accord', harmoParLigne: 'tous', noms: {},
-  boutons: 'deux', astuce: true };
+  boutons: 'deux', astuce: true, alterations: 'mixte' };
 const reglages = Object.assign({}, REGLAGES_DEFAUT, lire('gf.reglages', {}));
 reglages.noms = Object.assign({}, reglages.noms);
 const etat = {
@@ -1084,7 +1115,7 @@ function memesNotes(a, b) { if (!a || a.size !== b.size) return false; for (cons
 function correspond(x, acc, racinePc, intervalles) {
   if (x.instrument !== acc) return false;
   if (ACCORDAGES[acc].renversements) return memesNotes(notesFav(x), notesAccord(racinePc, intervalles));
-  return x.fondamentale === NOMS_NOTES[mod12(racinePc)] && x.intervalles === intervalles;
+  return x.fondamentale === NOTES_DATA[mod12(racinePc)] && x.intervalles === intervalles;
 }
 function favDe(acc, racinePc, intervalles) {
   return [...new Set(favoris.favoris.filter((x) => correspond(x, acc, racinePc, intervalles)).map((x) => x.forme))];
@@ -1092,7 +1123,7 @@ function favDe(acc, racinePc, intervalles) {
 function poserFav(acc, racinePc, intervalles, nom, forme, present) {
   const deja = favoris.favoris.filter((x) => x.forme === forme && correspond(x, acc, racinePc, intervalles));
   if (present && !deja.length)
-    favoris.favoris.push({ instrument: acc, fondamentale: NOMS_NOTES[mod12(racinePc)], intervalles, nom, forme, ajoute: horodatage() });
+    favoris.favoris.push({ instrument: acc, fondamentale: NOTES_DATA[mod12(racinePc)], intervalles, nom, forme, ajoute: horodatage() });
   else if (!present) { retirerFavoris(deja); retirerFamille(deja); }
 }
 // Regles entre instruments : guitalele <-> guitare (ajout et retrait ; la guitare joue l'accord une quarte plus bas) ;
@@ -1153,7 +1184,7 @@ function completerRenversements() {
     for (const [b, iv, nom] of familleInv(rc, x.intervalles)) {
       const k = cleIndex(x.instrument, b, iv, x.forme);
       if (!idx.has(k)) {
-        favoris.favoris.push(Object.assign({ instrument: x.instrument, fondamentale: NOMS_NOTES[b], intervalles: iv, nom, forme: x.forme, ajoute: x.ajoute || horodatage() }, x.sup ? { sup: true } : {}));
+        favoris.favoris.push(Object.assign({ instrument: x.instrument, fondamentale: NOTES_DATA[b], intervalles: iv, nom, forme: x.forme, ajoute: x.ajoute || horodatage() }, x.sup ? { sup: true } : {}));
         idx.add(k); ajout++;
       }
     }
@@ -1177,7 +1208,7 @@ function completerJumeaux() {
     const autre = x.instrument === 'guitalele' ? 'guitare' : 'guitalele';
     const r2 = mod12(rc + (autre === 'guitare' ? -5 : 5)), k = cleIndex(autre, r2, x.intervalles, x.forme);
     if (!idx.has(k)) {
-      favoris.favoris.push(Object.assign({ instrument: autre, fondamentale: NOMS_NOTES[r2], intervalles: x.intervalles, nom: x.nom || '', forme: x.forme, ajoute: x.ajoute || horodatage() }, x.sup ? { sup: true } : {}));
+      favoris.favoris.push(Object.assign({ instrument: autre, fondamentale: NOTES_DATA[r2], intervalles: x.intervalles, nom: x.nom || '', forme: x.forme, ajoute: x.ajoute || horodatage() }, x.sup ? { sup: true } : {}));
       idx.add(k); ajout++;
     }
   }
@@ -1359,6 +1390,13 @@ const ICONES = {
   ecran: SVG_ICO(`<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>`),
   son: SVG_ICO(`<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>`),
   plusDe: SVG_ICO(`<path d="m6 9 6 6 6-6"/>`),
+  renversements: SVG_ICO(`<g ${PLEIN}><ellipse cx="7" cy="17.5" rx="2.7" ry="2"/><ellipse cx="7" cy="12" rx="2.7" ry="2"/><ellipse cx="7" cy="6.5" rx="2.7" ry="2"/></g><path d="M14 5.5a6.5 6.5 0 0 1 0 13"/><path d="m14 18.5 3.2 1.4M14 18.5l1.4-3.1"/>`),
+  allegees: SVG_ICO(`<g ${PLEIN}><ellipse cx="8" cy="17.5" rx="2.7" ry="2"/><ellipse cx="8" cy="12" rx="2.7" ry="2"/></g><ellipse cx="8" cy="6.5" rx="2.7" ry="2" stroke-dasharray="1.6 1.4"/><path d="M15 12h6"/>`),
+  deroule: SVG_ICO(`<circle cx="4" cy="12" r="2.2" ${PLEIN}/><circle cx="12" cy="12" r="2.2" ${PLEIN}/><circle cx="20" cy="12" r="2.2" ${PLEIN}/><path d="M6.8 12h2.4M8.2 10.5 9.7 12l-1.5 1.5M14.8 12h2.4M16.2 10.5l1.5 1.5-1.5 1.5"/>`),
+  metronome: SVG_ICO(`<path d="M8.5 3h7l4 18h-15z"/><path d="M6.4 15.5h11.2M12 15.5 17.5 5"/>`),
+  tri: SVG_ICO(`<path d="M7 4v16M3.5 7.5 7 4l3.5 3.5M17 20V4M13.5 16.5 17 20l3.5-3.5"/>`),
+  toucher: SVG_ICO(`<circle cx="12" cy="12" r="2.4" ${PLEIN}/><circle cx="12" cy="12" r="6"/><path d="M12 2.5a9.5 9.5 0 0 1 9.5 9.5M2.5 12A9.5 9.5 0 0 1 12 2.5" stroke-width="1.4"/>`),
+  pastilles: SVG_ICO(`<circle cx="4.6" cy="12" r="3.2"/><circle cx="12" cy="12" r="3.2"/><circle cx="19.4" cy="12" r="3.2"/>`),
 };
 const SYMBOLES_ICO = /^([▶■✕↗◫☆★✓?+↑↓◀])\s+([\s\S]*)$/;
 function iconiser(el) {                             // dessin + mot ; le mot reste dans la page (bulle, lecteurs d'ecran)
@@ -1419,6 +1457,10 @@ document.addEventListener('pointercancel', finAppui, true);
 document.addEventListener('pointermove', (ev) => { if (appui && Math.hypot(ev.clientX - appui.x, ev.clientY - appui.y) > 10) finAppui(); }, true);
 document.addEventListener('click', (ev) => { if (appuiLong) { appuiLong = false; ev.preventDefault(); ev.stopPropagation(); } }, true);
 document.addEventListener('contextmenu', (ev) => { if (ev.target.closest('[data-ico]') && document.documentElement.classList.contains('boutons-dessins')) ev.preventDefault(); }, true);
+// symboles qui remplacent des mots (24/11/2026) : « F = » pour la fondamentale, « - » pour aucune, « F + ? » pour
+// « touche les intervalles », « A=? D=? … » pour la recherche par position, « I = » pour le degre I
+const symF = (lettre = 'F', titre = 'Fondamentale') => `<span class="sym-eq" title="${titre}"><span class="sym-f">${lettre}</span> =</span>`;
+const symFQ = (titre = 'Touche les intervalles de l’accord (F est déjà là)') => `<span class="illu-iv" title="${esc(titre)}" role="img" aria-label="${esc(titre)}"><span class="pm f">F</span> + <span class="pm q">?</span></span>`;
 const plusInfo = (corps) => `<button type="button" class="btn-info" data-info aria-expanded="false" title="Explication" aria-label="Explication">${ICONES.info}</button><span class="info-corps" hidden>${corps}</span>`;
 document.addEventListener('click', (ev) => {        // ⓘ : l'explication s'ouvre et se referme sur place
   const t = ev.target.closest('[data-info]');
@@ -1547,7 +1589,7 @@ function accordVersArpeges(res, diffuse) {
 }
 function blocTraductions(trads, erreurs) {
   const ligne = (lib, cle, accord, nomBasse) => {
-    const nom = accord ? `<button type="button" class="lien" data-cherche="${esc(joindre(nomBasse, accord.item))}">${esc(joindre(nomBasse, accord.item))}<small>{${esc(accord.tel)}}</small></button>`
+    const nom = accord ? `<button type="button" class="lien" data-cherche="${esc(joindre(nomBasse, accord.item))}">${esc(joindre(nomBasse, accord.item))}</button>`
       : `<span class="lien absent">${esc(nomBasse)}<small>absent de la base</small></span>`;
     const renv = accord ? M.renversements(cle.split(' ').map((i) => INTERVALLES.indexOf(i)), nomBasse) : [];
     return `<p class="discret">${lib} (${cle.split(' ').length} notes) : ${esc(cle)}</p><div class="liens">${nom}${renv.map((x) => lienAccord(x.accord, x.basse, true)).join('')}</div>`;
@@ -1573,8 +1615,8 @@ function chercherPosition(frettes) {
   try { p = M.position(frettes, etat.acc); } catch (e) { main().innerHTML = blocPosition() + `<p class="message">${esc(e.message)}</p>`; return; }
   if (!p.notes.length) { main().innerHTML = blocPosition() + '<p class="message">Toutes les cordes sont étouffées.</p>'; return; }
   let h = `<div class="encadre"><div class="ligne-sym">Position ${esc(p.jeu.join(' '))}</div>
-    ${p.lectures ? `<p>Notes, de la corde G à la corde A : ${esc(p.notes.join(' '))}</p>`
-      : `<p>Notes du grave à l’aigu : ${esc(p.notes.join(' '))}, basse ${esc(p.basse)}</p>
+    ${p.lectures ? `<p>Notes, de la corde G à la corde A : ${esc(p.notes.map(noteAff).join(' '))}</p>`
+      : `<p>Notes du grave à l’aigu : ${esc(p.notes.map(noteAff).join(' '))}, basse ${esc(noteAff(p.basse))}</p>
     <p class="discret">Intervalles depuis la basse : ${esc(p.cle)}</p>`}`;
   if (p.lectures && p.lectures.length) {
     h += `<p>Au ukulélé, pas de basse : ces notes se lisent ${p.lectures.length > 1 ? 'de plusieurs façons' : 'ainsi'} ; la plus simple est retenue.</p>
@@ -1599,12 +1641,12 @@ function blocIntervallesAcc() {
   const a = etat.res, cle = (a && a.r) ? a.r.notes : (etat.accCle || 'F'), ivs = ivsDeCle(cle);
   const ton = a && a.r ? (a.racine ? NOMS_NOTES[G.classe(a.racine)] : '') : (etat.accTon || '');
   const absent = !(a && a.r) && ivs.length >= 2 && !M.parNotes.get(cle);
-  return `<section class="bloc arp-choix acc-intervalles"><div class="tete-guide"><p class="discret" style="margin:0 0 .3rem">Recherche par intervalles :</p>${boutonGuide('g-intervalles')}</div>
+  return `<section class="bloc arp-choix acc-intervalles"><div class="tete-guide"><p class="discret" style="margin:0 0 .3rem">${symFQ('Recherche par intervalles : touche les intervalles de l’accord')}</p>${boutonGuide('g-intervalles')}</div>
     <div class="chips">${INTERVALLES.map((lab, iv) => {
       const on = ivs.includes(iv);
       return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-acciv="${iv}" aria-pressed="${on}" ${iv === 0 ? 'disabled' : ''}>${esc(lab)}</button>`;
     }).join('')}</div>
-    <label>Fondamentale <select id="ton-acc">${['', ...NOMS_NOTES].map((nn) => `<option value="${esc(nn)}"${nn === ton ? ' selected' : ''}>${esc(nn || 'générique')}</option>`).join('')}</select></label>
+    <label>${symF()} <select id="ton-acc" aria-label="Fondamentale">${['', ...NOMS_NOTES].map((nn) => `<option value="${esc(nn)}"${nn === ton ? ' selected' : ''}>${esc(nn || '-')}</option>`).join('')}</select></label>
     ${absent ? `<p class="avis" id="acc-absent">Aucun accord de la base n’a ces intervalles (${esc(cle)}).</p>` : ''}</section>`;
 }
 function chercherIntervalles(cle, ton) {          // l'accord de la base qui a ces intervalles, avec ou sans fondamentale
@@ -1620,10 +1662,10 @@ function blocPosition() {
   const A = ACCORDAGES[etat.acc];
   if (!etat.pos || etat.pos.length !== A.cordes.length) etat.pos = A.cordes.map(() => 'x');
   const opts = (v) => ['x', ...Array.from({ length: 16 }, (_, i) => String(i))].map((o) => `<option${o === v ? ' selected' : ''}>${o}</option>`).join('');
-  return blocIntervallesAcc() + `<details class="pli" id="pli-position"${etat.posOuvert ? ' open' : ''}><summary>Recherche par position</summary>
+  return blocIntervallesAcc() + `<details class="pli" id="pli-position"${etat.posOuvert ? ' open' : ''}><summary aria-label="Recherche par position" title="Recherche par position"><span class="sym-pos">${A.cordes.map((c) => esc(c.toUpperCase()) + '=?').join(' ')}</span></summary>
     <div class="position-cases">${A.cordes.map((c, i) => `<label>${esc(c)}<select data-corde="${i}" aria-label="Corde ${esc(c)}">${opts(etat.pos[i])}</select></label>`).join('')}
     <button type="button" class="btn plein" id="chercher-pos" data-ico="chercher">Chercher la position</button></div>
-    <p class="discret" style="margin:.4rem 0 0">De la corde grave à la plus aiguë ; x = étouffée. Tu peux aussi taper les frettes dans le champ de recherche.</p></details>`;
+    <p class="discret" style="margin:.4rem 0 0">grave → aigu · x = <span class="ico" aria-hidden="true">${ICONES.fermer}</span> ${plusInfo('De la corde grave à la plus aiguë ; x = étouffée. Tu peux aussi taper les frettes dans le champ de recherche.')}</p></details>`;
 }
 function texteTropDeNotes(n, A) {
   return `${A.court} : cet accord a ${n} notes pour ${A.cordes.length} cordes, il ne peut pas être joué en entier. ` +
@@ -1633,6 +1675,7 @@ function texteTropDeNotes(n, A) {
 function joindre(racine, item, noms = reglages.noms) {
   if (!racine) return item;
   const note = /^[A-G]/.test(racine);
+  if (note) racine = noteAff(racine);
   if (note && item === 'maj' && noms.maj === '') return racine;
   return racine + (note && /^[°ø+\-Δ]/.test(item) ? '' : ' ') + item;
 }
@@ -1641,24 +1684,24 @@ function nomAccord(a) { return joindre(a.racine, a.r.item); }
 function lienAccord(accord, basse, racineConnue) {
   if (!accord) return `<span class="lien absent">${esc(basse)}<small>absent de la base</small></span>`;
   const cible = racineConnue ? joindre(basse, accord.item) : accord.item;
-  return `<button type="button" class="lien" data-cherche="${esc(cible)}">${esc(joindre(basse, accord.item))}<small>{${esc(accord.tel)}}</small></button>`;
+  return `<button type="button" class="lien" data-cherche="${esc(cible)}">${esc(joindre(basse, accord.item))}</button>`;
 }
 function afficher() {
   const a = etat.res, r = a.r, A = ACCORDAGES[etat.acc];
   const renv = M.renversements(r.semis, a.racine);
   const vars = M.variantes(r);
   const modes = M.modes(r.i);
-  let h = blocPosition() + (a.entete || '') + `<h1 class="accord-nom">${esc(nomAccord(a))}<span class="tel">{${esc(r.tel)}}</span></h1>`;
+  let h = blocPosition() + (a.entete || '') + `<h1 class="accord-nom">${esc(nomAccord(a))}</h1>`;
   h += `<div class="pastilles" aria-label="Intervalles">${r.notes.split(' ').map((iv) => `<span class="pastille" style="color:${COUL[iv]}">${esc(iv)}</span>`).join('')}</div>`;
   h += blocDureteAcc(a);
   h += `<p><button type="button" class="btn" data-versarp="${esc(r.notes + '|' + (a.racine || ''))}" data-ico="arpeges">Formes d’arpège</button></p>`;
   if (r.semis.length > A.cordes.length) h += `<p class="encadre alerte">${esc(texteTropDeNotes(r.semis.length, A))}</p>`;
   if (A.cordesGraves) h += '<p class="discret">À la basse, les accords pleins sonnent sourds dans le grave : les formes à 2 ou 3 notes (quinte, tierce et septième) et les arpèges (« Formes d’arpège ») sont les plus utiles.</p>';
-  if (renv.length) h += `<section class="bloc"><h2>${A.renversements ? 'Mêmes notes, autres noms (pas de basse au ukulélé : positions communes)' : 'Renversements'}</h2><div class="liens">${renv.map((x) => lienAccord(x.accord, x.basse, !!a.racine)).join('')}</div></section>`;
-  if (vars.length) h += `<section class="bloc"><h2>Versions allégées</h2><div class="liens">${vars.map((v) => v.accord
-    ? `<button type="button" class="lien" data-cherche="${esc(joindre(a.racine, v.accord.item))}">${esc(v.accord.item)}<small>${esc(v.label.toLowerCase())} · {${esc(v.accord.tel)}}</small></button>`
+  if (renv.length) h += `<section class="bloc"><h2><span data-ico="renversements">${A.renversements ? 'Mêmes notes, autres noms (pas de basse au ukulélé : positions communes)' : 'Renversements'}</span></h2><div class="liens">${renv.map((x) => lienAccord(x.accord, x.basse, !!a.racine)).join('')}</div></section>`;
+  if (vars.length) h += `<section class="bloc"><h2><span data-ico="allegees">Versions allégées</span></h2><div class="liens">${vars.map((v) => v.accord
+    ? `<button type="button" class="lien" data-cherche="${esc(joindre(a.racine, v.accord.item))}">${esc(v.accord.item)}<small title="${esc(v.label)}">${esc({ 'Sans quinte': '− 5', 'Sans tierce': '− 3', 'Sans quinte ni tierce': '− 3 − 5' }[v.label] || v.label.toLowerCase())}</small></button>`
     : `<span class="lien absent">${esc(v.label)}<small>introuvable</small></span>`).join('')}</div></section>`;
-  h += `<details class="pli"><summary>Modes où l’accord figure (${modes.length})</summary><div class="modes">${modes.map((e, k) => {
+  h += `<details class="pli"><summary><span data-ico="gammes">Modes où l’accord figure (${modes.length})</span></summary><div class="modes">${modes.map((e, k) => {
     const nom = e.fichier.replace(/\.[^.]*$/, '').replace(/^\s*\d+_/, '');
     return `<div class="mode"><div><div class="nom">${esc(nom)}</div><div class="gamme">${esc(e.dossier)}, mode ${esc(e.fichier.split('_')[0])}</div></div><div class="actions">` +
       (a.racine ? `<button type="button" data-carte="${k}" data-ico="gammes">Carte en ${esc(a.racine)}</button>` : '') +
@@ -1668,9 +1711,9 @@ function afficher() {
   const f = etat.filtres, nbn = r.semis.length;
   const basseGrise = A.renversements || nbn >= 5;
   const opt = (v, l, sel) => `<option value="${v}"${sel ? ' selected' : ''}>${l}</option>`;
-  h += `<details class="pli"${gen ? '' : ''}><summary>Réglages des positions</summary><div class="reglages">
-    <label class="${gen ? 'grise' : ''}"><span data-ico="frette">Frette min</span> <select data-f="fretteMin" ${gen ? 'disabled' : ''}>${opt('', 'aucune', f.fretteMin == null)}${[1, 2, 3, 4, 5, 7, 9, 12].map((v) => opt(v, v, f.fretteMin === v)).join('')}</select></label>
-    <label class="${gen ? 'grise' : ''}"><span data-ico="frette">Frette max</span> <select data-f="fretteMax" ${gen ? 'disabled' : ''}>${opt('', 'toutes', f.fretteMax == null)}${[3, 4, 5, 7, 9, 12, 15].map((v) => opt(v, v, f.fretteMax === v)).join('')}</select></label>
+  h += `<details class="pli"${gen ? '' : ''}><summary><span data-ico="reglages">Réglages des positions</span></summary><div class="reglages">
+    <label class="${gen ? 'grise' : ''}"><span class="sym-fr" title="Frette min"><span class="ico" aria-hidden="true">${ICONES.frette}</span> ≥</span> <select aria-label="Frette min" data-f="fretteMin" ${gen ? 'disabled' : ''}>${opt('', 'aucune', f.fretteMin == null)}${[1, 2, 3, 4, 5, 7, 9, 12].map((v) => opt(v, v, f.fretteMin === v)).join('')}</select></label>
+    <label class="${gen ? 'grise' : ''}"><span class="sym-fr" title="Frette max"><span class="ico" aria-hidden="true">${ICONES.frette}</span> ≤</span> <select aria-label="Frette max" data-f="fretteMax" ${gen ? 'disabled' : ''}>${opt('', 'toutes', f.fretteMax == null)}${[3, 4, 5, 7, 9, 12, 15].map((v) => opt(v, v, f.fretteMax === v)).join('')}</select></label>
     <label><input type="checkbox" data-f="sansEtouffee" ${f.sansEtouffee ? 'checked' : ''}> <span data-ico="sansEtouffee">Sans corde étouffée</span></label>
     <label class="${gen || f.avecVide ? 'grise' : ''}"><input type="checkbox" data-f="sansVide" ${f.sansVide ? 'checked' : ''} ${gen || f.avecVide ? 'disabled' : ''}> <span data-ico="sansVide">Sans corde à vide</span></label>
     <label class="${gen || f.sansVide ? 'grise' : ''}"><input type="checkbox" data-f="avecVide" ${f.avecVide ? 'checked' : ''} ${gen || f.sansVide ? 'disabled' : ''}> <span data-ico="vide">Corde(s) à vide</span></label>
@@ -1741,7 +1784,7 @@ function afficherPositions() {
   if (gen) info += ', sans corde à vide ni indication de case';
   const cordes = [...new Set(liste.map((x) => cordeTonique(x.forme)))].filter(Boolean).sort((a, b) => b - a);
   const legende = cordes.length ? `<p class="legende">Corde la plus grave : ${cordes.map((c) => `<span class="pastille-corde" style="background:${COUL_CORDE_TONIQUE[c]}"></span>${NOM_CORDE[c].replace(' corde', '')}`).join(' ')}</p>` : '';
-  let h = `<p class="info">${info}. Touche un diagramme pour l’agrandir.${etat.filtres.douces ? ' Positions douces d’abord : celles dont les notes sont à un demi-ton, une 7M ou une b9 les unes des autres viennent après.' : ''}</p>` + legende +
+  let h = `<p class="info">${info}. <span data-ico="toucher">Touche un diagramme pour l’agrandir.</span>${etat.filtres.douces ? ' Positions douces d’abord : celles dont les notes sont à un demi-ton, une 7M ou une b9 les unes des autres viennent après.' : ''}</p>` + legende +
     (etat.supSeul || etat.favSeul ? `<p><button type="button" class="btn" id="png-tous" data-ico="image">Télécharger la planche des ${liste.length} ${mot}${liste.length > 1 ? 's' : ''} (PNG)</button></p>` : '') +
     '<div class="grille-diag">';
   liste.slice(0, n).forEach((x, k) => {
@@ -1905,13 +1948,13 @@ const tonGammes = {};
 const tonDeGamme = (rang) => tonGammes[rang] || '';
 function vueGammes() {
   const A = ACCORDAGES[etat.acc];
-  let h = `<p>${boutonGuide('g-gammes', 'Gammes, modes et intervalles')}</p><p class="discret">${esc(A.nom)}. Touche un mode pour voir sa carte. ${plusInfo('La carte est générique (le motif du mode sur 21 cases, sans repère de position) ou, en choisissant la tonique de la gamme, sur le manche dans cette tonalité.')}</p>`;
+  let h = `<p>${boutonGuide('g-gammes', 'Gammes, modes et intervalles')}</p><p class="discret">${esc(A.cordes.join(' ').toUpperCase())} · <span data-ico="toucher">Touche un mode pour voir sa carte.</span> ${plusInfo('La carte est générique (le motif du mode sur 21 cases, sans repère de position) ou, en choisissant la tonique de la gamme, sur le manche dans cette tonalité.')}</p>`;
   for (const [rang, titre, modes] of DONNEES.familles || []) {
     const ton = tonDeGamme(rang);
-    const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === ton ? ' selected' : ''}>${n || 'générique'}</option>`).join('');
+    const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === ton ? ' selected' : ''}>${n || '-'}</option>`).join('');
     h += `<section class="gamme"><div class="tete-gamme"><h2>${String(rang).padStart(3, '0')} · ${esc(titre)}</h2>
-      <label class="choix-ton">Tonique <select data-tong="${rang}">${opts}</select></label></div><div class="liens">` +
-      modes.map(([nom], k) => `<button type="button" class="lien" data-gamme="${rang}|${k}">${esc(nom)}<small>mode ${k + 1}</small></button>`).join('') + '</div></section>';
+      <label class="choix-ton">${symF()} <select data-tong="${rang}" aria-label="Tonique">${opts}</select></label></div><div class="liens">` +
+      modes.map(([nom], k) => `<button type="button" class="lien" data-gamme="${rang}|${k}">${esc(nom)}<small title="mode ${k + 1}">${k + 1}</small></button>`).join('') + '</div></section>';
   }
   main().innerHTML = h;
 }
@@ -1933,7 +1976,7 @@ function ouvrirGamme(rang, k) {
 // mode choisi, avec les notes de l'accord en surbrillance.
 const ROMAINS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 // Harmonisation : Db et Gb plutot que C# et F# (une ecriture par note, et des noms de fichiers distincts)
-const NOMS_HARMO = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const NOMS_HARMO = (ALTERATIONS[altChoisie()][1] || ALTERATIONS[altChoisie()][0]).slice();
 function harmoEtat() {                             // au lancement : la page initiale (21/11/2026) ; les suites se gardent dans l'onglet Suites
   if (!etat.harmo) etat.harmo = { rang: (DONNEES.familles[0] || [])[0], depart: 0, ton: '', etiquettes: reglages.harmoEtiquettes === 'mode' ? 'mode' : 'accord',
     restoDegre1: reglages.harmoResto !== false, parLigne: reglages.harmoParLigne || 'tous', degres: {} };
@@ -1977,9 +2020,9 @@ function nomDegre(c, d) {                     // « Bb 6 », ou le nom selon Bas
 const nomMode = (c, d) => (c.h.ton ? NOMS_HARMO[d.racine] + ' ' : '') + d.mode;
 const optH = (v, l, sel) => `<option value="${esc(v)}"${sel ? ' selected' : ''}>${esc(l)}</option>`;
 function choixCommuns(h) {                       // en tete de l'onglet, pour les deux facons d'harmoniser
-  return `<label>Harmoniser <select data-h="type">${optH('gamme', 'une gamme (degrés)', h.type !== 'libre')}${optH('libre', 'librement (suite d’accords)', h.type === 'libre')}</select></label>
-    <label>Instrument <select data-h="acc">${Object.entries(ACCORDAGES).map(([k, A]) => optH(k, A.court, k === etat.acc)).join('')}</select></label>
-    <label>Accords par ligne (planche) <select data-h="parLigne">${['tous', ...Array.from({ length: 12 }, (_, i) => String(i + 1))].map((v) => optH(v, v, String(h.parLigne || 'tous') === v)).join('')}</select></label>`;
+  return `<label><span data-ico="harmo">Harmoniser</span> <select data-h="type">${optH('gamme', 'une gamme (degrés)', h.type !== 'libre')}${optH('libre', 'librement (suite d’accords)', h.type === 'libre')}</select></label>
+    <label><span data-ico="guitare">Instrument</span> <select data-h="acc">${Object.entries(ACCORDAGES).map(([k, A]) => optH(k, A.court, k === etat.acc)).join('')}</select></label>
+    <label><span data-ico="image">Accords par ligne (planche)</span> <select data-h="parLigne">${['tous', ...Array.from({ length: 12 }, (_, i) => String(i + 1))].map((v) => optH(v, v, String(h.parLigne || 'tous') === v)).join('')}</select></label>`;
 }
 function vueHarmo() {
   if (harmoEtat().type === 'libre') return vueLibre();
@@ -1987,26 +2030,26 @@ function vueHarmo() {
   const opt = optH;
   let html = `<p>${boutonGuide('g-harmo', 'Harmoniser : degrés et intervalles')}</p><section class="harmo-choix">
     ${choixCommuns(h)}
-    <label>Gamme <select data-h="rang">${DONNEES.familles.map(([rg, titre]) => opt(rg, String(rg).padStart(3, '0') + ' · ' + titre, rg === h.rang)).join('')}</select></label>
-    <label>Degré I <select data-h="depart">${c.modes.map(([nom], i) => opt(i, nom, i === c.depart)).join('')}</select></label>
-    <label>Fondamentale <select data-h="ton">${['', ...NOMS_HARMO].map((n) => opt(n, n || 'aucune', n === (h.ton ? NOMS_HARMO[G.classe(h.ton)] : ''))).join('')}</select></label>
-    <label>Intervalles affichés <select data-h="etiquettes">${opt('mode', 'du mode', h.etiquettes !== 'accord')}${opt('accord', 'de l’accord', h.etiquettes === 'accord')}</select></label>
+    <label><span data-ico="gammes">Gamme</span> <select data-h="rang">${DONNEES.familles.map(([rg, titre]) => opt(rg, String(rg).padStart(3, '0') + ' · ' + titre, rg === h.rang)).join('')}</select></label>
+    <label>${symF('I', 'Degré I')} <select data-h="depart" aria-label="Degré I">${c.modes.map(([nom], i) => opt(i, nom, i === c.depart)).join('')}</select></label>
+    <label>${symF()} <select data-h="ton" aria-label="Fondamentale">${['', ...NOMS_HARMO].map((n) => opt(n, n || '-', n === (h.ton ? NOMS_HARMO[G.classe(h.ton)] : ''))).join('')}</select></label>
+    <label><span data-ico="pastilles">Intervalles affichés</span> <select data-h="etiquettes">${opt('mode', 'du mode', h.etiquettes !== 'accord')}${opt('accord', 'de l’accord', h.etiquettes === 'accord')}</select></label>
     <label class="case-harmo"><input type="checkbox" data-h="resto1" ${h.restoDegre1 ? 'checked' : ''}> Restituer tous les degrés dans le mode du degré I</label>
   </section>
-  <p class="discret">${esc(c.fam[1])} : ${c.degres.length} degrés à partir de ${esc(nomMode(c, c.degres[0]))}. ${plusInfo('Pour chaque degré, touche les intervalles de l’accord (F est déjà choisi) ; son nom s’affiche dès le deuxième.')}</p>` +
+  <p class="discret">${esc(c.fam[1])}  : <span title="${c.degres.length} degrés à partir de ${esc(nomMode(c, c.degres[0]))}">I → ${ROMAINS[c.degres.length - 1]}</span> ${plusInfo('Pour chaque degré, touche les intervalles de l’accord (F est déjà choisi) ; son nom s’affiche dès le deuxième.')}</p>` +
     blocCouleurGamme(c) + barreSuite() + blocSuites();
   const coul = couleurGamme(c.ivs1).notes;
   for (const d of c.degres) {
     const n = nomDegre(c, d);
     const porte = d.sel.map((x) => mod12(d.off + x)).filter((p) => coul.includes(p));
-    html += `<section class="degre"><h3>Degré ${ROMAINS[d.k]}${h.ton ? ' · ' + NOMS_HARMO[d.racine] : ''} · ${esc(d.mode)}</h3>
+    html += `<section class="degre"><h3><span title="Degré ${ROMAINS[d.k]}">${ROMAINS[d.k]}</span>${h.ton ? ' · ' + NOMS_HARMO[d.racine] : ''} · ${esc(d.mode)}</h3>
       <div class="chips">${d.ivs.map((iv) => {
         const lab = INTERVALLES[iv], on = d.sel.includes(iv);
         return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-h="iv" data-k="${d.k}" data-iv="${iv}" aria-pressed="${on}">${esc(lab)}</button>`;
       }).join('')}</div>
-      <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${badgeDurete(durete(d.sel, h.ton ? d.racine : null))}${porte.length ? ` <span class="porte-couleur">porte la couleur (${esc(porte.map((p) => nomCouleur(c, p)).join(' '))})</span>` : ''} ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(n.nom)}">Voir l’accord</button>`
-        : '<small>nom selon Base.txt, absent de ta base</small>'}` : '<span class="discret">Choisis au moins un deuxième intervalle.</span>'}</p>
-      <div class="resto">${choixTemps('data-h', d.k, d.tpa)}<label class="${h.restoDegre1 ? 'grise' : ''}">Restitution dans le mode <select data-h="resto" data-k="${d.k}" ${h.restoDegre1 ? 'disabled' : ''}>${c.degres.map((e) => opt(e.k, `${e.mode} (degré ${ROMAINS[e.k]})`, e.k === d.resto)).join('')}</select></label>
+      <p class="nom-accord">${n ? `<b>${esc(n.nom)}</b> ${badgeDurete(durete(d.sel, h.ton ? d.racine : null))}${porte.length ? ` <span class="porte-couleur">porte la couleur (${esc(porte.map((p) => nomCouleur(c, p)).join(' '))})</span>` : ''} ${n.dansBase ? `<button type="button" class="btn petit" data-cherche="${esc(n.nom)}">Voir l’accord</button>`
+        : '<small>nom selon Base.txt, absent de ta base</small>'}` : symFQ('Choisis au moins un deuxième intervalle')}</p>
+      <div class="resto">${choixTemps('data-h', d.k, d.tpa)}<label class="${h.restoDegre1 ? 'grise' : ''}"><span data-ico="gammes">Restitution dans le mode</span> <select data-h="resto" data-k="${d.k}" ${h.restoDegre1 ? 'disabled' : ''}>${c.degres.map((e) => opt(e.k, `${e.mode} (degré ${ROMAINS[e.k]})`, e.k === d.resto)).join('')}</select></label>
       <button type="button" class="btn" data-h="carte" data-ico="voir" data-k="${d.k}">Voir la restitution</button>
       <button type="button" class="btn" data-h="harm1" data-ico="harmoniser" data-k="${d.k}">Harmoniser…</button></div></section>`;
   }
@@ -2258,11 +2301,11 @@ function vueLibre() {
   const h = harmoEtat(), c = libreCalcul(), L = c.L;
   const nomRacine = (r) => (h.ton ? NOMS_HARMO[mod12(c.T + r)] : (r ? INTERVALLES[r] + ' de la référence' : 'référence'));
   let html = `<p>${boutonGuide('g-harmo', 'Harmoniser : degrés et intervalles')}</p><section class="harmo-choix">${choixCommuns(h)}
-    <label>Fondamentale <select data-h="ton">${['', ...NOMS_HARMO].map((n) => optH(n, n || 'aucune', n === (h.ton ? NOMS_HARMO[G.classe(h.ton)] : ''))).join('')}</select></label>
-    <label>Degrés par rapport à <select data-l="refDeg">${optH(-1, 'aucun (pas de degrés)', refDegres(L) < 0)}${Array.from({ length: 12 }, (_, r) => optH(r, nomRacine(r), r === refDegres(L))).join('')}</select></label>
-    <label>Nombre d’accords <select data-l="nb">${Array.from({ length: NB_MAX_SUITE }, (_, i) => optH(i + 1, i + 1, i + 1 === L.nb)).join('')}</select></label>
-    <label>Titre (planche, fichier) <input type="text" data-l="titre" value="${esc(L.titre || '')}" placeholder="ex. cycle des quartes"></label>
-    <label>Intervalles affichés <select data-h="etiquettes">${optH('mode', 'du mode', h.etiquettes !== 'accord')}${optH('accord', 'de l’accord', h.etiquettes === 'accord')}</select></label>
+    <label>${symF()} <select data-h="ton" aria-label="Fondamentale">${['', ...NOMS_HARMO].map((n) => optH(n, n || '-', n === (h.ton ? NOMS_HARMO[G.classe(h.ton)] : ''))).join('')}</select></label>
+    <label>${symF('I', 'Degrés par rapport à')} <select data-l="refDeg" aria-label="Degrés par rapport à">${optH(-1, 'aucun (pas de degrés)', refDegres(L) < 0)}${Array.from({ length: 12 }, (_, r) => optH(r, nomRacine(r), r === refDegres(L))).join('')}</select></label>
+    <label><span data-ico="suites">Nombre d’accords</span> <select data-l="nb">${Array.from({ length: NB_MAX_SUITE }, (_, i) => optH(i + 1, i + 1, i + 1 === L.nb)).join('')}</select></label>
+    <label><span data-ico="modifier">Titre (planche, fichier)</span> <input type="text" data-l="titre" value="${esc(L.titre || '')}" placeholder="ex. cycle des quartes"></label>
+    <label><span data-ico="pastilles">Intervalles affichés</span> <select data-h="etiquettes">${optH('mode', 'du mode', h.etiquettes !== 'accord')}${optH('accord', 'de l’accord', h.etiquettes === 'accord')}</select></label>
     <label class="case-harmo"><input type="checkbox" data-l="resto1" ${L.resto1 ? 'checked' : ''}> Restituer tous les accords dans le mode de l’accord 1</label>
   </section>
   <div class="boutons-harmo"><button type="button" class="btn plein" data-l="grille" data-ico="coller">Coller une grille</button>
@@ -2270,7 +2313,7 @@ function vueLibre() {
     <button type="button" class="btn" data-l="dominantes" data-ico="cycle">Cycle des dominantes</button>
     <button type="button" class="btn" data-l="harmoniser" data-ico="harmoniser">Harmoniser…</button>
     <button type="button" class="btn" data-l="effacer" data-ico="effacer">Tout effacer</button></div>
-  <p class="discret">Pour chaque accord : sa fondamentale${h.ton ? '' : ' (par rapport à la référence ; choisis une fondamentale pour voir les notes)'}, ses intervalles et, si tu veux, une gamme et un mode. Les intervalles limitent les gammes et les modes proposés, et un mode limite les intervalles. « Cycle des quartes » prend les quartes réelles du mode de l’accord 1 s’il est choisi (C ionien : C F B E A D G, chaque accord dans son mode), sinon des quartes justes ; choisir ensuite le mode de l’accord 1 met le cycle à jour. « Cycle des dominantes » met des accords 7 en Mixo, de quarte juste en quarte juste. « Harmoniser… » : l’harmonisation douce (un accord qui a un mode, après « Cycle des quartes », une gamme compatible appliquée ou un mode choisi, prend l’accord le plus doux de son mode, en privilégiant la couleur de sa gamme ; un accord sans mode est adouci en gardant sa couleur, s’il peut l’être) ou plus riche, à 4, 5 ou 6 notes : chaque niveau ajoute des notes au précédent. Le bouton « Harmoniser… » d’un accord fait de même pour lui seul.</p>` + barreSuite() + blocSuites();
+  <p class="discret"><span data-ico="toucher">Pour chaque accord : sa fondamentale, ses intervalles et, si tu veux, une gamme et un mode.</span> ${plusInfo(`Pour chaque accord : sa fondamentale${h.ton ? '' : ' (par rapport à la référence ; choisis une fondamentale pour voir les notes)'}, ses intervalles et, si tu veux, une gamme et un mode. Les intervalles limitent les gammes et les modes proposés, et un mode limite les intervalles. « Cycle des quartes » prend les quartes réelles du mode de l’accord 1 s’il est choisi (C ionien : C F B E A D G, chaque accord dans son mode), sinon des quartes justes ; choisir ensuite le mode de l’accord 1 met le cycle à jour. « Cycle des dominantes » met des accords 7 en Mixo, de quarte juste en quarte juste. « Harmoniser… » : l’harmonisation douce (un accord qui a un mode, après « Cycle des quartes », une gamme compatible appliquée ou un mode choisi, prend l’accord le plus doux de son mode, en privilégiant la couleur de sa gamme ; un accord sans mode est adouci en gardant sa couleur, s’il peut l’être) ou plus riche, à 4, 5 ou 6 notes : chaque niveau ajoute des notes au précédent. Le bouton « Harmoniser… » d’un accord fait de même pour lui seul.`)}</p>` + barreSuite() + blocSuites();
   for (const a of c.accords) {
     const fams = DONNEES.familles.filter((f) => f[2].some((m) => contient(m[1], a.sel)));
     const modes = a.fam ? a.fam[2].map((m, idx) => [m, idx]).filter(([m]) => contient(m[1], a.sel)) : [];
@@ -2278,16 +2321,16 @@ function vueLibre() {
     html += `<section class="degre"><h3>Accord ${a.i + 1} · ${esc(nomRacine(a.r))}${deg ? `<span class="degre-rom">${esc(deg)}</span>` : ''}</h3>
       <div class="resto">
         <label>Fondamentale <select data-l="r" data-i="${a.i}">${Array.from({ length: 12 }, (_, r) => optH(r, nomRacine(r), r === a.r)).join('')}</select></label>
-        <label>Gamme <select data-l="rang" data-i="${a.i}">${optH('', '—', !a.fam)}${fams.map(([rg, titre]) => optH(rg, String(rg).padStart(3, '0') + ' · ' + titre, a.fam && rg === a.fam[0])).join('')}</select></label>
-        <label>Mode <select data-l="mode" data-i="${a.i}" ${a.fam ? '' : 'disabled'}>${optH('', '—', !a.md)}${modes.map(([m, idx]) => optH(idx, m[0], a.md && idx === L.accords[a.i].mode)).join('')}</select></label>
+        <label><span data-ico="gammes">Gamme</span> <select data-l="rang" data-i="${a.i}">${optH('', '—', !a.fam)}${fams.map(([rg, titre]) => optH(rg, String(rg).padStart(3, '0') + ' · ' + titre, a.fam && rg === a.fam[0])).join('')}</select></label>
+        <label><span data-ico="gammes">Mode</span> <select data-l="mode" data-i="${a.i}" ${a.fam ? '' : 'disabled'}>${optH('', '—', !a.md)}${modes.map(([m, idx]) => optH(idx, m[0], a.md && idx === L.accords[a.i].mode)).join('')}</select></label>
       </div>
       <div class="chips">${Array.from({ length: 12 }, (_, iv) => {
         const lab = INTERVALLES[iv], on = a.sel.includes(iv), ok = a.dispo.includes(iv);
         return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-l="iv" data-i="${a.i}" data-iv="${iv}" aria-pressed="${on}" ${ok ? '' : 'disabled'}>${esc(lab)}</button>`;
       }).join('')}</div>
-      <p class="nom-accord">${n ? `Accord : <b>${esc(n.nom)}</b> ${badgeDurete(durete(a.sel, h.ton ? a.racine : null))} ${n.dansBase ? `<small>{${esc(n.tel)}}</small> <button type="button" class="btn petit" data-cherche="${esc(n.nom)}">Voir l’accord</button>`
-        : '<small>nom selon Base.txt, absent de ta base</small>'}` : '<span class="discret">Choisis au moins un deuxième intervalle.</span>'}
-      </p><div class="resto">${choixTemps('data-l', a.i, a.tpa)}<label class="${L.resto1 ? 'grise' : ''}">Restitution dans le mode de <select data-l="resto" data-i="${a.i}" ${L.resto1 ? 'disabled' : ''}>${c.accords.map((b) => optH(b.i, b === a ? 'son propre mode' : `l’accord ${b.i + 1} · ${modeLibreTxt(c, b)}`, b.i === a.resto)).join('')}</select></label>
+      <p class="nom-accord">${n ? `<b>${esc(n.nom)}</b> ${badgeDurete(durete(a.sel, h.ton ? a.racine : null))} ${n.dansBase ? `<button type="button" class="btn petit" data-cherche="${esc(n.nom)}">Voir l’accord</button>`
+        : '<small>nom selon Base.txt, absent de ta base</small>'}` : symFQ('Choisis au moins un deuxième intervalle')}
+      </p><div class="resto">${choixTemps('data-l', a.i, a.tpa)}<label class="${L.resto1 ? 'grise' : ''}"><span data-ico="gammes">Restitution dans le mode de</span> <select data-l="resto" data-i="${a.i}" ${L.resto1 ? 'disabled' : ''}>${c.accords.map((b) => optH(b.i, b === a ? 'son propre mode' : `l’accord ${b.i + 1} · ${modeLibreTxt(c, b)}`, b.i === a.resto)).join('')}</select></label>
         <button type="button" class="btn" data-l="carte" data-ico="voir" data-i="${a.i}">Voir la restitution</button>
         <button type="button" class="btn" data-l="subst" data-ico="substitutions" data-i="${a.i}">Substitutions</button>
         <button type="button" class="btn" data-l="harm1" data-ico="harmoniser" data-i="${a.i}">Harmoniser…</button></div></section>`;
@@ -2295,7 +2338,7 @@ function vueLibre() {
   html += blocGammesCompatibles(c) + blocPositionsSuite();
   html += `<section class="bloc"><div class="boutons-harmo"><button type="button" class="btn plein" data-h="planche" data-ico="image">Télécharger la restitution globale (PNG)</button>
     <button type="button" class="btn" data-h="planche12" data-ico="image">… dans les 12 tonalités</button></div>
-    <p class="discret">Les accords de la suite côte à côte, ${String(h.parLigne || 'tous') === 'tous' ? 'tous sur une ligne' : h.parLigne + ' par ligne'}. « … dans les 12 tonalités » transpose toute la suite, de A à Ab.</p></section>`;
+    <p class="discret">${plusInfo(`Les accords de la suite côte à côte, ${String(h.parLigne || 'tous') === 'tous' ? 'tous sur une ligne' : h.parLigne + ' par ligne'}. « … dans les 12 tonalités » transpose toute la suite, de A à Ab.`)}</p></section>`;
   main().innerHTML = html;
   afficherSuites();
 }
@@ -3366,7 +3409,7 @@ function changerMesure(m) {
   ecrire('gf.lecture', lecture); harmoSauver();
 }
 function champsTempo() {                          // la barre et la saisie, toujours d'accord entre elles
-  return `<label>Tempo (${mesureCourante().unite}/min) <input type="range" min="20" max="320" step="1" value="${lecture.tempo}" data-son-r="tempo" aria-label="Tempo">
+  return `<label><span class="sym-t" title="Tempo (${mesureCourante().unite}/min)">${mesureCourante().unite} =</span> <input type="range" min="20" max="320" step="1" value="${lecture.tempo}" data-son-r="tempo" aria-label="Tempo">
     <input type="number" class="tempo-saisie" min="20" max="320" step="1" inputmode="numeric" value="${lecture.tempo}" data-son-r="tempo" aria-label="Tempo, à saisir"></label>`;
 }
 function synchroTempo(source) {
@@ -3446,7 +3489,7 @@ function blocSuites() {                          // dans l'onglet Harmonisation 
   return `<section class="bloc"><h3 class="titre-bloc">Enregistrer cette suite</h3>
     <div class="barre-son"><input type="text" class="nom-suite" data-suites="nom" value="${esc(nomSuiteDefaut())}" aria-label="Nom de la suite">
       <button type="button" class="btn plein" data-suites="enregistrer" data-ico="enregistrer">Enregistrer</button></div>
-    <p class="discret" id="etat-enreg">Les suites enregistrées sont dans l’onglet Suites, d’où on les charge.</p></section>`;
+    <p class="discret" id="etat-enreg"><span data-ico="suites">Les suites enregistrées sont dans l’onglet Suites, d’où on les charge.</span></p></section>`;
 }
 const dateHeure = (iso) => {                      // « 12/11/2026 à 15:33:08 », heure de l'appareil
   const d = new Date(iso); if (isNaN(d)) return '';
@@ -3454,9 +3497,9 @@ const dateHeure = (iso) => {                      // « 12/11/2026 à 15:33:08 �
 };
 const quandSuite = (e) => (e.drive ? dateHeure(e.drive) : dateHeure(e.modifLocal || ((e.suite || {}).enregistre || '') + 'Z'));
 function vueSuites() {
-  main().innerHTML = `<section class="bloc"><h2 class="titre-bloc">Mes suites d’accords</h2>
+  main().innerHTML = `<section class="bloc"><h2 class="titre-bloc"><span data-ico="suites">Mes suites d’accords</span></h2>
     <div class="barre-son"><input type="search" class="nom-suite" id="cherche-suite" placeholder="Chercher une suite…" aria-label="Chercher une suite">
-      <label>Trier <select id="tri-suites"><option value="nom">par nom</option><option value="date">par date</option></select></label></div>
+      <label><span data-ico="tri">Trier</span> <select id="tri-suites"><option value="nom">par nom</option><option value="date">par date</option></select></label></div>
     <div class="barre-son"><button type="button" class="btn" data-suites="synchro" data-ico="synchro">Synchroniser maintenant</button>
       <button type="button" class="btn" data-suites="importer" data-ico="importer">Importer un fichier</button>
       <input type="file" id="fichier-suite" accept=".json,application/json" hidden>
@@ -3911,13 +3954,13 @@ function blocDeroule(s, x, A) {                   // sous les boutons de la form
     pied = `<p class="arp-etat ${v.ok ? 'ok' : ''}">${esc(texteRegle(v))}</p>
       <p class="discret" id="duree-deroule">Durée : ${txt} temps${Math.abs(nbMes - Math.round(nbMes)) < 1e-6 ? `, soit ${Math.round(nbMes)} mesure${Math.round(nbMes) > 1 ? 's' : ''} de ${m}` : ` (en ${m}, une mesure en compte ${ms.n})`}. Le tempo et la mesure sont ceux de l’onglet Harmonisation.</p>`;
   }
-  return `<section class="bloc deroule"><h2 class="titre-bloc">Déroulé ${plusInfo('Les fragments de l’accord joués l’un après l’autre (un fragment : 2 notes ou plus jouées ensemble). « + Fragment », puis touche ses cases sur la carte : une case peut servir à plusieurs fragments. Touche un numéro pour revenir à ce fragment, « Terminer » pour revenir à la forme. Le déroulé est enregistré avec la forme.')}</h2>
+  return `<section class="bloc deroule"><h2 class="titre-bloc"><span data-ico="deroule">Déroulé</span> ${plusInfo('Les fragments de l’accord joués l’un après l’autre (un fragment : 2 notes ou plus jouées ensemble). « + Fragment », puis touche ses cases sur la carte : une case peut servir à plusieurs fragments. Touche un numéro pour revenir à ce fragment, « Terminer » pour revenir à la forme. Le déroulé est enregistré avec la forme.')}</h2>
     ${et.length ? `<ol class="etapes">${lignes}</ol>` : ''}
     <div class="boutons-harmo"><button type="button" class="btn" data-arpd="ajouter" data-ico="plus">+ Fragment</button>
       ${s.etape != null ? '<button type="button" class="btn" data-arpd="terminer" data-ico="ok">Terminer</button>' : ''}
       ${et.length ? boutonJouer('editeur', '▶ Écouter', 'data-arpd="ecouter"', 'btn plein') : ''}</div>
     <div class="barre-son">${champsTempo()}${caseBoucle()}
-      <label><input type="checkbox" data-son-r="metronome" ${lecture.metronome ? 'checked' : ''}> Métronome</label>
+      <label><input type="checkbox" data-son-r="metronome" ${lecture.metronome ? 'checked' : ''}> <span data-ico="metronome">Métronome</span></label>
       <button type="button" class="btn" data-arpa="stop" data-ico="auto">■ Arrêter</button></div>
     ${pied}</section>`;
 }
@@ -4129,7 +4172,7 @@ function blocPropositions(s, A) {
       ${V.length > R.vus ? `<div class="boutons-harmo"><button type="button" class="btn" data-arpr="plus" data-ico="plusDe">Voir ${Math.min(RECH_PAGE, V.length - R.vus)} de plus (${V.length - R.vus} restantes)</button></div>` : ''}`
       : `<p class="avis" id="rech-bilan">Aucune nouvelle forme ne suit ta règle avec ces réglages : essaie d’autres cordes, un écart plus grand ou plus de notes par fragment.${dej}</p>`;
   }
-  return `<details class="bloc propositions zone-arp" id="propositions"${etat.rechOuvert ? ' open' : ''}><summary class="titre-bloc">Formes proposées (ta règle)<span class="pli-etat"></span></summary>
+  return `<details class="bloc propositions zone-arp" id="propositions"${etat.rechOuvert ? ' open' : ''}><summary class="titre-bloc"><span data-ico="chercher">Formes proposées (ta règle)</span><span class="pli-etat"></span></summary>
     <p class="discret">Coche les cordes à utiliser (de la plus grave, à gauche, à la plus aiguë, à droite, comme sur la carte) : chaque proposition utilise exactement ces cordes, et le reste en découle. Les formes déjà enregistrées ne sont pas proposées, et chaque forme ne l’est qu’une fois, avec son meilleur découpage (1er fragment le plus court) : « Modifier » pour en changer. Couleur de la grille : celle de la corde la plus grave, comme pour les accords. La plus aiguë des cordes cochées a une note à chaque fragment. ${A.renversements ? 'Au ukulélé, pas de basse : le 1er fragment peut commencer par n’importe quelle note.' : `Si la plus grave des cordes cochées est la ${nomCordeArp(1, A)} ou la ${nomCordeArp(2, A)}, la forme a une basse et le 1er fragment commence par la fondamentale sur cette corde ; sinon, il peut commencer par une autre note. Avec une basse, « Corde aiguë au-dessus de la basse » : « non », aucune note de la corde aiguë n’est plus haut sur la carte (plus près du sillet) que la basse ; « oui », au moins une l’est.`} Minimale : le moins de fragments possible. Pompe (3 cordes ou plus) : après le 1er fragment, une même note aiguë revient avec une note de chaque corde, de la voisine de l’aiguë vers la plus grave (noire puis croches).</p>
     <div class="reglages-rech">
       <span class="cordes-rech"><span>Cordes</span><span class="cases-cordes">${cases}</span></span>
@@ -4184,11 +4227,11 @@ function vueArpeges() {
       const on = ivs.includes(iv);
       return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-arpiv="${iv}" aria-pressed="${on}" ${iv === 0 ? 'disabled' : ''}>${esc(lab)}</button>`;
     }).join('')}</div>
-    <label>Fondamentale <select id="ton-arp">${['', ...NOMS_NOTES].map((nn) => opt(nn, nn || 'générique', nn === (s.ton ? NOMS_NOTES[G.classe(s.ton)] : ''))).join('')}</select></label>
+    <label>${symF()} <select id="ton-arp" aria-label="Fondamentale">${['', ...NOMS_NOTES].map((nn) => opt(nn, nn || '-', nn === (s.ton ? NOMS_NOTES[G.classe(s.ton)] : ''))).join('')}</select></label>
   </section>
-  <h1 class="accord-nom">${esc(nomAvecTon(s.cle, pcR))}${telCle(s.cle) ? `<span class="tel">{${esc(telCle(s.cle))}}</span>` : ''}</h1>
+  <h1 class="accord-nom">${esc(nomAvecTon(s.cle, pcR))}</h1>
   ${blocRenversementsArp(s)}
-  <p class="discret">Touche les cases de ta forme. ${plusInfo((gen ? `Carte générique : la tonique de la ${nomCordeArp(1, A)} est au repère ▸.`
+  <p class="discret"><span data-ico="toucher">Touche les cases de ta forme.</span> ${plusInfo((gen ? `Carte générique : la tonique de la ${nomCordeArp(1, A)} est au repère ▸.`
     : `Carte en ${esc(s.ton)} : avec une corde à vide, la forme est propre à cette tonalité ; sans corde à vide, elle est générique (12 tonalités).`) + ' La forme est valide dès que tous les intervalles y sont.')}</p>
   <div class="pastilles arp-couverts">${ivs.map((i) => `<span class="pastille${x.couverts.has(i) ? ' couverte' : ''}" style="--c:${COUL[INTERVALLES[i]]};color:${COUL[INTERVALLES[i]]}">${esc(INTERVALLES[i])}</span>`).join('')}</div>
   <p class="arp-etat ${x.valide ? 'ok' : ''}">${!x.cells.length ? 'Aucune case choisie.' : x.valide ? '✓ Forme valide : tous les intervalles y sont.' : `Il manque : ${x.manquants.map((i) => INTERVALLES[i]).join(', ')}.`}</p>
@@ -4251,11 +4294,11 @@ function blocRenversementsArp(s) {                // les renversements, avec leu
   if (ivs.length < 2) return '';
   const liens = ivs.slice(1).map((d) => {
     const cleI = G.cleDe(ivs.map((i) => i - d)), tonI = pc === null ? '' : NOMS_NOTES[mod12(pc + d)];
-    const nb = formesVisibles(cleI, tonI).length, tel = telCle(cleI);
+    const nb = formesVisibles(cleI, tonI).length;
     return `<button type="button" class="lien" data-arprenv="${esc(cleI + '|' + tonI)}">${esc(joindre(tonI || '[' + INTERVALLES[d] + ']', nomCle(cleI)))}` +
-      `<small>${tel ? `{${esc(tel)}} · ` : ''}${nb ? nb + ' forme' + (nb > 1 ? 's' : '') : 'aucune forme'}</small></button>`;
+      `<small>${nb ? nb + ' forme' + (nb > 1 ? 's' : '') : '0 forme'}</small></button>`;
   });
-  return `<section class="bloc"><h2>${A.renversements ? 'Mêmes notes, autres noms (pas de basse au ukulélé : formes communes)' : 'Renversements'}</h2><div class="liens">${liens.join('')}</div></section>`;
+  return `<section class="bloc"><h2><span data-ico="renversements">${A.renversements ? 'Mêmes notes, autres noms (pas de basse au ukulélé : formes communes)' : 'Renversements'}</span></h2><div class="liens">${liens.join('')}</div></section>`;
 }
 
 // ---------- enregistrer, supprimer, reprendre
@@ -4386,7 +4429,7 @@ function choisirAccordArp(saisie) {
 }
 function telechargerCarteArp() {                  // la carte de selection telle qu'a l'ecran (cases choisies en couleur), en PNG
   const s = arpEtat(), A = ACCORDAGES[etat.acc], x = infosSelection(), nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null);
-  const n = x.cells.length, titre = nom + (telCle(s.cle) ? `  {${telCle(s.cle)}}` : '');
+  const n = x.cells.length, titre = nom;
   const sous = `${A.nom} · intervalles : ${ivsCle(s.cle).map((i) => INTERVALLES[i]).join(' ')} · ` +
     (s.ton ? `carte en ${s.ton}` : 'carte générique : ' + repereArp(A)) +
     (n ? ` · ${n} case${n > 1 ? 's' : ''} choisie${n > 1 ? 's' : ''}${x.valide ? ', forme valide' : ''}` : '');
@@ -4536,11 +4579,15 @@ function vueBase() {
         : v === 'dessins' ? ic('accords') + ' ' + ic('arpeges') + ' ' + ic('gammes') + `<span class="mot-cache">${esc(l)}</span>` : esc(l)}</button>`;
     }).join('')}</div>
     <p class="discret" style="margin:.3rem 0 0">Dessins seuls : le mot s’affiche au survol, ou par un appui long sur le téléphone.</p>
+    <div class="reg-choix reg-alt" role="group" aria-label="Notes : b ou #"><span class="sym-t" title="Écriture des notes">b / #</span>${[['mixte', 'C# Eb F# Ab Bb', 'Comme avant (mixte)'], ['b', 'Db Eb Gb Ab Bb', 'Tout en b'], ['#', 'C# D# F# G# A#', 'Tout en #']].map(([v, l, t]) => {
+      const on = altChoisie() === v;
+      return `<button type="button" class="reg-v${on ? ' on' : ''}" data-regalt="${esc(v)}" aria-pressed="${on}" title="${esc(t)}">${esc(l)}</button>`;
+    }).join('')}</div>
     ${caseR('astuce', 'Afficher l’astuce « deux fenêtres »', 'astuce')}
     <h2>Au lancement de la page ${plusInfo('Ce que la page prend à chaque ouverture (ou dans une nouvelle fenêtre) ; ce qui est affiché maintenant ne change pas.')}</h2>
     <div class="reg-grille">
-      <label>Instrument <select data-reg="instrument">${opt('', 'le dernier utilisé', !R.instrument)}${Object.entries(ACCORDAGES).map(([k, A]) => opt(k, A.court, R.instrument === k)).join('')}</select></label>
-      <label>Onglet ouvert <select data-reg="vue">${[['accords', 'Accords'], ['arpeges', 'Arpèges'], ['gammes', 'Gammes'], ['harmo', 'Harmonisation'], ['suites', 'Suites'], ['base', 'Réglages']]
+      <label><span data-ico="guitare">Instrument</span> <select data-reg="instrument">${opt('', 'le dernier utilisé', !R.instrument)}${Object.entries(ACCORDAGES).map(([k, A]) => opt(k, A.court, R.instrument === k)).join('')}</select></label>
+      <label><span data-ico="fenetre">Onglet ouvert</span> <select data-reg="vue">${[['accords', 'Accords'], ['arpeges', 'Arpèges'], ['gammes', 'Gammes'], ['harmo', 'Harmonisation'], ['suites', 'Suites'], ['base', 'Réglages']]
         .map(([v, l]) => opt(v, l, (R.vue || 'accords') === v)).join('')}</select></label>
     </div>
     <h3>Accords</h3>
@@ -4549,10 +4596,10 @@ function vueBase() {
     <h3>Harmonisation d’une gamme</h3>
     ${caseR('harmoResto', '« Restituer tous les degrés dans le mode du degré I » coché')}
     <div class="reg-grille">
-      <label>Intervalles affichés <select data-reg="harmoEtiquettes">${opt('accord', 'de l’accord', R.harmoEtiquettes !== 'mode')}${opt('mode', 'du mode', R.harmoEtiquettes === 'mode')}</select></label>
-      <label>Accords par ligne (planche) <select data-reg="harmoParLigne">${['tous', ...Array.from({ length: 12 }, (_, k) => String(k + 1))].map((v) => opt(v, v, String(R.harmoParLigne || 'tous') === v)).join('')}</select></label>
+      <label><span data-ico="pastilles">Intervalles affichés</span> <select data-reg="harmoEtiquettes">${opt('accord', 'de l’accord', R.harmoEtiquettes !== 'mode')}${opt('mode', 'du mode', R.harmoEtiquettes === 'mode')}</select></label>
+      <label><span data-ico="image">Accords par ligne (planche)</span> <select data-reg="harmoParLigne">${['tous', ...Array.from({ length: 12 }, (_, k) => String(k + 1))].map((v) => opt(v, v, String(R.harmoParLigne || 'tous') === v)).join('')}</select></label>
     </div></section>`;
-  h += `<section class="bloc onglet-reglages" id="reg-noms"><h2>Noms des accords ${plusInfo('L’écriture choisie s’affiche partout : onglets, guide, planches PNG. La recherche comprend toutes les écritures (Cdim, C°, Cm(b5)…) ; les noms de la base restent la référence (favoris, nom d’après les intervalles).')}</h2>
+  h += `<section class="bloc onglet-reglages" id="reg-noms"><h2><span data-ico="nommer">Noms des accords</span> ${plusInfo('L’écriture choisie s’affiche partout : onglets, guide, planches PNG. La recherche comprend toutes les écritures (Cdim, C°, Cm(b5)…) ; les noms de la base restent la référence (favoris, nom d’après les intervalles).')}</h2>
     <div class="reg-modeles">${Object.entries(MODELES_NOMS).map(([k, m]) => `<button type="button" class="btn${modele === k ? ' plein' : ''}" data-regmodele="${k}" aria-pressed="${modele === k}">${esc(m.libelle)}</button>`).join('')}
       ${modele ? '' : '<span class="discret">réglage personnel</span>'}</div>
     <div class="reg-noms">${NOMS_LIGNES.map(([k, lib, ivs, ex]) => `<div class="reg-nom"><div class="reg-nom-tete"><b>${esc(lib)}</b> <span class="discret">${esc(ivs)}</span></div>
@@ -4567,14 +4614,14 @@ function vueBase() {
 }
 function htmlBaseOutil() {                         // l'ancien onglet Base : le nom de la base d'apres les intervalles, et ses renversements
   const b = etat.base || (etat.base = { texte: '', racine: '' });
-  const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === b.racine ? ' selected' : ''}>${n || 'aucune'}</option>`).join('');
+  const opts = ['', ...NOMS_NOTES].map((n) => `<option value="${n}"${n === b.racine ? ' selected' : ''}>${n || '-'}</option>`).join('');
   const sel = selBase();
-  let h = `<h2>Nommer un accord d’après ses intervalles</h2><section class="formulaire-base">
+  let h = `<h2><span data-ico="nommer">Nommer un accord d’après ses intervalles</span></h2><section class="formulaire-base">
     <div class="chips">${INTERVALLES.map((lab, iv) => {
       const on = sel.includes(iv);
       return `<button type="button" class="chip${on ? ' on' : ''}" style="--c:${COUL[lab] || '#333'}" data-b="iv" data-iv="${iv}" aria-pressed="${on}" ${iv === 0 ? 'disabled title="La fondamentale fait toujours partie de l’accord"' : ''}>${esc(lab)}</button>`;
     }).join('')}</div>
-    <div class="rangee-base"><label>Fondamentale pour les liens <select id="racine-base">${opts}</select></label>
+    <div class="rangee-base"><label>${symF()} <select id="racine-base" aria-label="Fondamentale pour les liens">${opts}</select></label>
       <button type="button" class="btn" data-b="effacer" data-ico="effacer">Tout effacer</button></div></section>`;
   if (sel.length >= 2) {
     let lignes;
@@ -4587,12 +4634,12 @@ function htmlBaseOutil() {                         // l'ancien onglet Base : le 
       h += `<div class="renv-base"><h3>${x.k === 0 ? 'Accord' : `Renversement ${x.k} (basse = ${esc(x.basse)})`}</h3>
         <div class="pastilles">${ivs.map((iv) => `<span class="pastille" style="color:${COUL[iv]}">${esc(iv)}</span>`).join('')}</div>
         <div>Nom selon Base.txt : <b>${esc(x.propose)}</b>${affiche !== x.propose ? ` <small class="discret">(affiché : ${esc(affiche)})</small>` : ''}</div>
-        <div class="liens">${x.actuel ? `<button type="button" class="lien" data-cherche="${esc(joindre(basseNom, x.actuel.item))}">${esc(joindre(basseNom, x.actuel.item))}<small>nom dans la base : ${esc(x.actuel.base)} · {${esc(x.actuel.tel)}}</small></button>` : ''}
+        <div class="liens">${x.actuel ? `<button type="button" class="lien" data-cherche="${esc(joindre(basseNom, x.actuel.item))}">${esc(joindre(basseNom, x.actuel.item))}<small>nom dans la base : ${esc(x.actuel.base)}</small></button>` : ''}
           <span class="etat ${classeEtat}">${esc(x.etat)}</span></div>
         ${x.remarques.map((rq) => `<div class="discret">${esc(rq)}</div>`).join('')}</div>`;
     }
   } else {
-    h += `<p class="discret">Touche les intervalles de l’accord. ${plusInfo('F est déjà choisi : dès le deuxième intervalle, la base indique le nom de l’accord et de chacun de ses renversements ; un nom de la base mène à sa recherche.')}</p>`;
+    h += `<p class="discret">${symFQ()} ${plusInfo('F est déjà choisi : dès le deuxième intervalle, la base indique le nom de l’accord et de chacun de ses renversements ; un nom de la base mène à sa recherche.')}</p>`;
   }
   return h;
 }
@@ -4630,6 +4677,12 @@ document.addEventListener('change', (ev) => {       // Reglages : au lancement, 
   reglages[t.dataset.reg] = t.type === 'checkbox' ? t.checked : t.value;
   garderReglages();
   if (t.dataset.reg === 'astuce') majAstuce();
+});
+document.addEventListener('click', (ev) => {        // Reglages : notes en b, en # ou mixte
+  const t = ev.target.closest('[data-regalt]');
+  if (!t) return;
+  reglages.alterations = t.dataset.regalt; garderReglages(); appliquerAlterations();
+  const y = window.scrollY; vueBase(); window.scrollTo(0, y);
 });
 document.addEventListener('click', (ev) => {        // Reglages : dessins et mots, dessins seuls, mots seuls
   const t = ev.target.closest('[data-regboutons]');
@@ -4741,7 +4794,7 @@ async function telechargerTous() {
       const lot = liste.slice(p * PAR_PLANCHE, (p + 1) * PAR_PLANCHE);
       const mot = etat.supSeul ? 'super-favori' : 'favori';
       const sous = `${A.nom} · ${liste.length} ${mot}${liste.length > 1 ? 's' : ''}${gen ? ' (formes génériques)' : ''}` + (pages > 1 ? ` · page ${p + 1}/${pages}` : '');
-      const blob = await planchePng(`${nomAccord(a)}  {${a.r.tel}}`, sous, a.r.notes.split(' '), lot.map((x) => svgDiagramme(x.forme, etat.acc, x.racine, gen, 300)));
+      const blob = await planchePng(nomAccord(a), sous, a.r.notes.split(' '), lot.map((x) => svgDiagramme(x.forme, etat.acc, x.racine, gen, 300)));
       fichiers.push(new File([blob], nomPng(nomAccord(a), gen ? 'generique' : '', etat.supSeul ? 'super-favoris' : 'favoris', etat.acc, pages > 1 ? 'p' + (p + 1) : ''), { type: 'image/png' }));
     }
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -4925,7 +4978,7 @@ function jouerSuite(muet = false, depuis = 0) {   // depuis : l'accord du pupitr
 function choixTemps(attr, idx, tpa) {             // le temps d'un accord : par defaut (celui de la barre de lecture) ou le sien, selon la mesure
   const o = (v, l, s) => `<option value="${v}"${s ? ' selected' : ''}>${l}</option>`, ms = mesureCourante();
   const liste = !tpa || ms.temps.includes(tpa) ? ms.temps : [...ms.temps, tpa].sort((x, y) => x - y);   // une valeur hors liste reste visible
-  return `<label>Temps <select ${attr}="tpa" ${attr === 'data-h' ? 'data-k' : 'data-i'}="${idx}">${o('', `par défaut (${tpaDefaut()})`, !tpa)}${liste.map((n) => o(n, n, tpa === n)).join('')}</select></label>`;
+  return `<label><span class="sym-t" title="Temps">${mesureCourante().unite} ×</span> <select aria-label="Temps" ${attr}="tpa" ${attr === 'data-h' ? 'data-k' : 'data-i'}="${idx}">${o('', `par défaut (${tpaDefaut()})`, !tpa)}${liste.map((n) => o(n, n, tpa === n)).join('')}</select></label>`;
 }
 function barreSuite() {
   const o = (v, l, s) => `<option value="${v}"${s ? ' selected' : ''}>${l}</option>`;
@@ -4935,11 +4988,11 @@ function barreSuite() {
     <button type="button" class="btn" data-pup="ouvrir" data-ico="pupitre">Pupitre (plein écran)</button>
     ${champsTempo()}
     <label>Mesure <select data-son-r="mesure">${Object.keys(MESURES).map((m) => o(m, m, (MESURES[lecture.mesure] ? lecture.mesure : '4/4') === m)).join('')}</select></label>
-    <label>Temps par défaut <select data-son-r="tpa">${(mesureCourante().temps.includes(tpaDefaut()) ? mesureCourante().temps : [...mesureCourante().temps, tpaDefaut()].sort((x, y) => x - y)).map((n) => o(n, n, tpaDefaut() === n)).join('')}</select></label>
+    <label><span class="sym-t" title="Temps par défaut">${mesureCourante().unite} ×</span> <select data-son-r="tpa" aria-label="Temps par défaut">${(mesureCourante().temps.includes(tpaDefaut()) ? mesureCourante().temps : [...mesureCourante().temps, tpaDefaut()].sort((x, y) => x - y)).map((n) => o(n, n, tpaDefaut() === n)).join('')}</select></label>
     <select data-son-r="jeu" aria-label="Jeu ou rythme">${optionsJeu()}</select>
     <label><input type="checkbox" data-son-r="boucle" ${lecture.boucle ? 'checked' : ''}> <span data-ico="cycle">En boucle</span></label>
-    <label><input type="checkbox" data-son-r="basse" ${lecture.basse ? 'checked' : ''}> Basse</label>
-    <label><input type="checkbox" data-son-r="metronome" ${lecture.metronome ? 'checked' : ''}> Métronome</label>
+    <label><input type="checkbox" data-son-r="basse" ${lecture.basse ? 'checked' : ''}> <span data-ico="basse">Basse</span></label>
+    <label><input type="checkbox" data-son-r="metronome" ${lecture.metronome ? 'checked' : ''}> <span data-ico="metronome">Métronome</span></label>
   </div></section>`;
 }
 document.addEventListener('click', (ev) => {
@@ -5010,14 +5063,14 @@ function ouvrirDialogue(titre, sous, corps, boutons, son) {
 function ouvrirPosition(k) {
   const a = etat.res, x = document.getElementById('positions')._liste[k], gen = !a.racine;
   const sous = gen ? `${ACCORDAGES[etat.acc].nom} · forme générique, à placer sur le manche. Intervalles du grave à l’aigu : ${M.etiquettes(x.forme, etat.acc, x.racine).filter(Boolean).join(' ')}`
-    : `${ACCORDAGES[etat.acc].nom} · notes du grave à l’aigu : ${M.notesForme(x.forme, etat.acc).join(' ')}`;
+    : `${ACCORDAGES[etat.acc].nom} · notes du grave à l’aigu : ${M.notesForme(x.forme, etat.acc).map(noteAff).join(' ')}`;
   const sousT = sous + texteCorde(x.forme, etat.acc, x.racine);
   const boutons = [];
   const est = gen ? generiquesFav(etat.acc, a.r.notes).has(x.forme.join(' ')) : favDe(etat.acc, G.classe(a.racine), a.r.notes).includes(x.forme.join(' '));
   boutons.push([(est ? '★ Retirer des favoris' : '☆ Ajouter aux favoris') + (gen ? ' (12 tons)' : ''), () => { etoile(x); afficherPositions(); ouvrirPosition(k); }, false]);
   const sup = gen ? supGeneriques(etat.acc, a.r.notes).has(x.forme.join(' ')) : supDe(etat.acc, G.classe(a.racine), a.r.notes).has(x.forme.join(' '));
   boutons.push([(sup ? '★ Retirer des super-favoris' : '☆ Ajouter aux super-favoris') + (gen ? ' (12 tons)' : ''), () => { etoileSup(x); afficherPositions(); ouvrirPosition(k); }, false]);
-  const svg = svgDiagramme(x.forme, etat.acc, x.racine, gen, 300), titre = `${nomAccord(a)}  {${a.r.tel}}`;
+  const svg = svgDiagramme(x.forme, etat.acc, x.racine, gen, 300), titre = nomAccord(a);
   boutons.push(boutonPng(titre, sousT, svg, nomPng(nomAccord(a), gen ? 'generique' : '', etat.acc, x.forme.join('-'))));
   boutons.push(['Fermer', () => dlg().close(), true]);
   ouvrirDialogue(titre, sousT, svg, boutons, { forme: x.forme });
@@ -5179,7 +5232,7 @@ if (canal) canal.onmessage = async (ev) => {
     else if (m.type === 'arp-accord') { accordVersArpeges({ r: { notes: m.cle }, racine: m.ton || null }, false); rafraichirVue('arpeges'); }
     else if (m.type === 'reglages') {               // Reglages changes dans une autre fenetre
       const r = lire('gf.reglages', {}); for (const k of Object.keys(REGLAGES_DEFAUT)) reglages[k] = k in r ? r[k] : REGLAGES_DEFAUT[k];
-      reglages.noms = Object.assign({}, reglages.noms); modeBoutons(reglages.boutons); majAstuce(); if (M) appliquerNoms();
+      reglages.noms = Object.assign({}, reglages.noms); modeBoutons(reglages.boutons); majAstuce(); appliquerAlterations(); if (M) appliquerNoms();
     }
     else if (m.type === 'present') { autresFenetres.set(m.id, m.actif || 0); if (m.volet) voletsVus.add(m.id); else voletsVus.delete(m.id); majAstuce(); }
     else if (m.type === 'present?') annoncerPresence();
@@ -5265,7 +5318,7 @@ function majAstuce() {                             // l'encadre « deux fenetres
   el.classList.toggle('ok', autre);
   el.innerHTML = autre
     ? `<p class="etat-fenetres ok">✓ ${volet ? 'Volet ouvert' : 'Deuxième fenêtre ouverte'} : les liens s’y ouvrent, ${volet ? 'le haut reste en place' : 'celle-ci reste en place'}.</p>`
-    : `<p class="ligne-astuce"><span class="ico" aria-hidden="true">${ICONES.astuce}</span> <span><b>Astuce</b> : ouvre une 2<sup>e</sup> fenêtre, les liens s’y ouvriront.</span>
+    : `<p class="ligne-astuce"><span><span class="ico" aria-hidden="true">${ICONES.astuce}</span> <b>Astuce</b> : ouvre une 2<sup>e</sup> fenêtre, les liens s’y ouvriront.</span>
       ${tel ? '<button type="button" class="btn" data-astuce="volet" data-ico="volet">◫ Ouvrir le volet</button>' : '<button type="button" class="btn" data-astuce="fenetre" data-ico="fenetre">↗ Ouvrir une nouvelle fenêtre</button>'}
       ${plusInfo(`Liens concernés ici : ${liens}. Touche ${bouton}. Les liens s’ouvriront alors dans ${tel ? 'le volet' : 'cette deuxième fenêtre'}, y compris le guide « Comprendre et utiliser les intervalles » et ses exemples : ${tel ? 'le haut reste où il est' : 'celle-ci reste où elle est'}, et tu gardes ton travail sous les yeux. Sans deuxième fenêtre, le lien s’ouvre ici, à la place de l’onglet actuel. Pour revoir l’astuce après l’avoir masquée : Réglages.`)}
       <button type="button" class="btn-info" data-astuce="masquer" title="Ne plus afficher l’astuce" aria-label="Ne plus afficher l’astuce">${ICONES.fermer}</button></p>`;
@@ -5349,6 +5402,7 @@ async function demarrer(donnees) {
     const octets = await degonfler(donnees.formes);
     M = new G.Moteur(donnees, octets);
     M.renommer(reglages.noms);                      // l'ecriture des noms choisie dans Reglages
+    appliquerAlterations();                         // et celle des notes (b, # ou mixte)
     DONNEES = donnees;
     if (completerRenversements() + completerJumeaux()) { sauverFavoris(); majNbFav(); }
     COUL = Object.assign({}, COUL_DEFAUT, M.couleurs);
