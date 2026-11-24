@@ -428,6 +428,7 @@ footer .liens { margin-top: .5rem; }
       <button type="button" data-acc="guitalele">Guitalélé</button>
       <button type="button" data-acc="guitare">Guitare</button>
       <button type="button" data-acc="ukulele">Ukulélé</button>
+      <button type="button" data-acc="basse">Basse</button>
     </div>
     <form class="recherche" id="form" autocomplete="off">
       <input id="saisie" type="search" inputmode="text" enterkeyhint="search" placeholder="Amaj7, maj7, Cm7/F, x 3 2 0 1 0…" aria-label="Accord, symbole ou frettes">
@@ -438,7 +439,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 24/11/2026 09:48</p>
+  <p class="discret" id="version">Version de la page : 24/11/2026 10:34</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Super-favoris : <span id="nb-sup">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -465,6 +466,10 @@ footer .liens { margin-top: .5rem; }
       midi: [40, 45, 50, 55, 59, 64], decalage: 0, frettesCarte: 19, toniqueType: 0 },
     ukulele: { nom: 'Ukulélé (G C E A)', court: 'Ukulélé', cordes: ['G', 'C', 'E', 'A'],
       midi: [55, 60, 64, 69], decalage: 5, renversements: true, frettesCarte: 12, toniqueType: 3 },
+    // basse (24/11/2026) : les 4 cordes graves de la guitare, une octave plus bas ; ses positions sont celles de l'index
+    // de guitare qui laissent les cordes B et e au repos
+    basse: { nom: 'Basse (E A D G)', court: 'Basse', cordes: ['E', 'A', 'D', 'G'],
+      midi: [28, 33, 38, 43], decalage: 0, cordesGraves: true, frettesCarte: 20, toniqueType: 0 },
   };
   const CORDES_ABSENTES = 2;
   const NOMS_INDEX = ['C', 'C# Db', 'D', 'D# Eb', 'E', 'F', 'F# Gb', 'G', 'G# Ab', 'A', 'A# Bb', 'B'];
@@ -600,6 +605,10 @@ footer .liens { margin-top: .5rem; }
   }
   function formeInstrument(f, A) {
     if (A.cordes.length === 6) return f;
+    if (A.cordesGraves) {                          // basse : les 4 cordes graves de la guitare, les 2 aigues au repos
+      for (let i = A.cordes.length; i < 6; i++) if (f[i] !== 'x') return null;
+      return f.slice(0, A.cordes.length);
+    }
     for (let i = 0; i < CORDES_ABSENTES; i++) if (f[i] !== 'x') return null;
     return f.slice(CORDES_ABSENTES);
   }
@@ -816,7 +825,7 @@ footer .liens { margin-top: .5rem; }
       res.basse = NOMS_NOTES[mod12(notes[0])];
       res.cle = cleDe(notes.map((n) => n - notes[0]));
       res.accord = this.parNotes.get(res.cle) || null;
-      const guitare = Array(6 - jeu.length).fill('x').concat(jeu);
+      const guitare = A.cordesGraves ? jeu.concat(Array(6 - jeu.length).fill('x')) : Array(6 - jeu.length).fill('x').concat(jeu);
       res.dansIndex = this.dansIndex(guitare);
       res.retenu = res.accord ? { pc: mod12(notes[0]), accord: res.accord } : null;
       if (A.renversements) {
@@ -1388,6 +1397,7 @@ function afficher() {
   h += blocDureteAcc(a);
   h += `<p><button type="button" class="btn" data-versarp="${esc(r.notes + '|' + (a.racine || ''))}">Formes d’arpège</button></p>`;
   if (r.semis.length > A.cordes.length) h += `<p class="encadre alerte">${esc(texteTropDeNotes(r.semis.length, A))}</p>`;
+  if (A.cordesGraves) h += '<p class="discret">À la basse, les accords pleins sonnent sourds dans le grave : les formes à 2 ou 3 notes (quinte, tierce et septième) et les arpèges (« Formes d’arpège ») sont les plus utiles.</p>';
   if (renv.length) h += `<section class="bloc"><h2>${A.renversements ? 'Mêmes notes, autres noms (pas de basse au ukulélé : positions communes)' : 'Renversements'}</h2><div class="liens">${renv.map((x) => lienAccord(x.accord, x.basse, !!a.racine)).join('')}</div></section>`;
   if (vars.length) h += `<section class="bloc"><h2>Versions allégées</h2><div class="liens">${vars.map((v) => v.accord
     ? `<button type="button" class="lien" data-cherche="${esc((a.racine ? a.racine + ' ' : '') + v.accord.item)}">${esc(v.accord.item)}<small>${esc(v.label.toLowerCase())} · {${esc(v.accord.tel)}}</small></button>`
@@ -1579,6 +1589,7 @@ function contenuGuide() {
   h += sectionGuide('g-basse', 'Basse et renversements', `<p>La <b>basse</b> est la note la plus grave jouée. D’ordinaire, c’est la fondamentale. Quand c’est une autre note de l’accord, on parle de <b>renversement</b> : C/E (basse E) est le premier renversement de C, C/G le deuxième. Dans Accords, la partie « Renversements » nomme chacun d’eux et mène à ses positions.</p>
     <p>« Sans basse » montre les positions qui laissent les cordes graves au repos : elles valent pour l’accord et pour ses renversements. Au ukulélé, il n’y a pas de vraie basse (la corde G est aiguë) : un accord et ses renversements ont les mêmes positions.</p>`);
   h += sectionGuide('g-accords', 'L’onglet Accords', `<ul>
+    <li><b>Instrument</b> (en haut) : guitalélé, guitare, ukulélé ou basse (E A D G). Les positions, les cartes et le son suivent l’instrument choisi ; à la basse, les formes à 2 ou 3 notes et les arpèges sont les plus utiles.</li>
     <li><b>Pastilles</b> : touche les intervalles pour construire l’accord ; « Fondamentale » choisit la note (C, D…) ou laisse « générique » pour les formes déplaçables.</li>
     <li><b>Diagrammes</b> : chaque point a la couleur de son intervalle et porte son nom (ou la note, avec « Noms de notes ») ; touche un diagramme pour l’agrandir et l’écouter.</li>
     <li><b>Favoris</b> : l’étoile dorée ☆ garde une position ; l’étoile rose ☆ en fait un <b>super-favori</b>, ta liste réduite. « Super-favoris seulement » (coché au lancement) et « Favoris seulement » n’affichent qu’eux.</li>
@@ -1590,7 +1601,8 @@ function contenuGuide() {
     <ul><li>Touche les pastilles de chaque degré pour choisir son accord ; seules celles du mode sont permises.</li>
     <li>« Harmoniser… » le fait pour toi, de 3 à 6 notes, dans deux directions : « plus douce » ou « en tierces » (l’empilement classique ci-dessus).</li>
     <li>« Couleur de la gamme » : les notes qui la distinguent de la gamme majeure (ou mineure naturelle).</li>
-    <li>« Harmoniser librement » : une suite d’accords quelconque, avec ses substitutions, ses gammes compatibles et ses positions jouables.</li></ul>`);
+    <li>« Harmoniser librement » : une suite d’accords quelconque, avec ses substitutions, ses gammes compatibles et ses positions jouables.</li>
+    <li>À la basse, les positions jouables et le pupitre montrent l’arpège de chaque accord : tes formes d’arpège enregistrées, sinon une « boîte » autour de la fondamentale.</li></ul>`);
   h += sectionGuide('g-lexique', 'Petit lexique', `<dl class="guide-lexique">${GUIDE_LEXIQUE.map(([m, d]) => `<dt>${esc(m)}</dt><dd>${esc(d)}</dd>`).join('')}</dl>`);
   return `<div class="guide">${h}</div>`;
 }
@@ -2679,20 +2691,64 @@ function formesPupitre(x, gen) {                   // { formes: [{ forme, racine
   return { formes: M.positions(t, NOMS_NOTES[x.racine], etat.acc, {}).formes.slice(0, 12).map((fo) => ({ forme: fo, racine: x.racine })), fav: false };
 }
 const centreForme = (f) => { const v = f.filter((x) => x !== 'x').map(Number); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : 0; };
+// Basse (24/11/2026, demande de Fred) : dans les positions jouables, la planche et le pupitre, l'arpege de chaque accord
+// plutot que son diagramme. D'abord les formes d'arpege enregistrees pour la basse (onglet Arpeges), rangees par corde
+// la plus grave ; ensuite des « boites » : la fondamentale sur la corde de E (puis de A), et toutes les notes de
+// l'accord dans les cases voisines (deux en dessous, deux au-dessus), sur cette corde et les plus aigues. Parmi les
+// boites proposees, la plus proche (sur le manche) de l'accord d'avant. Une forme d'arpege : { forme: ['arp', 'c,k'…],
+// cases, lignes, R (sa fondamentale), enr (enregistree) }.
+const estBasse = () => !!ACCORDAGES[etat.acc].cordesGraves;
+function arpegesSuite(x, gen) {
+  if (x.sel.length < 2) return { formes: [], fav: false, absent: false };
+  const cle = G.cleDe(x.sel), A = ACCORDAGES[etat.acc], R = gen ? A.toniqueType : mod12(x.racine), rK = mod12(R - A.midi[0]);
+  const kmin = gen ? 1 : 0, kmax = G.FRETTES_TYPE + (gen ? 1 : 0);
+  const fiche = (cases, enr) => {
+    const ks = cases.map((c) => c[1]);
+    return { forme: ['arp', ...cases.map(([c, k]) => c + ',' + k).sort()], cases, lignes: [Math.max(kmin, Math.min(...ks) - 1), Math.min(kmax, Math.max(...ks) + 1)], R, enr };
+  };
+  const grave = (f) => Math.min(...f.cases.map((c) => c[0]));
+  const enr = [];
+  for (const e of formesPour(cle, famArp(etat.acc))) {
+    let cases = null;
+    if (e.generique) cases = gen ? e.cases.map(([c, y]) => [c, ARP_REPERE - y]) : placer(e.cases, rK, G.FRETTES_TYPE);
+    else if (!gen && e.r === rK) cases = e.cases;
+    if (cases) enr.push(fiche(cases, true));
+  }
+  enr.sort((a, b) => grave(a) - grave(b));
+  const ivs = new Set(x.sel), vus = new Set(enr.map((f) => f.forme.join(' '))), prop = [];
+  for (const s of [1, 2]) for (let k = kmin; k <= 12 + kmin; k++) {
+    if (mod12(A.midi[s - 1] + k - R) !== 0) continue;
+    const lo = Math.max(kmin, k - 2), hi = Math.min(kmax, k + 2), cases = [];
+    for (let c = s; c <= A.cordes.length; c++) for (let f = lo; f <= hi; f++)
+      if (!(c === s && f < k) && ivs.has(mod12(A.midi[c - 1] + f - R))) cases.push([c, f]);
+    const couverts = new Set(cases.map(([c, f]) => mod12(A.midi[c - 1] + f - R)));
+    if (![...ivs].every((i) => couverts.has(i))) continue;
+    const fi = fiche(cases, false);
+    if (!vus.has(fi.forme.join(' '))) { vus.add(fi.forme.join(' ')); prop.push(fi); }
+  }
+  return { formes: [...enr, ...prop], fav: enr.length > 0, absent: false };
+}
+const centrePos = (f) => (f.cases ? f.cases.reduce((t, c) => t + c[1], 0) / f.cases.length : centreForme(f.forme));
+function svgPos(f, x, gen, largeur) {             // diagramme d'accord, ou carte d'arpege (basse)
+  if (!f.cases) return svgDiagramme(f.forme, etat.acc, f.racine, gen, largeur);
+  return svgArpege(etat.acc, G.cleDe(x.sel), gen ? '' : NOMS_NOTES[f.R], new Set(f.cases.map(([c, k]) => c + ',' + k)),
+    { inactif: true, lignes: f.lignes, grille: couleurForme(f.cases, ACCORDAGES[etat.acc]) });
+}
+const libellePos = (x, f) => (f.cases ? (f.enr ? 'arpège enregistré' : 'arpège proposé') : f.sup ? 'super-favori' : x.fav ? 'favori' : 'position proposée');
 function preparerPupitre() {                       // chaque accord sur le choix garde, sinon son premier (super-)favori, sinon la position la plus proche de la precedente
   const p = accordsPupitre(), choix = harmoEtat().type === 'libre' ? (libreEtat().formes || {}) : {};
   let avant = null;
   for (const [i, x] of p.accords.entries()) {
-    Object.assign(x, formesPupitre(x, p.gen), { j: 0 });
+    Object.assign(x, estBasse() ? arpegesSuite(x, p.gen) : formesPupitre(x, p.gen), { j: 0 });
     if (!x.formes.length) continue;
     const voulu = choix[i] ? x.formes.findIndex((f) => f.forme.join(' ') === choix[i]) : -1;
     if (voulu >= 0) x.j = voulu;
     else if (!x.fav && avant != null && !p.gen) {
       let m = 0;
-      x.formes.forEach((f, j) => { if (Math.abs(centreForme(f.forme) - avant) < Math.abs(centreForme(x.formes[m].forme) - avant)) m = j; });
+      x.formes.forEach((f, j) => { if (Math.abs(centrePos(f) - avant) < Math.abs(centrePos(x.formes[m]) - avant)) m = j; });
       x.j = m;
     }
-    avant = centreForme(x.formes[x.j].forme);
+    avant = centrePos(x.formes[x.j]);
   }
   return p;
 }
@@ -2743,10 +2799,10 @@ function afficherPupitre() {
   const diag = document.getElementById('pup-diag'), pos = document.getElementById('pup-pos');
   if (x.formes.length) {
     const f = x.formes[x.j], plus = x.formes.length > 1;
-    diag.innerHTML = `<div class="papier">${svgDiagramme(f.forme, etat.acc, f.racine, pupitre.gen, 300)}</div>`;
+    diag.innerHTML = `<div class="papier">${svgPos(f, x, pupitre.gen, 300)}</div>`;
     diag.dataset.forme = f.forme.join(' ');
     pos.innerHTML = (plus ? '<button type="button" class="btn petit" data-pup="pos-" aria-label="Position précédente">◀</button>' : '') +
-      `<span>${f.sup ? 'super-favori' : x.fav ? 'favori' : 'pas de favori : position proposée'}${plus ? ' ' + (x.j + 1) + ' / ' + x.formes.length : ''}</span>` +
+      `<span>${f.cases || f.sup || x.fav ? libellePos(x, f) : 'pas de favori : position proposée'}${plus ? ' ' + (x.j + 1) + ' / ' + x.formes.length : ''}</span>` +
       (plus ? '<button type="button" class="btn petit" data-pup="pos+" aria-label="Position suivante">▶</button>' : '');
   } else {
     diag.innerHTML = `<p class="pup-vide">${x.absent ? 'Accord absent de ta base : pas de diagramme.' : 'Accord à choisir.'}</p>`;
@@ -2871,11 +2927,16 @@ function blocPositionsSuite() {
   const cartes = p.accords.map((x, i) => {
     const f = x.formes[x.j], plus = x.formes.length > 1;
     return `<figure class="mini-arp mini-pos"><figcaption><b>${i + 1}. ${esc(x.nom)}</b>${x.degre ? ` <span class="degre-rom">${esc(x.degre)}</span>` : ''}<br>
-      <small>${!f ? (x.absent ? 'absent de ta base' : 'accord à choisir') : (f.sup ? 'super-favori' : x.fav ? 'favori' : 'position proposée') + (plus ? ` ${x.j + 1}/${x.formes.length}` : '')}</small></figcaption>
-      ${f ? `<button type="button" class="ouvrir-arp" data-pup="ouvrir" data-k="${i}" aria-label="Ouvrir l’accord ${i + 1} dans le pupitre">${svgDiagramme(f.forme, etat.acc, f.racine, p.gen, 160)}</button>` : ''}
+      <small>${!f ? (x.absent ? 'absent de ta base' : 'accord à choisir') : libellePos(x, f) + (plus ? ` ${x.j + 1}/${x.formes.length}` : '')}</small></figcaption>
+      ${f ? `<button type="button" class="ouvrir-arp" data-pup="ouvrir" data-k="${i}" aria-label="Ouvrir l’accord ${i + 1} dans le pupitre">${svgPos(f, x, p.gen, 160)}</button>` : ''}
       ${plus ? `<div class="boutons-pos"><button type="button" class="btn petit" data-l="pos" data-i="${i}" data-d="-1" aria-label="Position précédente">◀</button>
         <button type="button" class="btn petit" data-l="pos" data-i="${i}" data-d="1" aria-label="Position suivante">▶</button></div>` : ''}</figure>`;
   }).join('');
+  if (estBasse()) return `<section class="bloc"><h2>Positions jouables : les arpèges (basse)</h2>
+    <p class="discret">À la basse, chaque accord montre son arpège : d’abord tes formes d’arpège enregistrées pour la basse (onglet Arpèges), sinon une « boîte » proposée : la fondamentale sur la corde de E ou de A, et toutes les notes de l’accord dans les cases voisines, la plus proche de l’accord d’avant sur le manche. Les points pleins sont les notes de la boîte. ◀ ▶ en change ; ton choix est gardé avec la suite et repris par le pupitre. Touche une carte pour l’ouvrir dans le pupitre.</p>
+    <div class="grille-arp">${cartes}</div>
+    <div class="boutons-harmo"><button type="button" class="btn" data-l="planchepos">Télécharger les arpèges (PNG)</button>
+      <button type="button" class="btn" data-pup="ouvrir">Pupitre (plein écran)</button></div></section>`;
   return `<section class="bloc"><h2>Positions jouables</h2>
     <p class="discret">Pour chaque accord, ton premier super-favori, sinon ton premier favori, dans l’ordre de l’onglet Accords (la corde la plus grave d’abord) ; sans favori, une position proposée, la plus proche de l’accord d’avant sur le manche. ◀ ▶ parcourt les super-favoris puis les autres favoris ; ton choix est gardé avec la suite et repris par le pupitre. Touche un diagramme pour l’ouvrir dans le pupitre.</p>
     <div class="grille-arp">${cartes}</div>
@@ -2895,12 +2956,12 @@ async function planchePositions() {
   const p = preparerPupitre(), c = libreCalcul(), A = ACCORDAGES[etat.acc];
   const items = p.accords.filter((x) => x.formes.length).map((x) => {
     const i = p.accords.indexOf(x), f = x.formes[x.j];
-    return { svg: svgDiagramme(f.forme, etat.acc, f.racine, p.gen, 160), l1: `${i + 1}. ${x.nom}`, l2: x.degre || '', l3: f.sup ? 'super-favori' : x.fav ? 'favori' : 'position proposée' };
+    return { svg: svgPos(f, x, p.gen, 160), l1: `${i + 1}. ${x.nom}`, l2: x.degre || '', l3: libellePos(x, f) };
   });
   if (!items.length) return;
-  const titre = `Positions : ${c.L.titre || 'suite libre'}${c.h.ton ? ' en ' + NOMS_HARMO[c.T] : ''}`;
-  const blob = await dessinerPlanche(titre, `${A.nom} · ${items.length} accords · premier super-favori, sinon premier favori (corde la plus grave d’abord), sinon position proposée`, items, harmoEtat().parLigne || '4', A);
-  await donnerFichiers([new File([blob], nomPng(c.L.titre || 'suite libre', 'positions', c.h.ton ? NOMS_HARMO[c.T] : '', etat.acc), { type: 'image/png' })]);
+  const titre = `${estBasse() ? 'Arpèges' : 'Positions'} : ${c.L.titre || 'suite libre'}${c.h.ton ? ' en ' + NOMS_HARMO[c.T] : ''}`;
+  const blob = await dessinerPlanche(titre, `${A.nom} · ${items.length} accords · ${estBasse() ? 'arpège enregistré, sinon boîte proposée (la plus proche de l’accord d’avant)' : 'premier super-favori, sinon premier favori (corde la plus grave d’abord), sinon position proposée'}`, items, harmoEtat().parLigne || '4', A);
+  await donnerFichiers([new File([blob], nomPng(c.L.titre || 'suite libre', estBasse() ? 'arpeges' : 'positions', c.h.ton ? NOMS_HARMO[c.T] : '', etat.acc), { type: 'image/png' })]);
 }
 
 // ---------------------------------------------------------------- gammes compatibles avec toute la suite libre
@@ -3324,7 +3385,7 @@ async function importerTout(fichier) {
 // 1re corde = la plus aigue, 6e = la plus grave d'un instrument a 6 cordes (nomCordeArp), comme dans l'onglet Accords.
 const ARP_REPERE = 8, ARP_YMAX = ARP_REPERE - 1, ARP_YMIN = ARP_REPERE - (G.FRETTES_TYPE + 1);   // cases 1..21 -> 7..-13
 let arpeges = { version: 1, formes: [], retires: [] }, arpegesCharges = false, arpSync = { etat: '' };
-const famArp = (acc) => (acc === 'ukulele' ? 'uke' : 'g6');
+const famArp = (acc) => (acc === 'ukulele' ? 'uke' : ACCORDAGES[acc] && ACCORDAGES[acc].cordesGraves ? 'b4' : 'g6');   // basse : ses propres formes (24/11/2026)
 const ivsCle = (cle) => cle.split(' ').map((i) => INTERVALLES.indexOf(i));
 const nomCle = (cle) => { const t = M.parNotes.get(cle); return t ? t.item : G.nommerSelonBase(ivsCle(cle)).nom; };
 const telCle = (cle) => { const t = M.parNotes.get(cle); return t ? t.tel : ''; };
@@ -4439,8 +4500,9 @@ function jouerGamme(ton, ivs, A) {
 }
 function midisForme(forme, A) { return forme.map((x, i) => (x === 'x' ? null : A.midi[i] + Number(x))).filter((m) => m !== null); }
 function midisAccord(racine, sel, A) {           // voicing serre a partir de la fondamentale, dans le grave de l'instrument
-  const base = midiAuDessus(racine, grave(A) + 5);
-  return [...new Set(sel)].sort((x, y) => x - y).map((iv) => base + iv);
+  const base = midiAuDessus(racine, grave(A) + 5), ivs = [...new Set(sel)].sort((x, y) => x - y);
+  if (A.cordesGraves) return ivs.map((iv) => base + iv + (iv ? 12 : 0));   // basse : la fondamentale en bas, le reste une octave au-dessus
+  return ivs.map((iv) => base + iv);
 }
 // ---------------------------------------------------------------- lecture de toute la suite (harmonisation)
 // Chaque accord dure « tpa » temps. Plaque ou gratte : un coup par temps (le premier un peu plus fort) ; arpeges : deux
