@@ -337,6 +337,13 @@ details.zone-arp:not([open]) .pli-etat::after { content: ' — toucher pour dép
 .f-doux { color: #2e7d32; } .f-leger { color: #00897b; } .f-dur { color: #c62828; }
 .subst-ligne.orig { background: var(--accent-doux); }
 .subst-ligne.grise { opacity: .5; }
+.astuce-fenetres { box-sizing: border-box; width: calc(100% - 2rem); max-width: 62rem; margin: .7rem auto 0; padding: .55rem .8rem;
+  border: 2px solid var(--accent); border-radius: .7rem; background: var(--accent-doux); font-size: .92rem; line-height: 1.4; display: grid; gap: .35rem; }
+.astuce-fenetres p { margin: 0; }
+.astuce-fenetres.ok { border-width: 1px; padding: .35rem .8rem; }
+.astuce-fenetres .etat-fenetres { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.astuce-fenetres .etat-fenetres.ok { font-weight: 700; }
+.astuce-fenetres .btn { min-height: 2.2rem; padding: .2rem .7rem; }
 .lien-guide { border: 1.5px solid var(--accent); color: var(--accent); background: var(--surface); border-radius: 1rem; padding: .2rem .7rem; font-weight: 600; font-size: .9rem; }
 .tete-guide { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .2rem; }
 .accueil .nouveau { font-weight: 600; }
@@ -436,10 +443,11 @@ footer .liens { margin-top: .5rem; }
     </form>
   </div>
 </header>
+<aside id="astuce-fenetres" class="astuce-fenetres" hidden></aside>
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 24/11/2026 10:34</p>
+  <p class="discret" id="version">Version de la page : 24/11/2026 11:15</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Super-favoris : <span id="nb-sup">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> Garder l’écran allumé (pendant que tu joues)</label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -1616,7 +1624,7 @@ const boutonGuide = (sec, texte = 'Comprendre les intervalles') => `<button type
 document.addEventListener('click', (ev) => {
   const t = ev.target.closest('[data-guide],[data-guidesec],[data-guideiv],[data-guideacc],[data-guidevoir]');
   if (!t) return;
-  if (t.dataset.guide !== undefined) ouvrirGuide(t.dataset.guide);
+  if (t.dataset.guide !== undefined) { const a = { quoi: 'guide', section: t.dataset.guide }; if (!allerAilleurs(a)) executerAction(a); }
   else if (t.dataset.guidesec) document.getElementById(t.dataset.guidesec).scrollIntoView({ block: 'start' });
   else if (t.dataset.guideiv !== undefined) {
     const iv = Number(t.dataset.guideiv);
@@ -1624,10 +1632,9 @@ document.addEventListener('click', (ev) => {
   } else if (t.dataset.guideacc) {
     const m = midisGuide(t.dataset.guideacc.split(',').map(Number)), n = m.length;
     jouer([...m.map((x, k) => ({ midi: x, t: k * 0.3, d: 0.9 })), ...m.map((x, k) => ({ midi: x, t: n * 0.3 + 0.35 + k * 0.025, d: 1.8 }))]);
-  } else if (t.dataset.guidevoir) {
-    dlg().close();
-    if (etat.vue !== 'accords') basculerVue('accords');
-    document.getElementById('saisie').value = t.dataset.guidevoir; rechercher(t.dataset.guidevoir);
+  } else if (t.dataset.guidevoir) {                // dans l'autre fenetre s'il y en a une (le guide reste ouvert ici)
+    const a = { quoi: 'accord', texte: t.dataset.guidevoir };
+    if (!allerAilleurs(a)) executerAction(a);
   }
 });
 
@@ -1637,6 +1644,7 @@ function basculerVue(vue, dessiner = true) {
   try { history.replaceState(null, '', '#' + vue + (DANS_VOLET ? '&volet' : '')); } catch (e) { /* adresse inchangee */ }   // une fenetre rouverte garde son onglet
   document.querySelectorAll('.onglets button[data-vue]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.vue === vue)));
   document.getElementById('form').hidden = vue !== 'accords';
+  majAstuce();
   if (!dessiner) return;
   if (vue === 'base') vueBase();
   else if (vue === 'gammes') vueGammes();
@@ -2908,16 +2916,20 @@ function ouvrirGrille() {
     <label>Mesure <select id="grille-mesure">${Object.keys(MESURES).map((m) => `<option value="${m}"${(MESURES[lecture.mesure] ? lecture.mesure : '4/4') === m ? ' selected' : ''}>${m}</option>`).join('')}</select></label>
     <p class="message" id="grille-msg"></p></div>`;
 }
-document.addEventListener('click', (ev) => {        // Accords : plusieurs symboles tapes -> une suite libre
+document.addEventListener('click', (ev) => {        // Accords : plusieurs symboles tapes -> une suite libre (ici ou dans l'autre fenetre)
   const t = ev.target.closest('[data-grille-accords]');
   if (!t) return;
+  const a = { quoi: 'grille', texte: t.dataset.grilleAccords };
+  if (!allerAilleurs(a)) executerAction(a);
+});
+function faireSuiteGrille(texte) {
   const L = libreEtat();
   if (L.accords.slice(0, L.nb).some((a) => (a.sel || []).length > 1) && !confirm('Remplacer la suite libre actuelle de l’onglet Harmonisation par ces accords ?')) return;
-  const g = creerSuiteGrille(t.dataset.grilleAccords, MESURES[lecture.mesure] ? lecture.mesure : '4/4', 'grille collée');
+  const g = creerSuiteGrille(texte, MESURES[lecture.mesure] ? lecture.mesure : '4/4', 'grille collée');
   if (!g.accords.length) return;
   basculerVue('harmo');
   if (g.ignores.length || g.coupe) alert(messageGrille(g));
-});
+}
 
 // ---------------------------------------------------------------- positions jouables de la suite libre
 // Les choix de position (fleches) sont gardes avec la suite (L.formes : forme par numero d'accord) et repris par le pupitre.
@@ -3274,14 +3286,15 @@ document.addEventListener('click', async (ev) => {
     else if (t.dataset.suites === 'importer') document.getElementById('fichier-suite').click();
     else if (t.dataset.suites === 'synchro') await afficherSuites('', true);
     else if (t.dataset.suites === 'charger') {
-      if (!confirm(`Remplacer l’harmonisation en cours par « ${nom} » ?`)) return;
+      if (!confirm(autresFenetres.size ? `Charger « ${nom} » dans l’autre fenêtre (onglet Harmonisation) ? Son harmonisation en cours sera remplacée.`
+        : `Remplacer l’harmonisation en cours par « ${nom} » ?`)) return;
       let suite = loc[nom].suite, note = '';
       if (drivePret()) {                         // la version la plus recente, au cas ou un autre PC l'aurait modifiee
         try { const { loc: l2, r } = await synchroniserSuites(); if (l2[nom]) suite = l2[nom].suite; if (r && r.majs.includes(nom)) note = ' (version modifiée sur un autre appareil)'; derniereSyncSuites = Date.now(); }
         catch (e) { note = ' (Drive injoignable : version de cet appareil)'; }
       }
-      appliquerSuite(suite); arreterSon(); basculerVue('harmo');
-      const et = document.getElementById('etat-enreg'); if (et) et.textContent = `« ${nom} » chargée${note}.`;
+      const a = { quoi: 'suite', suite, nom, note };
+      if (!allerAilleurs(a)) executerAction(a);
     } else if (t.dataset.suites === 'exporter') {
       const url = URL.createObjectURL(new Blob([JSON.stringify(loc[nom].suite, null, 1)], { type: 'application/json' })), a = document.createElement('a');
       a.href = url; a.download = nom + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 3000);
@@ -4162,8 +4175,8 @@ document.addEventListener('click', (ev) => {
   const s = arpEtat();
   if (t.dataset.arpa !== 'enregistrer') etat.arpMsg = '';
   if (t.dataset.versarp !== undefined) {
-    const [cle, ton] = t.dataset.versarp.split('|');
-    Object.assign(s, { cle, ton: ton ? NOMS_NOTES[G.classe(ton)] : '', sel: [], der: [], etape: null, sansBasse: false }); arpGarder(); basculerVue('arpeges');
+    const [cle, ton] = t.dataset.versarp.split('|'), a = { quoi: 'arpeges', cle, ton: ton ? NOMS_NOTES[G.classe(ton)] : '' };
+    if (!allerAilleurs(a)) executerAction(a);
   } else if (t.dataset.arprenv !== undefined) {
     const [cle, ton] = t.dataset.arprenv.split('|');
     Object.assign(s, { cle, ton, sel: [], der: [], etape: null, sansBasse: false }); arpGarder(); vueArpeges(); window.scrollTo({ top: 0 });
@@ -4720,7 +4733,7 @@ document.addEventListener('click', (ev) => {
   if (t.dataset.gamme) { const [rg, k] = t.dataset.gamme.split('|').map(Number); ouvrirGamme(rg, k); }
   else if (t.dataset.cherche) { if (dlg().open) dlg().close(); if (etat.vue === 'accords' || !voirAccordAilleurs(t.dataset.cherche)) rechercher(t.dataset.cherche); }
   else if (t.dataset.vue) basculerVue(t.dataset.vue);
-  else if (t.dataset.versbase !== undefined) { etat.base = { texte: t.dataset.versbase, racine: (etat.base || {}).racine || '' }; basculerVue('base'); }
+  else if (t.dataset.versbase !== undefined) { const a = { quoi: 'base', texte: t.dataset.versbase }; if (!allerAilleurs(a)) executerAction(a); }
   else if (t.id === 'chercher-pos') { etat.posOuvert = true; document.getElementById('saisie').value = etat.pos.join(' '); chercherPosition(etat.pos.slice()); }
   else if (t.dataset.acc) {
     etat.acc = t.dataset.acc; ecrire('gf.acc', etat.acc); majInstruments(); etat.pos = null;
@@ -4828,16 +4841,17 @@ if (canal) canal.onmessage = async (ev) => {
     else if (m.type === 'synchro') GFDrive.noterSynchro(m.quand);
     else if (m.type === 'arp-synchro') { arpSync = { etat: 'ok', heure: m.heure }; rafraichirVue('arpeges'); }
     else if (m.type === 'arp-accord') { accordVersArpeges({ r: { notes: m.cle }, racine: m.ton || null }, false); rafraichirVue('arpeges'); }
-    else if (m.type === 'present') autresFenetres.set(m.id, m.actif || 0);
+    else if (m.type === 'present') { autresFenetres.set(m.id, m.actif || 0); if (m.volet) voletsVus.add(m.id); else voletsVus.delete(m.id); majAstuce(); }
     else if (m.type === 'present?') annoncerPresence();
-    else if (m.type === 'parti') autresFenetres.delete(m.id);
-    else if (m.type === 'voir-accord' && m.cible === MON_ID) {
+    else if (m.type === 'parti') { autresFenetres.delete(m.id); majAstuce(); }
+    else if (m.type === 'aller' && m.cible === MON_ID) {
+      diffuser('aller-ok', { cible: m.de, jeton: m.jeton });
+      executerAction(m.action);
+    } else if (m.type === 'aller-ok' && m.cible === MON_ID && attenteAller && attenteAller.jeton === m.jeton) {
+      clearTimeout(attenteAller.minuterie); annoncer(MESSAGES_ALLER[attenteAller.action.quoi] || 'Ouvert dans l’autre fenêtre'); attenteAller = null;
+    } else if (m.type === 'voir-accord' && m.cible === MON_ID) {          // fenetre d'une version precedente
       diffuser('voir-ok', { cible: m.de, jeton: m.jeton });
-      if (dlg().open) dlg().close();
-      rechercher(m.texte); window.scrollTo({ top: 0 });
-    } else if (m.type === 'voir-ok' && m.cible === MON_ID && attenteVoir && attenteVoir.jeton === m.jeton) {
-      clearTimeout(attenteVoir.minuterie); attenteVoir = null;
-      annoncer('Accord affiché dans l’autre fenêtre');
+      executerAction({ quoi: 'accord', texte: m.texte });
     }
   } catch (e) { /* une fenetre en retard se remettra a jour a la prochaine ecriture */ }
 };
@@ -4846,26 +4860,80 @@ if (canal) canal.onmessage = async (ev) => {
 // Chaque fenetre annonce sa presence (ouverture, retour au premier plan, premier clic apres une pause) et son depart.
 // Sans reponse de l'autre (fermee entre-temps), on essaie la suivante, puis on affiche l'accord ici.
 const MON_ID = Math.random().toString(36).slice(2) + Date.now().toString(36);
-const autresFenetres = new Map();                   // id -> moment ou elle a servi pour la derniere fois
-let monActivite = Date.now(), attenteVoir = null;
-function annoncerPresence() { diffuser('present', { id: MON_ID, actif: monActivite }); }
+const autresFenetres = new Map(), voletsVus = new Set();   // voletsVus : celles qui sont un volet (telephone)                   // id -> moment ou elle a servi pour la derniere fois
+let monActivite = Date.now();
+function annoncerPresence() { diffuser('present', { id: MON_ID, actif: monActivite, volet: window.self !== window.top }); }
 function activite() { if (Date.now() - monActivite > 1500) { monActivite = Date.now(); annoncerPresence(); } }
 window.addEventListener('focus', activite);
 document.addEventListener('pointerdown', activite, true);
 window.addEventListener('pagehide', () => diffuser('parti', { id: MON_ID }));
 diffuser('present?', { id: MON_ID }); annoncerPresence();
-function voirAccordAilleurs(texte) {
+// Toutes les redirections (24/11/2026, demande de Fred) : un lien qui mene a un autre onglet (« Voir l'accord »,
+// « Formes d'arpege », Base, « Faire une suite », « Charger » une suite) ou au guide (« ? Comprendre les intervalles »,
+// « Voir » d'un exemple) s'ouvre dans l'autre fenetre quand il y en a une ; celle-ci reste ou elle est. Sans fenetre
+// qui reponde, il s'ouvre ici. L'encadre en haut des onglets concernes l'explique, et dit si une autre fenetre est la.
+let attenteAller = null;
+const MESSAGES_ALLER = { accord: 'Accord affiché dans l’autre fenêtre', arpeges: 'Formes d’arpège ouvertes dans l’autre fenêtre',
+  base: 'Base ouverte dans l’autre fenêtre', guide: 'Guide ouvert dans l’autre fenêtre', grille: 'Suite créée dans l’autre fenêtre (Harmonisation)',
+  suite: 'Suite chargée dans l’autre fenêtre (Harmonisation)' };
+function allerAilleurs(action) {                   // -> true si une autre fenetre s'en charge
   const [cible] = [...autresFenetres.entries()].sort((a, b) => b[1] - a[1])[0] || [];
   if (!cible) return false;
   const jeton = Math.random().toString(36).slice(2);
-  if (attenteVoir) clearTimeout(attenteVoir.minuterie);
-  attenteVoir = { jeton, minuterie: setTimeout(() => {          // pas de reponse : fenetre fermee
-    attenteVoir = null; autresFenetres.delete(cible);
-    if (!voirAccordAilleurs(texte)) rechercher(texte);
+  if (attenteAller) clearTimeout(attenteAller.minuterie);
+  attenteAller = { jeton, action, minuterie: setTimeout(() => {   // pas de reponse : fenetre fermee
+    attenteAller = null; autresFenetres.delete(cible); majAstuce();
+    if (!allerAilleurs(action)) executerAction(action);
   }, 700) };
-  diffuser('voir-accord', { cible, de: MON_ID, jeton, texte });
+  diffuser('aller', { cible, de: MON_ID, jeton, action });
   return true;
 }
+const voirAccordAilleurs = (texte) => allerAilleurs({ quoi: 'accord', texte });
+function executerAction(a) {                       // ici : dans la fenetre qui recoit, ou dans celle du clic s'il n'y en a pas d'autre
+  if (a.quoi === 'guide') { ouvrirGuide(a.section); return; }
+  if (dlg().open) dlg().close();
+  if (a.quoi === 'accord') {
+    rechercher(a.texte);
+  } else if (a.quoi === 'arpeges') {
+    Object.assign(arpEtat(), { cle: a.cle, ton: a.ton, sel: [], der: [], etape: null, sansBasse: false }); arpGarder(); basculerVue('arpeges');
+  } else if (a.quoi === 'base') {
+    etat.base = { texte: a.texte, racine: (etat.base || {}).racine || '' }; basculerVue('base');
+  } else if (a.quoi === 'grille') faireSuiteGrille(a.texte);
+  else if (a.quoi === 'suite') {
+    appliquerSuite(a.suite); arreterSon(); basculerVue('harmo');
+    const et = document.getElementById('etat-enreg'); if (et) et.textContent = `« ${a.nom} » chargée${a.note || ''}.`;
+  }
+  window.scrollTo({ top: 0 });
+}
+const VUES_ASTUCE = ['accords', 'arpeges', 'gammes', 'harmo', 'suites', 'base'];
+function majAstuce() {                             // l'encadre « deux fenetres », en haut des onglets ou un lien mene ailleurs
+  const el = document.getElementById('astuce-fenetres');
+  if (!el) return;
+  const voir = !DANS_VOLET && VUES_ASTUCE.includes(etat.vue) && !!DONNEES;
+  el.hidden = !voir;
+  if (!voir) return;
+  const tel = petitEcran(), autre = autresFenetres.size > 0;
+  const liens = { accords: '« Formes d’arpège », « Faire une suite de ces accords », « Nommer avec Base », « ? Comprendre les intervalles »',
+    arpeges: '« ? Arpèges et intervalles »', gammes: '« ? Gammes, modes et intervalles »',
+    harmo: '« Voir l’accord », « ? Harmoniser : degrés et intervalles »', suites: '« Charger » une suite',
+    base: 'les noms d’accords' }[etat.vue];
+  const bouton = tel ? '« ◫ Volet », en haut à droite : une deuxième page s’ouvre dans le bas de l’écran'
+    : '« ↗ Nouvelle fenêtre », en haut à droite : une deuxième fenêtre s’ouvre, à placer à côté de celle-ci';
+  const la = tel ? 'le volet' : 'cette deuxième fenêtre', ici = tel ? 'le haut' : 'celle-ci';
+  const volet = [...autresFenetres.keys()].some((id) => voletsVus.has(id));      // l'autre est le volet de cette page
+  el.classList.toggle('ok', autre);
+  el.innerHTML = autre
+    ? `<p class="etat-fenetres ok">✓ ${volet ? 'Volet ouvert' : 'Deuxième fenêtre ouverte'} : les liens qui mènent ailleurs (${liens}) s’y ouvrent, et ${volet ? 'le haut reste où il est' : 'celle-ci reste où elle est'}.</p>`
+    : `<p><b>Conseil : ouvre une deuxième fenêtre avant de cliquer sur un lien qui mène ailleurs</b> (${liens}).</p>
+    <p>Touche ${bouton}. Les liens s’ouvriront alors dans ${la}, y compris le guide « Comprendre et utiliser les intervalles » et ses exemples : ${ici} reste où ${tel ? 'il' : 'elle'} est, et tu gardes ton travail sous les yeux. Sans deuxième fenêtre, le lien s’ouvre ici, à la place de l’onglet actuel.</p>
+    <p class="etat-fenetres">${tel ? '<button type="button" class="btn" data-astuce="volet">◫ Ouvrir le volet</button>' : '<button type="button" class="btn" data-astuce="fenetre">↗ Ouvrir une nouvelle fenêtre</button>'}</p>`;
+}
+document.addEventListener('click', (ev) => {        // les boutons de l'encadre : comme « ↗ Nouvelle fenetre » ou « ◫ Volet »
+  const t = ev.target.closest('[data-astuce]');
+  if (!t) return;
+  if (t.dataset.astuce === 'volet') ouvrirVolet();
+  else { const b = document.querySelector('.onglets [data-fenetre]'); if (b) b.click(); }
+});
 function annoncer(texte) {                           // un message bref en bas de l'ecran
   let el = document.getElementById('toast');
   if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
@@ -4930,7 +4998,7 @@ document.addEventListener('click', (ev) => {
   if (ev.target.closest('[data-volet]')) { if (document.getElementById('volet')) fermerVolet(); else ouvrirVolet(); }
   else if (ev.target.closest('[data-volet-fermer]')) fermerVolet();
 });
-window.addEventListener('resize', () => { if (document.getElementById('volet')) hauteurVolet(); });
+window.addEventListener('resize', () => { if (document.getElementById('volet')) hauteurVolet(); majAstuce(); });
 
 async function demarrer(donnees) {
   try {
@@ -4944,6 +5012,7 @@ async function demarrer(donnees) {
     etat.sansSuiviArp = true;                       // l'onglet Arpeges garde son propre accord
     try { if (encours) rechercher(encours); else accueil(); } finally { etat.sansSuiviArp = false; }   // au lancement : F seul (21/11/2026)
     const v = vueDeAdresse(); if (v && v !== 'accords') basculerVue(v);          // fenetre ouverte sur un onglet (…#harmo)
+    majAstuce();                                    // l'encadre « deux fenetres » (24/11/2026)
     if (!DANS_VOLET && volet.ouvert && petitEcran()) ouvrirVolet();              // le volet etait ouvert : on le rouvre
   } catch (e) {
     main().innerHTML = `<p class="message">Les données n’ont pas pu être chargées (${esc(e.message)}). Recharge la page ; si le problème persiste, utilise un navigateur à jour.</p>`;
