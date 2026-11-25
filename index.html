@@ -375,6 +375,10 @@ html.boutons-mots [data-ico] > .ico { display: none; }
 .illu-iv .pm.f { background: #e00; color: #fff; }
 .illu-iv .pm.q { border: 2px dashed var(--discret); color: var(--discret); }
 .reg-alt { align-items: center; margin-top: .5rem; }
+.fleche-forme { min-width: 2rem; min-height: 1.9rem; margin-left: .15rem; padding: 0 .4rem; border: 1.5px solid var(--accent); border-radius: .5rem;
+  background: var(--surface); color: var(--accent); font-size: .8rem; vertical-align: middle; cursor: pointer; }
+.fleche-forme:disabled { opacity: .3; border-color: var(--ligne); color: var(--discret); cursor: default; }
+.nb-notes { font-weight: 700; }
 .btn-info { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem; padding: 0; margin: 0 .15rem; border: 0; border-radius: 999px;
   background: transparent; color: var(--accent); vertical-align: middle; cursor: pointer; }
 .btn-info .i { width: 1.3rem; height: 1.3rem; }
@@ -495,7 +499,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 25/11/2026 08:15</p>
+  <p class="discret" id="version">Version de la page : 25/11/2026 08:46</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Super-favoris : <span id="nb-sup">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> <span data-ico="ecran">Garder l’écran allumé (pendant que tu joues)</span></label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -4256,7 +4260,9 @@ function vueArpeges() {
       <label>Formes par ligne <select id="arp-parligne">${['tous', '2', '3', '4', '5', '6', '8', '10'].map((v) => opt(v, v, String(s.parLigne) === v)).join('')}</select></label></div>` : ''}
     ${liste.length ? '<p class="discret">Touche une forme pour l’agrandir.</p>' + legendeCordes(liste.map((e) => e.cases), A) : ''}
     ${liste.some((e) => (e.e.f.deroule || []).length) ? barreBoucle() : ''}
-    <div class="grille-arp">${liste.map((e, i) => { const nd = (e.e.f.deroule || []).length; return `<figure class="mini-arp"><figcaption><b>Forme ${i + 1}</b><br><small>${esc(e.tags)}</small>${nd ? `<br><small class="a-deroule">déroulé : ${nd} fragment${nd > 1 ? 's' : ''}</small>` : ''}</figcaption>
+    <div class="grille-arp">${liste.map((e, i) => { const nd = (e.e.f.deroule || []).length, av = memeGroupe(liste[i - 1], e), ap = memeGroupe(liste[i + 1], e);
+      const fl = (sens, ok, car, lib) => `<button type="button" class="fleche-forme" data-arpa="deplacer" data-i="${i}" data-sens="${sens}" ${ok ? '' : 'disabled'} title="${ok ? lib : 'Seulement entre formes de même corde la plus grave et de même nombre de notes'}" aria-label="${lib}">${car}</button>`;
+      return `<figure class="mini-arp"><figcaption><b>Forme ${i + 1}</b> ${fl(-1, av, '◀', 'Déplacer avant')}${fl(1, ap, '▶', 'Déplacer après')}<br><small class="nb-notes">${e.cases.length} notes</small><br><small>${esc(e.tags)}</small>${nd ? `<br><small class="a-deroule">déroulé : ${nd} fragment${nd > 1 ? 's' : ''}</small>` : ''}</figcaption>
       <button type="button" class="ouvrir-arp" data-arpa="agrandir" data-i="${i}" aria-label="Agrandir la forme ${i + 1}">${e.svg}</button><div class="boutons-mini">${nd ? boutonJouer('f' + e.e.f.id, '▶ Déroulé', `data-arpa="ecouterd" data-i="${i}" aria-label="Écouter le déroulé de la forme ${i + 1}"`) : ''}<button type="button" class="btn petit" data-arpa="reprendre" data-ico="reprendre" data-i="${i}">Reprendre</button>
       <button type="button" class="btn petit" data-arpa="supprimer" data-ico="supprimer" data-id="${esc(e.e.f.id)}">Supprimer</button></div></figure>`; }).join('')}</div>
     ${liste.length ? '' : '<p class="discret">Aucune forme pour cet accord.</p>'}
@@ -4264,6 +4270,18 @@ function vueArpeges() {
   ${blocPropositions(s, A)}`;   // apres les formes enregistrees, plie par defaut (20/11/2026, demande de Fred)
   main().innerHTML = h;
   etat.arpListe = liste;
+}
+const graveForme = (x) => Math.min(...x.cases.map((c) => c[0]));
+const memeGroupe = (x, y) => !!x && !!y && graveForme(x) === graveForme(y) && x.cases.length === y.cases.length;   // deplacables entre elles
+const cmpRang = (ra, rb) => (ra == null ? (rb == null ? 0 : 1) : rb == null ? -1 : ra - rb);
+async function deplacerForme(i, sens) {           // ◀ ▶ (25/11/2026, demande de Fred) : seulement entre formes de meme corde la plus grave
+  const L = etat.arpListe || [], x = L[i], y = L[i + sens];   // et de meme nombre de notes ; l'ordre est garde (rang) et synchronise
+  if (!memeGroupe(x, y)) return;
+  const groupe = L.filter((z) => memeGroupe(z, x)), a = groupe.indexOf(x), b = groupe.indexOf(y), quand = new Date().toISOString();
+  [groupe[a], groupe[b]] = [groupe[b], groupe[a]];
+  groupe.forEach((z, k) => { if (z.e.f.rang !== k) { z.e.f.rang = k; z.e.f.modifie = quand; } });
+  const yv = window.scrollY;
+  await sauverArpeges(); vueArpeges(); window.scrollTo(0, yv); synchroArpegesVue();
 }
 function formesVisibles(cle, ton) {               // les formes d'un accord sur sa carte : [{ e, cases (repere de la carte), gen, ton?, tags }]
   const A = ACCORDAGES[etat.acc], gen = !ton, rK = gen ? null : mod12(G.classe(ton) - A.midi[0]), out = [];
@@ -4278,9 +4296,8 @@ function formesVisibles(cle, ton) {               // les formes d'un accord sur 
   }
   // rangees par corde la plus grave (19/11, demande de Fred) : d'abord celles qui ont une note sur la 6e corde, puis la 5e…
   // (corde interne la plus petite d'abord) ; a egalite, par nombre de notes choisies, croissant (25/11, demande de Fred),
-  // puis l'ordre d'enregistrement
-  const grave = (x) => Math.min(...x.cases.map((c) => c[0]));
-  return out.sort((a, b) => grave(a) - grave(b) || a.cases.length - b.cases.length);
+  // puis l'ordre choisi a la main (◀ ▶, rang) ; les formes sans rang ensuite, dans l'ordre d'enregistrement
+  return out.sort((a, b) => graveForme(a) - graveForme(b) || a.cases.length - b.cases.length || cmpRang(a.e.f.rang, b.e.f.rang));
 }
 function formesAffichees() {                      // les formes de l'accord en cours, avec leur petite carte
   const s = arpEtat();
@@ -4447,7 +4464,7 @@ function reprendreForme(i) {                      // la forme revient sur la car
 function ouvrirFormeArp(i) {                      // une forme enregistree en grand, avec son deroule s'il en a un
   const s = arpEtat(), A = ACCORDAGES[etat.acc], e = etat.arpListe && etat.arpListe[i];
   if (!e) return;
-  const nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null), titre = `${nom} · forme ${i + 1}`, sous = `${A.nom} · ${e.tags}`;
+  const nom = nomAvecTon(s.cle, s.ton ? G.classe(s.ton) : null), titre = `${nom} · forme ${i + 1}`, sous = `${A.nom} · ${e.cases.length} notes · ${e.tags}`;
   const bande = (e.e.f.deroule || []).length ? bandeDeroule(e, s.cle, s.ton, A) : [];
   const corps = e.svg + (bande.length ? htmlBande(bande) + `<p class="case-boucle">${caseBoucle()}</p>` : '');
   ouvrirDialogue(titre, sous, corps, [
@@ -4511,6 +4528,7 @@ document.addEventListener('click', (ev) => {
   else if (t.dataset.arpa === 'supprimer') supprimerForme(t.dataset.id);
   else if (t.dataset.arpa === 'reprendre') reprendreForme(Number(t.dataset.i));
   else if (t.dataset.arpa === 'agrandir') ouvrirFormeArp(Number(t.dataset.i));
+  else if (t.dataset.arpa === 'deplacer') deplacerForme(Number(t.dataset.i), Number(t.dataset.sens));
   else if (t.dataset.arpa === 'carte') telechargerCarteArp();
   else if (t.dataset.arpa === 'ecouterd') { const e = etat.arpListe[Number(t.dataset.i)]; if (e) basculerDeroule(derouleVersSel(e.e.f.deroule, e.cases), null, 'f' + e.e.f.id); }
   else if (t.dataset.arpa === 'stop') arreterSon();
