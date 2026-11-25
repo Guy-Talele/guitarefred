@@ -495,7 +495,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 24/11/2026 14:42</p>
+  <p class="discret" id="version">Version de la page : 25/11/2026 08:15</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Super-favoris : <span id="nb-sup">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> <span data-ico="ecran">Garder l’écran allumé (pendant que tu joues)</span></label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -4277,9 +4277,10 @@ function formesVisibles(cle, ton) {               // les formes d'un accord sur 
       out.push({ e, cases: e.cases, gen: false, ton, tags: `${ton} · cordes à vide` + basse + origine });
   }
   // rangees par corde la plus grave (19/11, demande de Fred) : d'abord celles qui ont une note sur la 6e corde, puis la 5e…
-  // (corde interne la plus petite d'abord) ; a egalite, l'ordre d'enregistrement
+  // (corde interne la plus petite d'abord) ; a egalite, par nombre de notes choisies, croissant (25/11, demande de Fred),
+  // puis l'ordre d'enregistrement
   const grave = (x) => Math.min(...x.cases.map((c) => c[0]));
-  return out.sort((a, b) => grave(a) - grave(b));
+  return out.sort((a, b) => grave(a) - grave(b) || a.cases.length - b.cases.length);
 }
 function formesAffichees() {                      // les formes de l'accord en cours, avec leur petite carte
   const s = arpEtat();
