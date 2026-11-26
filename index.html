@@ -229,7 +229,6 @@ details.pli[open] > summary::after { content: "−"; }
 .reg-grille select { border: 1.5px solid var(--ligne); border-radius: .6rem; background: var(--surface); padding: .45rem .5rem; color: var(--encre); font-size: 1rem; }
 .reg-case { display: flex; align-items: center; gap: .5rem; margin: .3rem 0; }
 .reg-case input { flex: none; }
-.reg-modeles { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .6rem 0 .8rem; }
 .reg-noms { display: grid; gap: .5rem; }
 .reg-nom { display: grid; grid-template-columns: minmax(12rem, 1fr) 2fr; gap: .4rem .8rem; align-items: center; padding: .45rem 0; border-top: 1px solid var(--ligne); }
 .reg-nom-tete .discret { font-size: .85rem; white-space: nowrap; }
@@ -499,7 +498,7 @@ footer .liens { margin-top: .5rem; }
 <main id="main"><div class="chargement" id="chargement">Préparation des 612 955 positions…</div></main>
 <footer>
   <div id="drive"></div>
-  <p class="discret" id="version">Version de la page : 25/11/2026 08:46</p>
+  <p class="discret" id="version">Version de la page : 26/11/2026 11:17</p>
   <div id="compteurs">Accords : <span id="nb-acc">…</span> · Favoris : <span id="nb-fav">0</span> · Super-favoris : <span id="nb-sup">0</span> · Formes d’arpège : <span id="nb-arp">0</span> · Suites : <span id="nb-suites">0</span></div>
   <p><label class="case-ecran"><input type="checkbox" id="ecran-allume"> <span data-ico="ecran">Garder l’écran allumé (pendant que tu joues)</span></label> <span class="discret" id="ecran-etat"></span></p>
   <p class="discret">Tes données (favoris, formes d’arpège, suites) tiennent dans un seul fichier, au même format que le programme PC. « Tout exporter » sert de sauvegarde et d’échange avec le PC ; « Importer » fusionne sans rien perdre (il lit aussi un ancien favoris.json, un arpeges.json ou une suite).</p>
@@ -684,10 +683,10 @@ footer .liens { margin-top: .5rem; }
   // Le nom de la base (base) reste la reference : favoris, controle de la base, recherche. L'utilisateur choisit
   // l'ecriture affichee (item), type d'accord par type d'accord ; la recherche comprend toutes les ecritures.
   const NOTATION_BASE = { maj: 'maj', min: 'm', maj7: 'maj', dim: 'm(b5)', dim7: 'm6(b5)', demi: 'm7(b5)', aug: '(#5)', aug7: '7(#5)',
-    quinte: '(no3)', sans: 'no', ajout: '()', alt: '()' };
+    quinte: '(no3)', sans: 'no', ajout: '()', ajoutNum: '9', alt: '()' };
   const NOTATION_CHOIX = { maj: ['maj', 'M', ''], min: ['m', 'min', '-'], maj7: ['maj', 'M', 'Δ'], dim: ['m(b5)', 'dim', '°'],
     dim7: ['m6(b5)', 'dim7', '°7'], demi: ['m7(b5)', 'ø', 'ø7'], aug: ['(#5)', 'aug', '+'], aug7: ['7(#5)', 'aug7', '+7'],
-    quinte: ['(no3)', '5'], sans: ['no', 'omit', 'sans'], ajout: ['()', ''], alt: ['()', ''] };
+    quinte: ['(no3)', '5'], sans: ['no', 'omit', 'sans'], ajout: ['()', ''], ajoutNum: ['9', '2'], alt: ['()', ''] };   // ajoutNum (26/11/2026) : add9, add11 ou add2, add4
   function noter(nom, choix) {                     // nom de la base -> nom affiche
     const n = Object.assign({}, NOTATION_BASE, choix || {});
     if (nom === '(no3)' && n.quinte === '5') return '5';
@@ -718,6 +717,7 @@ footer .liens { margin-top: .5rem; }
     for (const x of parts) {
       if (x.t) { out += m7(x.t); continue; }
       let g = x.g.filter(Boolean).map(m7);
+      if (n.ajoutNum === '2') g = g.map((y) => (y === 'add9' ? 'add2' : y === 'add11' ? 'add4' : y));   // C(add2), C(add4)
       if (!g.length) continue;
       if (g.every((y) => /^no\d+$/.test(y))) {
         if (n.sans === 'sans') { out += '(sans ' + g.map((y) => y.slice(2)).join(', ') + ')'; continue; }
@@ -4575,21 +4575,16 @@ const NOMS_LIGNES = [                               // [reglage, libelle, interv
   ['dim', 'Diminué', 'F 3m b5', 'm(b5)'], ['dim7', 'Septième diminuée', 'F 3m b5 6', 'm6(b5)'], ['demi', 'Demi-diminué', 'F 3m b5 7', 'm7(b5)'],
   ['aug', 'Augmenté', 'F 3M 5#', '(#5)'], ['aug7', 'Septième à quinte augmentée', 'F 3M 5# 7', '7(#5)'],
   ['quinte', 'Quinte seule (power chord)', 'F 5', '(no3)'], ['sans', 'Notes omises', 'F 5 7', '7(no3)'],
-  ['ajout', 'Notes ajoutées', 'F 9 3M 5', '(add9)'], ['alt', 'Altérations (b9, #5…)', 'F b9 3M 5 7', '7(b9)'],
+  ['ajout', 'Notes ajoutées', 'F 9 3M 5', '(add9)'], ['ajoutNum', 'Neuvième, onzième ajoutées', 'F 3M 5 9 · F 3M 4 5', '(add11)'],
+  ['alt', 'Altérations (b9, #5…)', 'F b9 3M 5 7', '7(b9)'],
 ];
-const MODELES_NOMS = {
-  base: { libelle: 'Comme la base', noms: {} },
-  classique: { libelle: 'Classique', noms: { dim: 'dim', dim7: 'dim7', aug: 'aug', quinte: '5' } },
-  jazz: { libelle: 'Jazz', noms: { maj: '', min: '-', maj7: 'Δ', dim: '°', dim7: '°7', demi: 'ø', aug: '+', aug7: '+7', quinte: '5', sans: 'omit', ajout: '', alt: '' } },
-};
 const APERCU_NOMS = ['maj', 'm', 'm7', 'maj7', 'm(maj7)', '7', 'm(b5)', 'm6(b5)', 'm7(b5)', 'm9(b5)', '(#5)', '7(#5)', '7(b9, #5)', '(no3)', '7(no3)',
-  'maj7(no3, no5)', '(add9)', 'm(b5)(add9)', '7(b9)', '6/9(no5)'];
+  'maj7(no3, no5)', '(add9)', '(add11)', 'm(b5)(add9)', '7(b9)', '6/9(no5)'];
 const notationPleine = (n) => Object.assign({}, G.NOTATION_BASE, n);
 function vueBase() {
   const R = reglages, N = notationPleine(R.noms);
   const opt = (v, l, on) => `<option value="${esc(v)}"${on ? ' selected' : ''}>${esc(l)}</option>`;
   const caseR = (k, lib, ic) => `<label class="reg-case"><input type="checkbox" data-reg="${k}" ${R[k] !== false && R[k] ? 'checked' : ''}> ${ic ? `<span data-ico="${ic}">${esc(lib)}</span>` : esc(lib)}</label>`;
-  const modele = (Object.entries(MODELES_NOMS).find(([, m]) => { const x = notationPleine(m.noms); return Object.keys(x).every((k) => x[k] === N[k]); }) || [''])[0];
   let h = `<section class="bloc onglet-reglages"><h2>Affichage</h2>
     <div class="reg-choix" role="group" aria-label="Boutons">${[['deux', 'Dessins et mots'], ['dessins', 'Dessins seuls'], ['mots', 'Mots seuls']].map(([v, l]) => {
       const on = (R.boutons || 'deux') === v;
@@ -4618,9 +4613,7 @@ function vueBase() {
       <label><span data-ico="pastilles">Intervalles affichés</span> <select data-reg="harmoEtiquettes">${opt('accord', 'de l’accord', R.harmoEtiquettes !== 'mode')}${opt('mode', 'du mode', R.harmoEtiquettes === 'mode')}</select></label>
       <label><span data-ico="image">Accords par ligne (planche)</span> <select data-reg="harmoParLigne">${['tous', ...Array.from({ length: 12 }, (_, k) => String(k + 1))].map((v) => opt(v, v, String(R.harmoParLigne || 'tous') === v)).join('')}</select></label>
     </div></section>`;
-  h += `<section class="bloc onglet-reglages" id="reg-noms"><h2><span data-ico="nommer">Noms des accords</span> ${plusInfo('L’écriture choisie s’affiche partout : onglets, guide, planches PNG. La recherche comprend toutes les écritures (Cdim, C°, Cm(b5)…) ; les noms de la base restent la référence (favoris, nom d’après les intervalles).')}</h2>
-    <div class="reg-modeles">${Object.entries(MODELES_NOMS).map(([k, m]) => `<button type="button" class="btn${modele === k ? ' plein' : ''}" data-regmodele="${k}" aria-pressed="${modele === k}">${esc(m.libelle)}</button>`).join('')}
-      ${modele ? '' : '<span class="discret">réglage personnel</span>'}</div>
+  h += `<section class="bloc onglet-reglages" id="reg-noms"><h2><span data-ico="nommer">Noms des accords</span> ${plusInfo('L’écriture choisie s’affiche partout : onglets, guide, planches PNG. La recherche comprend toutes les écritures (Cdim, C°, Cm(b5)…) ; les noms de la base restent la référence (favoris, nom d’après les intervalles). Le premier choix de chaque ligne est l’écriture de la base.')}</h2>
     <div class="reg-noms">${NOMS_LIGNES.map(([k, lib, ivs, ex]) => `<div class="reg-nom"><div class="reg-nom-tete"><b>${esc(lib)}</b> <span class="discret">${esc(ivs)}</span></div>
       <div class="reg-choix">${G.NOTATION_CHOIX[k].map((v) => {
         const n2 = Object.assign({}, N, { [k]: v }), on = N[k] === v;
@@ -4683,10 +4676,9 @@ function appliquerNoms() {                         // nouvelle ecriture des noms
   else if (!saisieEnCours()) basculerVue(etat.vue);
 }
 document.addEventListener('click', (ev) => {        // Reglages : ecriture des noms
-  const t = ev.target.closest('[data-regnom],[data-regmodele]');
+  const t = ev.target.closest('[data-regnom]');
   if (!t) return;
-  if (t.dataset.regmodele) reglages.noms = Object.assign({}, MODELES_NOMS[t.dataset.regmodele].noms);
-  else reglages.noms[t.dataset.regnom] = t.dataset.v;
+  reglages.noms[t.dataset.regnom] = t.dataset.v;
   for (const [k, v] of Object.entries(reglages.noms)) if (G.NOTATION_BASE[k] === v) delete reglages.noms[k];
   garderReglages(); appliquerNoms();
 });
